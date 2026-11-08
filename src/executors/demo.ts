@@ -4,6 +4,9 @@ import type { TaskExecutor } from './contracts';
 export const demoExecutor: TaskExecutor = {
   id: 'demo',
   async execute(task) {
+    if (task.packet.toolsAllowed.length) {
+      throw new Error('Demo executor cannot claim a run requiring external tools');
+    }
     const body = [
       '# ' + task.stepTitle,
       '',
