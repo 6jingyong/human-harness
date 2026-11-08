@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { HumanHarnessPackage, Condition, HumanHarnessTaskPacket, HumanHarnessTaskResult } from '../protocol/v1';
+import type { SemanticNote } from '../protocol/semantics';
 
 export type WorkState = 'dormant' | 'blocked' | 'ready' | 'running' | 'review' | 'done' | 'not_applicable' | 'failed';
 export type RequirementState = 'dormant' | 'expected' | 'requested' | 'received' | 'accepted' | 'rejected' | 'not_applicable';
@@ -8,6 +9,7 @@ export type RuntimeMaterial = { state: RequirementState; artifactIds: string[] }
 export type RuntimeArtifact = {
   id: string; kind: 'material' | 'agent_output'; name: string; content: string | null;
   ownerId: string; revision: number; filePath?: string; createdAt: string;
+  semanticNotes?: SemanticNote[];
 };
 export type RuntimeRun = { id: string; stepId: string; status: 'running' | 'review' | 'failed'; startedAt: string; endedAt?: string; result?: HumanHarnessTaskResult; error?: string; codexThreadId?: string; codexTurnId?: string; lastExecutorEvent?: string };
 export type ProjectEvent = { id: string; type: string; subject: string; detail: string; createdAt: string };
