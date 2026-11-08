@@ -178,7 +178,7 @@ export function RuntimeWorkspace() {
       await parseResponse(await fetch('/api/v1/projects/' + encodeURIComponent(projectId) + '/actions', {
         method: 'POST', body: data
       }));
-      if (['complete_human', 'submit_material', 'answer_human_request'].includes(type)) {
+      if (['complete_human', 'submit_material', 'answer_human_request', 'replace_material'].includes(type)) {
         setValues(old => ({ ...old, [key]: '' }));
         setFiles(old => ({ ...old, [key]: undefined }));
       }
@@ -275,7 +275,13 @@ export function RuntimeWorkspace() {
         {notice && <div className="alert info" role="status">{notice}</div>}
 
         {mode === 'library' && project ? <ProjectMaterialLibrary
-          project={project} onBack={() => setMode('project')} /> :
+          project={project} onBack={() => setMode('project')}
+          onReplace={materialId => action('replace_material', { materialId })}
+          values={values} files={files}
+          onValue={(key, value) => setValues(old => ({ ...old, [key]: value }))}
+          onFile={(key, file) => setFiles(old => ({ ...old, [key]: file }))}
+          isPending={isPending}
+          /> :
         mode === 'editor' ? <section className="editor-screen">
           <span className="eyebrow">MANUAL PACKAGE AUTHORING</span>
           <h1>手动创建项目模板</h1>
