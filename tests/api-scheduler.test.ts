@@ -230,3 +230,29 @@ test('HTTP replace_material queues a new revision without bypassing source accep
   assert.equal(updated.materials['source-a'].state, 'accepted');
   assert.notEqual(updated.materials['source-a'].acceptedArtifactId, oldAccepted);
 });
+
+
+test('HTTP replacement review reports 409 while a dependent Agent run is active', async () => {
+  const p = store.createProject('document-handoff', 'HTTP active replacement conflict');
+  store.setExecutionPolicy(p.id, false, 1);
+  for (const [materialId, name] of [['source-a', 'a.pdf'], ['source-b', 'b.docx']]) {
+    store.submitMaterial(p.id, materialId, '', { name, buffer: Buffer.from('original source') });
+    store.reviewReceivedMaterial(p.id, materialId, true, '');
+  }
+  const active = store.startAgent(p.id, 'extract');
+  store.submitMaterial(p.id, 'source-a', '', {
+    name: 'a-new.pdf', buffer: Buffer.from('replacement source')
+  }, { replaceAccepted: true });
+  const form = new FormData();
+  form.append('action', 'accept_material');
+  form.append('materialId', 'source-a');
+  const conflict = await actionAPI.POST(new Request('http://localhost/api/v1/projects/' +
+    p.id + '/actions', { method: 'POST', body: form }), {
+    params: Promise.resolve({ id: p.id })
+  });
+  assert.equal(conflict.status, 409);
+  assert.match(JSON.stringify(await conflict.json()), /Dependent Agent work is active/);
+  store.markAgentFailed(p.id, 'extract', active.runId, 'Explicit cancellation in test');
+  await action(p.id, 'accept_material', { materialId: 'source-a' });
+  assert.equal(store.getProject(p.id).steps.extract.state, 'ready');
+});
