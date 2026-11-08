@@ -40,6 +40,14 @@ Read only the material relevant to the current task. Keep changes focused; avoid
 - For code changes, run `npm run typecheck` and relevant tests; run the production build when Next.js routes or build behavior change.
 - Never claim cross-platform compatibility solely because a standard like MCP or Agent Skills is mentioned. Require a recorded real host integration test.
 
+## Ecosystem architecture
+
+- The shared HH project/package/material/Todo runtime must **not depend on Codex Cloud or a particular provider's hosted services**.
+- Codex local skills/plugins are the first integration target. A future Octop/Octop Harness adapter may serve Chinese model, IM and document ecosystems. See `docs/ecosystem-distributions.md`.
+- Do not assume Codex native Plugin bundles install in Octop unchanged. MCP/Skills commonality still requires real runtime tests.
+- Do not fork Codex or Octop solely for their plugin ecosystem; prefer stable public integration interfaces and thin adapters.
+- Existing Mastra demo is still the only integrated executor; do not report either future adapter as implemented.
+
 ## Plugin reuse decision
 
 - **Prefer consuming installed native Codex Plugins/Skills/MCP tools.** Do not build a new PDF/DOCX parsing engine, MCP server or host-specific reader by default.
