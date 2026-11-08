@@ -49,6 +49,27 @@ export function Workspace() {
     reloadIndex().catch(e => setError(e.message));
   }, []);
 
+  async function importTemplate(event: React.ChangeEvent<HTMLInputElement>) {
+    const field = event.currentTarget;
+    const file = field.files?.[0];
+    if (!file || busy) return;
+    setBusy(true); setError(''); setInfo('');
+    try {
+      if (file.size > 100000) throw new Error('模板 JSON 不能超过 100 KB');
+      const data = await parseResponse(await fetch('/api/templates', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: await file.text()
+      }));
+      await reloadIndex();
+      setTemplateId(data.template.id);
+      setInfo('模板已导入：' + data.template.title + ' v' + data.template.version);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      field.value = '';
+      setBusy(false);
+    }
+  }
+
   async function create(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!newName.trim()) return;
@@ -126,6 +147,8 @@ export function Workspace() {
             <select id="template" value={templateId} onChange={e => setTemplateId(e.target.value)}>
               {templates.map(t => <option key={t.id} value={t.id}>{t.title} · v{t.version}</option>)}
             </select>
+            <label htmlFor="template-import">导入自定义模板（JSON）</label>
+            <input id="template-import" type="file" accept=".json,application/json" aria-label="导入项目模板 JSON" onChange={importTemplate} disabled={busy} />
             <label htmlFor="project-title">项目名称</label>
             <input id="project-title" value={newName} onChange={e => setNewName(e.target.value)} placeholder="例如：新项目可行性研究" maxLength={120} />
             <button className="primary" type="submit" disabled={busy || !newName.trim()}>＋ 从模板创建项目</button>
