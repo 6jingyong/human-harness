@@ -73,8 +73,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   } catch (error) {
     const text = error instanceof ZodError ? error.issues.slice(0, 5).map(e => e.message).join('; ')
       : error instanceof Error ? error.message : 'Unknown runtime error';
-    const known = error instanceof RuntimeError || error instanceof ZodError || /not (ready|actionable|requested|pending)|Only |required|mismatch|cannot|invalid|does not|Decision|rejection/i.test(text);
+    const conflict = /Dependent Agent work is active/.test(text);
+    const known = conflict || error instanceof RuntimeError || error instanceof ZodError ||
+      /not (ready|actionable|requested|pending)|Only |required|mismatch|cannot|invalid|does not|Decision|rejection/i.test(text);
     if (!known) console.error('Action error', error);
-    return NextResponse.json({ error: known ? text : 'Project action failed; see server logs' }, { status: known ? 400 : 500 });
+    return NextResponse.json({ error: known ? text : 'Project action failed; see server logs' },
+      { status: conflict ? 409 : known ? 400 : 500 });
   }
 }
