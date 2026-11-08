@@ -214,7 +214,7 @@ export function createTaskPacket(project: ProjectState, stepId: string, runId: s
   if (!def || !item || item.runId !== runId || item.state !== 'running') throw new Error('Task packet is not authorized');
   const materials = def.needsMaterials.flatMap(id =>
     project.materials[id]?.state === 'accepted'
-      ? project.materials[id].artifactIds.map(ref => project.artifacts.find(a => a.id === ref)).filter((a): a is RuntimeArtifact => Boolean(a))
+      ? project.materials[id].artifactIds.slice(-1).map(ref => project.artifacts.find(a => a.id === ref)).filter((a): a is RuntimeArtifact => Boolean(a))
       : []);
   const upstreamOutputs = def.dependsOn.flatMap(id => project.steps[id]?.state === 'done'
     ? project.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === id).slice(-1) : []);
