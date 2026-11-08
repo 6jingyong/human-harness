@@ -2,6 +2,7 @@ import { Agent } from '@mastra/core/agent';
 import { Mastra } from '@mastra/core';
 import type { Project, Task } from './domain';
 import { finishAgent, failAgent, getProject, reserveAgentTask, DomainError } from './store';
+import { executeRegisteredScript } from './scripts';
 
 const taskAgent = new Agent({
   id: 'human-harness-task-agent',
@@ -36,12 +37,25 @@ function projectContext(project: Project, task: Task): string {
     context.push(fragment);
     budget -= fragment.length;
   }
+  const references = (task.resourceRefs ?? [])
+    .map(ref => project.template?.resources?.find(resource => resource.id === ref))
+    .filter((r): r is NonNullable<typeof r> => Boolean(r) && r?.kind !== 'automation');
+  for (const resource of references) {
+    if (budget <= 0) break;
+    const excerpt = ('BUILT-IN PROJECT RESOURCE "' + resource.title + '" (' + resource.kind + '):\n' + resource.content)
+      .slice(0, Math.min(budget, 4500));
+    context.push(excerpt);
+    budget -= excerpt.length;
+  }
   const feedback = project.events.filter(e => e.taskId === task.id && e.action === 'human.rejected').slice(-3);
   if (feedback.length) context.push('HUMAN REVISION FEEDBACK:\n' + feedback.map(e => e.detail).join('\n'));
   return context.join('\n\n');
 }
 
 async function runTask(project: Project, task: Task): Promise<string> {
+  if (task.execution?.mode === 'script') {
+    return executeRegisteredScript(task.execution.scriptId!, project, task);
+  }
   if (executorMode === 'demo') {
     const inputs = project.artifacts.filter(a => a.kind !== 'agent_result').map(a => a.name);
     return [
