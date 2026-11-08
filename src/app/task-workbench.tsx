@@ -79,6 +79,8 @@ export function TaskWorkbench({
     ['human.completed', 'decision.approved', 'external.confirmed', 'work.approved'].includes(e.type)
   ).at(-1) : undefined;
   const policy = project.execution ?? { autoDispatch: false, maxParallel: 2 };
+  const candidateChecks = outputRevisions[0]?.methodChecks ?? [];
+  const unresolvedMethodChecks = candidateChecks.filter(check => check.status !== 'passed');
 
   return <section className="todo-home" aria-label="Human Harness 任务工作台">
     <div className="todo-columns">
@@ -186,6 +188,12 @@ export function TaskWorkbench({
               <h3>资料要求与验收</h3>
               <p>允许格式：{material.formats.join(' / ')}</p>
               <ul>{material.acceptance.map(rule => <li key={rule}>{rule}</li>)}</ul>
+              {material.method && <details>
+                <summary>查看模板规定的获取／提取／核验方法</summary>
+                <p>获取：{material.method.acquisition}</p>
+                <p>提取：{material.method.extraction}</p>
+                <ul>{material.method.verification.map((rule, index) => <li key={index}>{rule}</li>)}</ul>
+              </details>}
               {lastUpload && <p className="source-revision">
                 最近提交：{lastUpload.name}（v{lastUpload.revision}）
               </p>}
@@ -288,7 +296,18 @@ export function TaskWorkbench({
               </section>}
               {currentStepState.state === 'blocked' && <p className="dispatch-hint">上游成果或资料尚未满足，暂不能执行。</p>}
               {currentStepState.state === 'waiting_input' && <p className="dispatch-hint">已暂停：等待左侧 Human Todo 的补充信息。全部回复后重新进入待执行队列；如自动派发已暂停，可以手动执行。</p>}
-              {outputRevisions.length > 0 && <section className="inspector-section">
+              {step.method && <section className="inspector-section">
+              <details className="template-work-method">
+                <summary>项目模板规定的执行与验证方法</summary>
+                <ol>{step.method.procedure.map((item, index) => <li key={index}>{item}</li>)}</ol>
+                <p>缺料处理：{step.method.onMissing === 'request_human'
+                  ? '按模板授权向 Human Todo 提问' : '写明限制并交由审核处理'}</p>
+                <ul>{step.method.checks.map(check => <li key={check.id}>
+                  <strong>{check.id}</strong>：{check.criterion}
+                </li>)}</ul>
+              </details>
+            </section>}
+            {outputRevisions.length > 0 && <section className="inspector-section">
                 <h3>候选成果与历史版本</h3>
                 {outputRevisions.map((artifact, index) =>
                   <details key={artifact.id} className="output" open={index === 0}>
@@ -298,18 +317,31 @@ export function TaskWorkbench({
                         encodeURIComponent(project.id) + '/outputs/' + encodeURIComponent(artifact.id)}>
                         下载已审核成果
                       </a>}
+                    {artifact.methodChecks?.length ? <div className="method-check-results">
+                      <h4>模板检查项（Agent 自检，须人工复核）</h4>
+                      {artifact.methodChecks.map(check => <div className="requirement-line" key={check.checkId}>
+                        <span>{check.checkId} · {check.explanation}
+                          {check.evidenceRefs.length ? ' · 依据 ' + check.evidenceRefs.join(', ') : ''}</span>
+                        <span>{check.status === 'passed' ? '自检通过' :
+                          check.status === 'failed' ? '自检失败' : '未确认'}</span>
+                      </div>)}
+                    </div> : null}
                     <pre className="result">{artifact.content}</pre>
                   </details>)}
               </section>}
               {currentStepState.state === 'review' && <section className="inspector-section approval-section">
                 <h3>审核 Agent 候选结果</h3>
                 <p>批准后才会解除依赖并推进后续任务；退回必须说明原因。</p>
+                {unresolvedMethodChecks.length > 0 && <p className="error-text">
+                  有 {unresolvedMethodChecks.length} 项模板检查未通过或未确认。若仍批准，必须填写人工判断依据。
+                </p>
                 <label htmlFor={'agent-review-' + key}>审核说明</label>
                 <textarea id={'agent-review-' + key} value={note}
                   onChange={event => onFeedback(key, event.target.value)}
                   placeholder="记录修改意见或不符合验收条件的原因" />
                 <div className="actions">
-                  <button type="button" className="primary" disabled={disabled}
+                  <button type="button" className="primary"
+                    disabled={disabled || (unresolvedMethodChecks.length > 0 && !note.trim())}
                     onClick={() => onAction('approve_agent', { stepId: key })}>批准并交接下游</button>
                   <button type="button" disabled={disabled || !note.trim()}
                     onClick={() => onAction('reject_agent', { stepId: key })}>退回 Agent 重做</button>
