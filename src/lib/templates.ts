@@ -1,5 +1,7 @@
 import type { ProjectTemplate } from './domain';
 import { validateTemplate } from './domain';
+import { parseTemplate } from './template-import';
+import landTemplate from '../../examples/template.land-investigation-runtime.json';
 
 export const templates: ProjectTemplate[] = [
   {
@@ -28,6 +30,7 @@ export const templates: ProjectTemplate[] = [
     ]
   }
 ];
+templates.push(parseTemplate(landTemplate));
 for (const template of templates) validateTemplate(template);
 export function templateById(id: string): ProjectTemplate {
   const template = templates.find(t => t.id === id);
