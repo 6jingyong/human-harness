@@ -3,9 +3,19 @@
 **Status:** research and design roadmap, **not a compatibility claim**. Reviewed on 2026-11-08.  
 **Scope:** How Human Harness can reuse mature agent infrastructure and later ship reusable document/GIS capabilities across mainstream hosts without rewriting the same feature for each one.
 
+## Primary reference: Codex (decision 2026-11-08)
+
+**Study the open-source Codex harness first.** [Codex-first design](codex-reference.md) maps its SDK, `codex exec`, app-server, tool/security boundaries, Skills and MCP client to Human Harness. This supersedes the idea of continuously comparing every mature Agent framework. We may test other hosts later **only to validate portability**, not to keep re-litigating the primary architecture.
+
+**Mastra remains the executor in the currently runnable prototype; no Codex adapter has yet been implemented or tested.** Codex is a candidate future execution harness, and Human Harness remains the authority for project/material/decision state.
+
+**Do not rely on obsolete Codex-as-MCP-server guidance**: OpenAI's 2025 developer retrospective was updated to state that its MCP-server mode was removed on 2026-09-05. Use current Codex SDK/app-server/`codex exec` APIs for execution. Codex's ability to *consume* MCP tools is a different feature.
+
+Primary upstream: https://developers.openai.com/blog/codex-as-a-platform
+
 ## Executive decision
 
-**Keep Mastra as the current executor. Do not build an agent framework from scratch.**
+**Keep Mastra as the current executor until a tested Codex SDK/app-server adapter justifies replacement. Do not build an agent framework from scratch.**
 
 Build one **host-neutral capability** (e.g. `document.read`), then expose it through tested adapters:
 
@@ -29,7 +39,11 @@ We should promise **common capability semantics plus verified adapters**, not �
 
 We should keep **input/output formats stable** even when the runtime implementation changes.
 
-## 2. Lessons from established projects
+## 2. Codex is the primary reference; other entries are portability targets
+
+The sections below on Mastra, LangChain, Claude, Gemini CLI and Cursor are retained only as compatibility notes; **do not expand them into a parallel agent-framework roadmap**. Follow [the Codex-first plan](codex-reference.md) for the main architecture.
+
+## 2.1. Lessons from established projects
 
 ### Mastra — current executor, MCP bridge
 
@@ -218,8 +232,8 @@ Do not label a host **supported** until a user-visible installation recipe and a
 
 ## 7. Suggested learning and integration order (small, evidence-led steps)
 
-**Study A — read-only tool portability**  
-Use an existing, harmless MCP server with Mastra and a second host/SDK to learn discovery, structured results, permission handling and transport negotiation. No real user documents yet.
+**Study A — Codex public integration surfaces and a safe read-only tool**  
+First map Codex SDK vs app-server event/approval lifecycle, then execute a harmless read-only test in a disposable environment. Compare tool-schema portability against a second host only after Codex integration is understood. No real user documents yet.
 
 **Study B — minimal document capability**  
 Compare document parsers on a small set of public/legal test files:
