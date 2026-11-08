@@ -8,6 +8,7 @@ Human Harness turns a reusable project template into two coordinated views: a **
 
 - Next.js dual-pane dashboard with project creation and project selection.
 - Two starter templates: general research, and site-investigation workflow (not an actual environmental report template).
+- Strictly validated JSON template import, versioned in SQLite; existing projects keep their original task snapshot.
 - Human submissions: text or private file upload (12 MB), optional-task skipping.
 - Explicit task dependencies and states, human approval and rejection with feedback.
 - Mastra executor adapter and clearly labeled demo mode without API key.
@@ -23,6 +24,7 @@ Requirements: Node.js 22.19+ and npm, with persistent local disk.
 3. Copy .env.example to .env.local (the default HH_EXECUTOR=demo requires no key).
 4. Run npm run dev.
 5. Open http://localhost:3000 and create a project.
+6. To import a template, use the JSON file picker in the sidebar. Try examples/template.document-review.json.
 
 When a task is ready, click the Agent pane's “运行下一项” button; then review the proposed output in the Human pane. Approving it unblocks dependent work.
 
