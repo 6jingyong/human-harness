@@ -29,7 +29,7 @@ Human Harness 希望解决的不是“怎样让 AI 回答得更多”，而是�
 
 1. **手工创建或导入项目模板**。定义初始资料、项目阶段、任务依赖、条件分支、内置资源、能力和最终输出。
 2. **从模板创建具体项目**。系统冻结当时的模板版本和摘要；后续改模板不应静默改变已有项目。
-3. **看当前用户 TodoList**。提供真实资料、作出专业决策、确认外部机构进度，审核 Agent 产出。
+3. **在任务工作台直接处理 Todo**。左侧是人类/Agent 两个任务队列和已完成归档，右侧是任务详情与资料上传、审核、结果预览；人工决策仍是 Human Todo 的一部分。
 4. **运行 Agent 任务**。现有 demo/Mastra 和 Codex 本地 app-server（仅文本任务）适配器；任务包限制输入和可用能力。Codex 实际登录调用仍须本机验收。
 5. **按条件推进**。资料收到不等于合格；只有通过审核，依赖任务才会被激活。
 6. **交付经过审核的成果**。当前支持 Markdown/JSON 下载；真正的 Word/PDF 排版和专业检查尚未接入。
@@ -96,6 +96,14 @@ Windows PowerShell 可使用 `Copy-Item .env.example .env.local`。访问 **http
 测试：
 
 ```bash
+npm test                  # 协议、调度与任务操作静态测试
+npx playwright install chromium
+npm run test:browser       # 使用本地正式构建的 Demo 浏览器交接测试
+```
+
+GitHub Actions 的 `gui-smoke` 使用 Ubuntu 24.04、Playwright Chromium 和正式 Next.js 构建，并保存 GUI 截图。该测试不读取真实 PDF/DOCX 内容。
+
+```bash
 npm run typecheck
 npm test
 npm run build
@@ -126,7 +134,7 @@ tests/               流程与结构化协议回归测试
 
 Human Harness 不是一个主 Agent 依次执行全部任务的聊天循环，而是**项目模板的依赖图决定并行程度**：可以同时做的 Human Todo 和 Agent 任务就分别推进，需要等资料或上游成果的任务才阻塞。**满足授权、能力和资源条件的 Agent Todo 默认由后台自动派发**，用户只需处理自己负责的事项，而不必逐项点击执行 Agent。Codex 自身支持子 Agent 并行，但那是**单项任务内部**的机制，不等同于我们的项目级并行。
 
-**本地并行工作台第一版已接入**：新建项目默认自动派发互不依赖的 Agent WorkItem（项目内默认最多 2 项），Human Todo 有独立的提交锁，状态每 2 秒轮询；可暂停、恢复、调整项目并发数。旧项目默认暂停，避免未经确认突然产生模型费用。仍仅是单 Node 进程后台 worker，而非跨进程的可靠任务队列；真实 Codex 双运行、服务进程崩溃恢复与浏览器端交互仍需实际验收。详见 [并行优先架构](parallel-first.md)。
+**本地并行工作台第一版已接入**：新建项目默认自动派发互不依赖的 Agent WorkItem（项目内默认最多 2 项），Human Todo 有独立的提交锁，状态每 2 秒轮询；可暂停、恢复、调整项目并发数。旧项目默认暂停，避免未经确认突然产生模型费用。仍仅是单 Node 进程后台 worker，而非跨进程的可靠任务队列；真实 Codex 双运行、服务进程崩溃恢复与浏览器端交互仍需实际验收。**通用文档示例已通过 Chromium 浏览器中的 Demo 模式完整交接测试（2/2）**，但不等于真实 Codex 并行或文档解析验收。详见 [并行优先架构](parallel-first.md)。
 
 ## P0 已完成：把执行器与项目状态分开
 
@@ -140,7 +148,7 @@ Human Harness 不是一个主 Agent 依次执行全部任务的聊天循环，�
 
 我们重点学习 Codex 的任务执行循环、上下文与会话管理、流式事件、工具路由、沙盒权限、人工审批，以及 `app-server`、SDK、`codex exec` 等集成边界。已经整理 [app-server、Skills、三层审批的源码对照与最小集成方案](codex-app-server-study.md)。真正属于 Human Harness 的仍然是**项目模板、用户待办、资料生命周期、专业决策和最终交付验收**。
 
-当前代码新增了 Codex app-server 文本任务适配器；**尚未通过真实登录模型调用验收，也未接入 Skills/Plugins/MCP**。我们先理解并验证接口，不因选定参考对象就马上替换已经可运行的代码。
+当前代码新增了 Codex app-server 文本任务适配器和仅限已接受 PDF/DOCX 的 Skills 发现/显式调用实验桥接；**尚未通过真实登录模型与文档 Skill 的验收，通用 Plugins/MCP 也未接入**。我们先理解并验证接口，不因选定参考对象就马上替换已经可运行的代码。
 
 ## 新增：可复现的 PDF/DOCX 素材方法实验
 
