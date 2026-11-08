@@ -4,7 +4,7 @@ export type InputKind = 'text' | 'file' | 'either' | 'choice';
 export type DecisionChoice = { value: string; label: string };
 export type ActivationRule = { gateTaskId: string; equals: string };
 export type MaterialRequirement = { id: string; title: string; taskId: string; producer: 'human' | 'external_institution'; required?: boolean; note?: string };
-export type MaterialState = MaterialRequirement & { status: 'inactive' | 'needed' | 'accepted' | 'not_applicable'; artifactIds: string[] };
+export type MaterialState = MaterialRequirement & { status: 'inactive' | 'needed' | 'received' | 'not_applicable'; artifactIds: string[] };
 
 export type TaskDefinition = {
   id: string;
