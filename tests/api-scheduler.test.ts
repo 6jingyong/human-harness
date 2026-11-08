@@ -113,3 +113,47 @@ test('local material download returns exact project-owned bytes without internal
   });
   assert.equal(foreign.status, 404);
 });
+
+
+test('Human Todo HTTP action answers a model-requested clarification without creating fake material', async () => {
+  const { executeOneAgentTask } = await import('../src/executors/runner');
+  const p = store.createProject('document-handoff', 'HTTP clarification test');
+  store.setExecutionPolicy(p.id, false, 1);
+  for (const [materialId, name] of [['source-a', 'a.pdf'], ['source-b', 'b.docx']]) {
+    store.submitMaterial(p.id, materialId, '', { name, buffer: Buffer.from('test fixture') });
+    store.reviewReceivedMaterial(p.id, materialId, true, '');
+  }
+  await executeOneAgentTask(p.id, 'extract', {
+    id: 'http-human-request-fixture',
+    async execute() {
+      return {
+        body: 'Need to confirm the document edition',
+        limitations: [], materialRequests: [
+          { materialId: 'source-a', reason: '请核实这份 PDF 的年份。' }
+        ]
+      };
+    }
+  });
+  const paused = store.getProject(p.id);
+  assert.equal(paused.steps.extract.state, 'waiting_input');
+  const questionId = paused.humanRequests?.[0]?.id;
+  assert.ok(questionId);
+
+  const bad = new FormData();
+  bad.append('action', 'answer_human_request');
+  bad.append('requestId', questionId);
+  bad.append('value', '');
+  const badResponse = await actionAPI.POST(
+    new Request('http://localhost/api/v1/projects/' + p.id + '/actions', { method: 'POST', body: bad }),
+    { params: Promise.resolve({ id: p.id }) }
+  );
+  assert.equal(badResponse.status, 400);
+  await action(p.id, 'answer_human_request', {
+    requestId: questionId, value: '这份 PDF 是 2026 年发布的正式版。'
+  });
+  const resumed = store.getProject(p.id);
+  assert.equal(resumed.steps.extract.state, 'ready');
+  assert.match(resumed.humanRequests?.[0]?.answer ?? '', /2026/);
+  assert.equal(resumed.materials['source-a'].artifactIds.length, 1);
+  assert.equal(resumed.materials['source-a'].state, 'accepted');
+});
