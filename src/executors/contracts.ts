@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { HumanHarnessTaskPacket } from '../protocol/v1';
+import type { HumanHarnessTaskPacket, HumanHarnessPackage } from '../protocol/v1';
 import { semanticNoteSchema, type SemanticNote } from '../protocol/semantics';
 
 /** Executor-visible context. Never expose the full project snapshot or private upload paths. */
@@ -17,6 +17,15 @@ export type AuthorizedEvidence = Readonly<{
 export type ExecutorTask = Readonly<{
   packet: HumanHarnessTaskPacket;
   stepTitle: string;
+  /** Immutable, pinned template method for this exact step only. */
+  workMethod?: HumanHarnessPackage['steps'][number]['method'];
+  /** Methods for this step's authorized or requestable material IDs only. */
+  materialMethods?: readonly Readonly<{
+    materialId: string; title: string;
+    method: NonNullable<HumanHarnessPackage['materials'][number]['method']>;
+  }>[];
+  /** Existing output contract acceptance is always a Human review gate. */
+  outputAcceptance?: readonly string[];
   evidence: readonly AuthorizedEvidence[];
   reviewFeedback: readonly string[];
   /** Only material categories declared for this WorkItem in the pinned project template. */
@@ -32,12 +41,20 @@ export const executorOutputSchema = z.strictObject({
   body: z.string().min(1).max(100000),
   limitations: z.array(z.string().min(1).max(4000)).max(30),
   semanticNotes: z.array(semanticNoteSchema).max(30).optional(),
+  /** Untrusted Agent self-assessment; requires exact template checklist IDs. */
+  methodChecks: z.array(z.strictObject({
+    checkId: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/),
+    status: z.enum(['passed', 'failed', 'unverified']),
+    explanation: z.string().min(1).max(4000),
+    evidenceRefs: z.array(z.string().min(1).max(128)).max(30)
+  })).max(20).optional(),
   materialRequests: z.array(z.strictObject({
     materialId: z.string().min(1).max(128),
     reason: z.string().min(1).max(4000)
   })).max(20)
 });
 export type ExecutorOutput = z.infer<typeof executorOutputSchema>;
+export type MethodCheckResult = NonNullable<ExecutorOutput['methodChecks']>[number];
 
 export type ExecutorRunEvent =
   | { kind: 'thread'; id: string }
@@ -67,6 +84,18 @@ export function renderTextContext(task: ExecutorTask): string {
     chunks.push(text);
     remaining -= text.length;
     if (!remaining) break;
+  }
+  if (task.workMethod) {
+    chunks.push('PINNED WORK METHOD (instructions/checks are template-owned, not runtime-generated):\n' +
+      JSON.stringify(task.workMethod, null, 2));
+  }
+  if (task.materialMethods?.length) {
+    chunks.push('SCOPED MATERIAL METHODS (acquire/extract/verify only for this step):\n' +
+      JSON.stringify(task.materialMethods, null, 2).slice(0, 10000));
+  }
+  if (task.outputAcceptance?.length) {
+    chunks.push('HUMAN OUTPUT ACCEPTANCE REQUIREMENTS:\n' +
+      task.outputAcceptance.join('\n'));
   }
   if (task.requestableMaterials?.length) {
     chunks.push('Template-authorized materials for actionable Human clarification requests:\n' +
