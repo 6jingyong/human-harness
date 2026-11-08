@@ -2,7 +2,7 @@
 
 > **架构决策（2026-11-08）**。项目依赖图与 Human / Agent 两类工作队列是默认的工作组织方式，**不是对话或单个 Agent Thread 内的串行循环**。
 >
-> **当前实现状态（2026-11-08）：** 已有单机、单 Node 进程的后台并行原型：`LocalScheduler` 自动派发符合条件的工作项、项目级并发上限和暂停状态持久化、Human Todo 独立提交、2 秒轮询。真实 Codex 双任务运行、跨进程全局并发限制、独立持久 worker 与主动取消均未验收，不得视为生产可用的 P1.2 全部完成。
+> **当前实现状态（2026-11-08）：** 已有单机、单 Node 进程的后台并行原型：`LocalScheduler` 自动派发符合条件的工作项、项目级并发上限和暂停状态持久化、Human Todo 独立提交、2 秒轮询。真实 Codex 双任务运行、跨进程全局并发限制、独立持久 worker 与主动取消均未验收，不得视为生产可用的 P1.2 全部完成。通用文档示例已经在正式 Next.js 构建 + Playwright Chromium 中通过 Demo 模式的端到端浏览器交接测试。
 >
 > 参考：[Codex 开源多 Agent 配置](https://github.com/openai/codex/blob/main/codex-rs/config/src/config_toml.rs) · [Codex 子 Agent 工具](https://github.com/openai/codex/blob/main/codex-rs/core/src/tools/handlers/multi_agents_spec.rs) · [Codex 作为平台](https://developers.openai.com/blog/codex-as-a-platform)
 
@@ -77,4 +77,4 @@ Human Harness 则需要 **项目级并行**，并不预设一个主 Agent 决定
 - `agent-b` 提前返回并审核，不会把 `agent-a` 错标完成；
 - 只有全部必要依赖满足时，`merge` 才由 `blocked` 变成 `ready`。
 
-该测试使用受控注入执行器，**不是两个真实 Codex 子进程测试**。P1.2 将补足真实 Codex 和 UI 行为。
+该并发测试使用受控注入执行器，**不是两个真实 Codex 子进程测试**。另有 `tests/browser/workbench.spec.ts` 验证 GUI 实际上传、材料核验、Agent 候选审核、Human Todo 补充和最终交付（Demo 模式）；真实 Codex 多任务、进程崩溃恢复仍未验收。
