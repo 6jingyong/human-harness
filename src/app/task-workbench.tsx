@@ -1,7 +1,7 @@
 'use client';
 
 import type { ProjectState } from '@/core/runtime';
-import { currentWorkbenchItem, deriveWorkbenchQueues, type WorkbenchItem } from './workbench-queue';
+import { deriveWorkbenchQueues, type WorkbenchItem } from './workbench-queue';
 
 const stepStates: Record<string, string> = {
   dormant: '未来阶段', blocked: '等待依赖', ready: '可执行', running: '执行中',
@@ -45,7 +45,8 @@ export function TaskWorkbench({
   values, feedback, files, onValue, onFeedback, onFile, isPending
 }: Props) {
   const queues = deriveWorkbenchQueues(project);
-  const current = currentWorkbenchItem(queues, selectedKey);
+  const current = selectedKey ?
+    [...queues.human, ...queues.agent].find(item => item.key === selectedKey) : undefined;
   const material = current?.kind === 'material'
     ? project.package.materials.find(m => m.id === current.id) : undefined;
   const step = current?.kind !== 'material'
@@ -69,33 +70,35 @@ export function TaskWorkbench({
   ).at(-1) : undefined;
   const policy = project.execution ?? { autoDispatch: false, maxParallel: 2 };
 
-  return <section className="workbench-shell" aria-label="Human Harness 任务工作台">
-    <header className="workbench-heading">
-      <div><span className="eyebrow">HUMAN ↔ AGENT</span><h2>人机任务工作台</h2>
-        <p>左侧选择任务，右侧直接处理。所有状态来自同一份项目任务图，不依赖聊天记录。</p></div>
-      <button type="button" onClick={onRefresh}>↻ 刷新</button>
-    </header>
-    <div className="workbench-main">
-      <nav className="workbench-navigation" aria-label="任务队列">
-        <section className="workbench-lane" aria-label="人类待办">
-          <h3>需要你处理 <span>{queues.human.length}</span></h3>
-          {queues.human.map(item => <TaskOption key={item.key} item={item}
-            selected={current?.key === item.key} onSelect={onSelect} />)}
-          {!queues.human.length && <p className="muted">当前没有待提交、待决策或待审核的任务。</p>}
-        </section>
-        <section className="workbench-lane" aria-label="Agent 任务">
-          <h3>Agent 任务 <span>{queues.agent.length}</span></h3>
-          {queues.agent.map(item => <TaskOption key={item.key} item={item}
-            selected={current?.key === item.key} onSelect={onSelect} />)}
-          {!queues.agent.length && <p className="muted">没有运行、排队或等待依赖的 Agent 任务。</p>}
-        </section>
-        <details className="workbench-archive">
-          <summary>已完成与归档（{queues.history.length}）</summary>
-          {queues.history.map(item => <TaskOption key={item.key} item={item}
-            selected={current?.key === item.key} onSelect={onSelect} />)}
-          {!queues.history.length && <p className="muted">尚无已完成项目内容。</p>}
-        </details>
-      </nav>
+  return <section className="todo-home" aria-label="Human Harness 任务工作台">
+    <div className="todo-row" aria-label="人类 TodoList">
+      <div className="todo-row-title">
+        <h2>Human Todo <span>{queues.human.length}</span></h2>
+        <small>你需要处理</small>
+      </div>
+      <div className="todo-row-items">
+        {queues.human.map(item => <TaskOption key={item.key} item={item}
+          selected={current?.key === item.key}
+          onSelect={key => onSelect(selectedKey === key ? '' : key)} />)}
+        {!queues.human.length && <p className="todo-empty">当前无需人工处理</p>}
+      </div>
+    </div>
+    <div className="todo-row" aria-label="Agent TodoList">
+      <div className="todo-row-title">
+        <h2>Agent Todo <span>{queues.agent.length}</span></h2>
+        <small>自动运行与依赖</small>
+      </div>
+      <div className="todo-row-items">
+        {queues.agent.map(item => <TaskOption key={item.key} item={item}
+          selected={current?.key === item.key}
+          onSelect={key => onSelect(selectedKey === key ? '' : key)} />)}
+        {!queues.agent.length && <p className="todo-empty">当前没有等待执行的任务</p>}
+      </div>
+    </div>
+    {current && <div className="todo-detail-wrap">
+      <div className="todo-detail-top"><span>任务详情</span>
+        <button type="button" onClick={() => onSelect('')} aria-label="关闭任务详情">× 关闭</button>
+      </div>
       <article className="workbench-inspector" aria-label="选中任务操作">
         {!current ? <div className="workbench-empty">
           <h3>当前没有需要操作的任务</h3>
@@ -211,7 +214,7 @@ export function TaskWorkbench({
                   {activeRun.codexTurnId ? ' · Codex turn ' + activeRun.codexTurnId : ''}
                   {activeRun.lastExecutorEvent ? ' · ' + activeRun.lastExecutorEvent : ''}</p>}
                 <button type="button" disabled={disabled}
-                  onClick={() => onAction('recover_agent', { stepId: key })}>人工恢复已超时任务（15 分钟后）</button>
+                  onClick={() => onAction('cancel_agent', { stepId: key })}>取消这项 Agent 任务</button>
               </section>}
               {currentStepState.state === 'failed' && <section className="inspector-section">
                 <h3>执行失败</h3>
@@ -257,9 +260,6 @@ export function TaskWorkbench({
           </>}
         </>}
       </article>
-    </div>
-    {executor === 'codex' && <p className="handoff-warning">
-      Codex 文档 Skills 仍需在实际本机环境验收；这里展示的是 Human Harness 的任务与审核状态。
-    </p>}
+    </div>}
   </section>;
 }
