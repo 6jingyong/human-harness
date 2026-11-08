@@ -78,6 +78,10 @@ export function ProjectMaterialLibrary({ project, onBack }: {
                   {verified ? ' 该任务已通过人工审核。' : ' 尚不能视为最终结论。'}
                 </p>
                 <pre className="result">{artifact.content}</pre>
+                {verified && <a className="file-download" href={'/api/v1/projects/' +
+                  encodeURIComponent(project.id) + '/outputs/' + encodeURIComponent(artifact.id)}>
+                  下载已审核成果
+                </a>}
               </details>)}
             {!interpretations.length && <p className="muted">
               暂无 Agent 处理后的语义说明。原件上传并不会自动生成可信的内容理解；
