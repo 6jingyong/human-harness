@@ -63,3 +63,24 @@ h1,h2,h3,p{margin-top:0}h1{font-size:clamp(22px,2.5vw,30px)}h2{font-size:19px;ma
 .advanced-editor{margin:18px 0}
 .advanced-editor summary{color:var(--accent);cursor:pointer;font-size:13px}
 @media(max-width:720px){.author-grid{grid-template-columns:1fr}.author-grid .wide{grid-column:auto}}
+
+/* Human Harness handoff navigator: two executor lanes, one shared task graph. */
+.handoff-board{margin:0 0 20px;background:var(--panel);border:1px solid var(--line);border-radius:15px;overflow:hidden}
+.handoff-header{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:21px 22px;border-bottom:1px solid var(--line)}
+.handoff-header h2{margin:4px 0 2px}.handoff-header p{font-size:12px;margin:0}
+.handoff-header button{white-space:nowrap;font-size:12px}
+.handoff-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(270px,1.35fr)}
+.handoff-lane,.handoff-detail{padding:18px;min-width:0}.handoff-lane{border-right:1px solid var(--line);max-height:340px;overflow:auto}
+.handoff-lane h3{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.handoff-lane h3 span{font-size:12px;border:1px solid var(--line);padding:1px 7px;border-radius:20px;color:var(--accent)}
+.handoff-link{display:flex;gap:9px;justify-content:space-between;align-items:center;text-align:left;width:100%;margin-bottom:8px;padding:11px 12px;border-radius:10px;background:#19273a}
+.handoff-link strong{font-size:12px;font-weight:600;overflow-wrap:anywhere}.handoff-link small{font-size:11px;color:#b9d0e7;white-space:nowrap}
+.handoff-link.selected{background:#28425e;border-color:#8cb4dc}
+.handoff-detail{background:#172235}.handoff-detail h3{font-size:17px;margin-top:9px}
+.handoff-detail p{font-size:12px;line-height:1.65}
+.detail-row{padding:8px 0;border-top:1px solid #324159;display:grid;grid-template-columns:83px 1fr;gap:10px;font-size:12px}
+.detail-row strong{color:#93b8e1;font-weight:600}.detail-row span{overflow-wrap:anywhere}
+.handoff-jump{margin-top:15px;width:100%;background:#253c55;border-color:#5d83a5;font-size:12px}
+.handoff-warning{margin:0;border-top:1px solid var(--line);padding:11px 21px;font-size:11px;color:#e5cda6;background:#292519}
+@media(max-width:1260px){.handoff-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.handoff-detail{grid-column:1/-1;border-top:1px solid var(--line)}.handoff-lane:nth-child(2){border-right:0}}
+@media(max-width:720px){.handoff-grid{grid-template-columns:1fr}.handoff-lane{max-height:210px;border-right:0;border-bottom:1px solid var(--line)}.handoff-detail{grid-column:auto}.handoff-header{align-items:flex-start;flex-direction:column}}
