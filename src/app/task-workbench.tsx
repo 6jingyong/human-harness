@@ -57,6 +57,8 @@ export function TaskWorkbench({
     ? project.humanRequests?.find(request => request.id === current.id) : undefined;
   const currentMaterialState = material ? project.materials[material.id] : undefined;
   const requestMaterial = humanRequest ? project.package.materials.find(m => m.id === humanRequest.materialId) : undefined;
+  const canUploadRequestedMaterial = humanRequest && ['requested', 'rejected', 'accepted']
+    .includes(project.materials[humanRequest.materialId]?.state ?? '');
   const requestUpload = humanRequest?.attachmentArtifactId ?
     project.artifacts.find(a => a.id === humanRequest.attachmentArtifactId) : undefined;
   const currentStepState = step ? project.steps[step.id] : undefined;
@@ -147,13 +149,16 @@ export function TaskWorkbench({
               <textarea id={'human-request-' + key} rows={4} value={pending}
                 onChange={event => onValue(key, event.target.value)}
                 placeholder="补充信息，或说明暂时无法取得" />
-              {requestMaterial?.formats.some(format => format !== 'text/plain') && <>
+              {canUploadRequestedMaterial && requestMaterial?.formats.some(format => format !== 'text/plain') && <>
                 <label htmlFor={'human-request-file-' + key}>补充原始文件（选填，须人工验收）</label>
                 <input id={'human-request-file-' + key} type="file"
                   accept={requestMaterial.formats.filter(format => format !== 'text/plain').join(',')}
                   onChange={event => onFile(key, event.target.files?.[0])} />
                 {files[key] && <p className="muted">待提交：{files[key]?.name}</p>}
               </>}
+              {!canUploadRequestedMaterial && <p className="muted">
+                模板尚未开放此资料类型的原件收集；可先填写说明，或等待项目进入相应的资料阶段。
+              </p>}
               <button type="button" className="primary" disabled={disabled || (!pending.trim() && !files[key])}
                 onClick={() => onAction('answer_human_request', { requestId: key })}>
                 {files[key] ? '提交原件，等待资料验收' : '提交说明并继续 Agent'}
