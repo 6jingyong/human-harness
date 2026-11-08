@@ -3,7 +3,7 @@
 **A project-first workspace for humans and AI agents.**  
 Define a project once, then let people and agents work through its real-world dependencies—without relying on a long chat to remember what comes next.
 
-**[中文说明](docs/README.zh-CN.md)** · [Protocol 1.0](docs/protocol/human-harness-1.0.md) · [Interoperability roadmap](docs/interoperability.md) · [Land investigation example](examples/land-investigation.hh.json)
+**[中文说明](docs/README.zh-CN.md)** · [Protocol 1.0](docs/protocol/human-harness-1.0.md) · [Codex-first design](docs/codex-reference.md) · [Interoperability roadmap](docs/interoperability.md) · [Land investigation example](examples/land-investigation.hh.json)
 
 > **Status: early local-development prototype.** The task engine and no-key demo workflow work; real model calls, third-party connectors, office document parsing, and production deployment are **not verified or supported**. This repository is not a regulatory compliance tool.
 
@@ -129,6 +129,14 @@ tests/             Protocol and project-lifecycle regression tests
 ```
 
 All state is local: `.human-harness/protocol-v1.sqlite` and `.human-harness/uploads/`. These files are git-ignored. Older experimental `projects.sqlite` data is not migrated or overwritten; back it up before any manual cleanup.
+
+## Primary agent-harness reference: Codex
+
+We are using the **open-source Codex harness as the main architectural reference** for the next stage. It already provides an agent loop, context/session lifecycle, tool execution, approval and sandbox boundaries, and programmatic integration through **Codex SDK, `codex exec` and app-server**. These are the pieces to study **before** inventing another executor runtime.
+
+**Current code still runs on Mastra. Codex is a research/integration direction, not an installed or tested executor.** Human Harness continues to own project templates, pending human inputs, evidence acceptance and project-level decisions. A Codex thread/turn cannot replace that project ledger.
+
+Read the [Codex-first design note](docs/codex-reference.md), including the mapping from Codex app-server events to Human Harness TaskPacket/TaskResult and the PDF/DOCX plugin plan.
 
 ## Plugin and platform direction
 
