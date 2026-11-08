@@ -2,7 +2,7 @@
 
 > **架构决策（2026-11-08）**。项目依赖图与 Human / Agent 两类工作队列是默认的工作组织方式，**不是对话或单个 Agent Thread 内的串行循环**。
 >
-> **当前实现状态：** ProjectState + 共享 runner 支持针对不同 WorkItem 的独立运行预约，新增回归测试验证两个 Agent 同时运行且 Human Todo 不受阻；但 Next.js GUI 仍使用一个全局 `busy`，HTTP `run_agent` 仍等待整个执行完成。**真正支持并行点击/后台任务/事件实时显示属于 P1.2，不得标记为已实现。**
+> **当前实现状态（2026-11-08）：** 已有单机、单 Node 进程的后台并行原型：`LocalScheduler` 自动派发符合条件的工作项、项目级并发上限和暂停状态持久化、Human Todo 独立提交、2 秒轮询。真实 Codex 双任务运行、跨进程全局并发限制、独立持久 worker 与主动取消均未验收，不得视为生产可用的 P1.2 全部完成。
 >
 > 参考：[Codex 开源多 Agent 配置](https://github.com/openai/codex/blob/main/codex-rs/config/src/config_toml.rs) · [Codex 子 Agent 工具](https://github.com/openai/codex/blob/main/codex-rs/core/src/tools/handlers/multi_agents_spec.rs) · [Codex 作为平台](https://developers.openai.com/blog/codex-as-a-platform)
 
@@ -43,7 +43,7 @@ Human Harness 则需要 **项目级并行**，并不预设一个主 Agent 决定
 
 ## 4. 必须避免的并行错误
 
-- **GUI 假并行**：后端有多个 ready 项，但前端一个全局 `busy` 使所有按钮等待一个长时模型调用；P1.2 必须改为后端持久化执行状态、前端仅发起任务并订阅/轮询状态。
+- **GUI 并行基础已修复**：Human Todo 按 WorkItem 分别提交，默认 Agent 由本地 worker 派发，前端轮询持久状态。旧的手动 `run_agent` 请求仍保留阻塞行为（仅用于暂停状态下的显式人工测试）；非生产调度器在服务重启后需要请求唤醒，并依赖人工恢复过期执行。
 - **同步 HTTP 长连接**：单次 `POST run_agent` 直到模型完成才响应，不适合较长任务或离线重连。需要“启动即返回 runId → 后端负责运行 → UI 获取事件和进度”。
 - **最后写入者覆盖新状态**：并行完成后不能以启动时拿到的整个旧项目快照覆盖数据库；只允许交易内状态变更，并检查 run 身份与输入版本。
 - **输入版本竞态**：如果上游资料被替换，旧 run 的结果不能未经核验继续推进；至少要保存 run→输入版本关系并拒绝过期结果。
