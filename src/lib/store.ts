@@ -24,6 +24,7 @@ db.exec([
   'CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), task_id TEXT, action TEXT NOT NULL, detail TEXT NOT NULL, created_at TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS custom_templates (id TEXT NOT NULL, version INTEGER NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, definition TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (id, version))',
   'CREATE TABLE IF NOT EXISTS project_template_snapshots (project_id TEXT PRIMARY KEY REFERENCES projects(id), definition TEXT NOT NULL)',
+  'CREATE TABLE IF NOT EXISTS project_decisions (project_id TEXT NOT NULL REFERENCES projects(id), task_id TEXT NOT NULL, selection TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(project_id, task_id))',
   'CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id, ordinal)',
   'CREATE INDEX IF NOT EXISTS idx_artifacts_project ON artifacts(project_id, created_at)',
   'CREATE INDEX IF NOT EXISTS idx_events_project ON events(project_id, created_at)'
@@ -67,7 +68,7 @@ export function addTemplate(raw: unknown): TemplateSummary {
   return { id: template.id, title: template.title, description: template.description, version: template.version };
 }
 
-function findTemplate(templateId: string): ProjectTemplate {
+export function findTemplate(templateId: string): ProjectTemplate {
   const builtin = templates.find(t => t.id === templateId);
   if (builtin) return builtin;
   const row = db.prepare('SELECT definition FROM custom_templates WHERE id = ? ORDER BY version DESC LIMIT 1')
@@ -86,7 +87,7 @@ export function createProject(templateId: string, rawTitle: string): Project {
     db.prepare('INSERT INTO project_template_snapshots VALUES (?, ?)').run(projectId, JSON.stringify(template));
     const insert = db.prepare('INSERT INTO tasks VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     template.tasks.forEach((t, index) => {
-      insert.run(projectId, t.id, index, t.title, t.description, t.owner, 'pending',
+      insert.run(projectId, t.id, index, t.title, t.description, t.owner, t.activateWhen ? 'inactive' : 'pending',
         Number(Boolean(t.optional)), Number(Boolean(t.reviewRequired)), t.inputKind ?? null,
         t.prompt ?? null, JSON.stringify(t.dependsOn));
     });
@@ -100,6 +101,7 @@ export function getProject(projectId: string): Project | null {
   if (!r) return null;
   const snapshot = db.prepare('SELECT definition FROM project_template_snapshots WHERE project_id = ?').get(projectId) as { definition: string } | undefined;
   const template: ProjectTemplate | undefined = snapshot ? parseTemplate(JSON.parse(snapshot.definition)) : undefined;
+  const decisions = Object.fromEntries(rows('SELECT task_id, selection FROM project_decisions WHERE project_id = ?', projectId).map(row => [String(row.task_id), String(row.selection)]));
   const definitions = new Map(template?.tasks.map(t => [t.id, t]) ?? []);
   const tasks: Task[] = rows('SELECT * FROM tasks WHERE project_id = ? ORDER BY ordinal', projectId).map(t => ({
     ...(definitions.get(String(t.task_id)) ?? {}),
@@ -119,10 +121,18 @@ export function getProject(projectId: string): Project | null {
     id: String(e.id), taskId: e.task_id === null ? null : String(e.task_id),
     action: String(e.action), detail: String(e.detail), createdAt: String(e.created_at)
   }));
+  const materials = template?.materials?.map(m => {
+    const task = tasks.find(t => t.id === m.taskId);
+    const taskArtifacts = artifacts.filter(a => a.taskId === m.taskId);
+    const status = task?.status === 'not_applicable' ? 'not_applicable'
+      : task?.status === 'completed' ? 'received'
+      : task && canStart(task, tasks) ? 'needed' : 'inactive';
+    return { ...m, status: status as 'not_applicable' | 'received' | 'needed' | 'inactive', artifactIds: taskArtifacts.map(a => a.id) };
+  }) ?? [];
   return {
     id: String(r.id), title: String(r.title), templateId: String(r.template_id),
     templateVersion: Number(r.template_version), createdAt: String(r.created_at),
-    template, tasks, artifacts, events
+    template, decisions, materials, tasks, artifacts, events
   };
 }
 
@@ -151,6 +161,9 @@ export function submitHuman(projectId: string, taskId: string, rawText: string, 
   const task = getTask(project, taskId);
   if (task.owner !== 'human' || !canStart(task, project.tasks)) throw new DomainError('Human task is not ready');
   if (task.inputKind === 'file' && !uploaded) throw new DomainError('This task requires a file');
+  if (task.inputKind === 'choice') {
+    if (uploaded || !task.choices?.some(option => option.value === text)) throw new DomainError('Select one of the allowed decision options');
+  }
   if (task.inputKind === 'text' && !text) throw new DomainError('This task requires text');
   const fileId = uploaded ? id() : null;
   const safeName = uploaded ? basename(uploaded.name).slice(0, 200) || 'upload' : '';
@@ -171,9 +184,44 @@ export function submitHuman(projectId: string, taskId: string, rawText: string, 
       db.prepare('INSERT INTO artifacts VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(fileId, projectId, taskId, 'file', safeName, readable, filePath, now());
     }
     db.prepare("UPDATE tasks SET status = 'completed' WHERE project_id = ? AND task_id = ?").run(projectId, taskId);
+    if (task.inputKind === 'choice') {
+      db.prepare('INSERT INTO project_decisions VALUES (?, ?, ?, ?)').run(projectId, taskId, text, now());
+      record(projectId, taskId, 'human.decision', text);
+      reconcileConditionalTasks(projectId);
+    }
     record(projectId, taskId, 'human.submitted', (text ? 'Text (' + text.length + ' chars)' : '') + (uploaded ? ' / File uploaded' : ''));
   })();
   return getProjectOrThrow(projectId);
+}
+
+// Convert a professional human decision into branch state. Never infer decisions from LLM prose.
+// Multiple calls are safe: only inactive/pending tasks move, and history is retained.
+function reconcileConditionalTasks(projectId: string): void {
+  for (let round = 0; round < 100; round++) {
+    const project = getProjectOrThrow(projectId);
+    let changed = false;
+    for (const task of project.tasks) {
+      if (task.status === 'inactive' && task.activateWhen) {
+        const choice = project.decisions?.[task.activateWhen.gateTaskId];
+        if (choice !== undefined) {
+          const next = choice === task.activateWhen.equals ? 'pending' : 'not_applicable';
+          db.prepare("UPDATE tasks SET status = ? WHERE project_id = ? AND task_id = ? AND status = 'inactive'")
+            .run(next, projectId, task.id);
+          record(projectId, task.id, 'task.activation', next);
+          changed = true;
+        }
+      }
+      if (task.status === 'pending' && task.dependsOn.some(dep =>
+        project.tasks.find(t => t.id === dep)?.status === 'not_applicable')) {
+        db.prepare("UPDATE tasks SET status = 'not_applicable' WHERE project_id = ? AND task_id = ? AND status = 'pending'")
+          .run(projectId, task.id);
+        record(projectId, task.id, 'task.not_applicable', 'Upstream branch was not selected');
+        changed = true;
+      }
+    }
+    if (!changed) return;
+  }
+  throw new DomainError('Conditional activation failed to converge');
 }
 
 export function skipHuman(projectId: string, taskId: string): Project {
