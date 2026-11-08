@@ -7,7 +7,7 @@ import documentHandoff from '../../examples/document-handoff.hh.json';
 import { packageSchema, taskPacketSchema, taskResultSchema, type HumanHarnessPackage, type HumanHarnessTaskResult } from '../protocol/v1';
 import type { SemanticNote } from '../protocol/semantics';
 import {
-  answerHumanRequest, applyHumanStep, createTaskPacket, expireAbandonedRun, failAgent, finishAgent, freshId, holdAgentForHuman, newProject, now, receiveMaterial,
+  answerHumanRequest, applyHumanStep, attachHumanRequestArtifact, createTaskPacket, expireAbandonedRun, failAgent, finishAgent, freshId, holdAgentForHuman, newProject, now, receiveMaterial,
   reconcile, recordEvent, reserveAgent, retryAgent, reviewAgent, reviewMaterial,
   executionPolicy, type ProjectState, type RuntimeArtifact
 } from './runtime';
@@ -170,7 +170,8 @@ export function completeHuman(id: string, stepId: string, value: string) {
 
 export type UploadInput = { name: string; buffer: Buffer } | undefined;
 const textExtensions = new Set(['.txt', '.md', '.json', '.csv', '.geojson', '.kml', '.yaml', '.yml']);
-export function submitMaterial(id: string, materialId: string, rawText: string, upload?: UploadInput): ProjectState {
+export function submitMaterial(id: string, materialId: string, rawText: string, upload?: UploadInput,
+  options: { replaceAccepted?: boolean; requestId?: string } = {}): ProjectState {
   const content = rawText.trim();
   if (content.length > 30000) throw new RuntimeError('Text exceeds 30,000 characters');
   if (!content && !upload) throw new RuntimeError('Please enter text or upload a file');
@@ -188,6 +189,17 @@ export function submitMaterial(id: string, materialId: string, rawText: string, 
     return mutate(id, p => {
       const def = p.package.materials.find(m => m.id === materialId);
       if (!def) throw new RuntimeError('Material requirement is not declared in this package');
+      if (options.requestId) {
+        const request = p.humanRequests?.find(req => req.id === options.requestId);
+        if (!request || request.status !== 'pending' || request.materialId !== materialId ||
+            p.steps[request.stepId]?.state !== 'waiting_input') {
+          throw new RuntimeError('Human file request is not pending or material is mismatched');
+        }
+        if (!upload) throw new RuntimeError('File attachment is required to answer with a new original');
+      }
+      if (options.replaceAccepted && !['accepted', 'rejected'].includes(p.materials[materialId]?.state)) {
+        throw new RuntimeError('Only accepted or rejected materials can be replaced');
+      }
       if (!upload && !def.formats.includes('text/plain')) {
         throw new RuntimeError('This requirement needs an original file; text notes alone are insufficient');
       }
@@ -203,7 +215,8 @@ export function submitMaterial(id: string, materialId: string, rawText: string, 
         revision: p.materials[materialId].artifactIds.length + 1, createdAt: now(),
         ...(filePath ? { filePath } : {})
       };
-      receiveMaterial(p, materialId, artifact);
+      receiveMaterial(p, materialId, artifact, Boolean(options.replaceAccepted || options.requestId));
+      if (options.requestId) attachHumanRequestArtifact(p, options.requestId, artifact.id, content);
     }).project;
   } catch (e) {
     if (filePath && existsSync(filePath)) unlinkSync(filePath);
