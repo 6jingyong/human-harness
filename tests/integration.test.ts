@@ -1,6 +1,6 @@
 import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -64,4 +64,25 @@ test('submitting an unready task is rejected', () => {
   const p = store.createProject('general-project', 'Invalid submit');
   assert.throws(() => store.submitHuman(p.id, 'plan', 'fake completion'), /not ready/);
   assert.throws(() => store.submitHuman(p.id, 'brief', ''), /Enter text/);
+});
+
+test('imported JSON templates are validated, versioned and instantiated', () => {
+  const raw = JSON.parse(readFileSync(join(process.cwd(), 'examples/template.document-review.json'), 'utf8'));
+  const imported = store.addTemplate(raw);
+  assert.equal(imported.id, 'document-review');
+  assert.equal(imported.version, 1);
+  assert.equal(store.listTemplateSummaries().find(t => t.id === 'document-review')?.version, 1);
+  const first = store.createProject('document-review', 'Document review v1');
+  assert.equal(first.templateVersion, 1);
+  assert.equal(first.tasks.find(t => t.id === 'source-document')?.inputKind, 'file');
+  assert.throws(() => store.addTemplate(raw), /version must be greater/);
+  const newer = { ...raw, version: 2, tasks: raw.tasks.map((t: { id: string }) =>
+    t.id === 'objective' ? { ...t, description: 'Revised instructions' } : t) };
+  store.addTemplate(newer);
+  assert.equal(store.listTemplateSummaries().find(t => t.id === 'document-review')?.version, 2);
+  assert.equal(store.createProject('document-review', 'Document review v2').templateVersion, 2);
+  assert.equal(store.getProject(first.id)?.templateVersion, 1); // existing projects are snapshots
+  assert.throws(() => store.addTemplate({ ...raw, id: 'unsafe', tasks: [{ ...raw.tasks[0], owner: 'root' }] }));
+  assert.throws(() => store.addTemplate({ ...raw, id: 'cycle', tasks: raw.tasks.map((t: { id: string }) =>
+    t.id === 'objective' ? { ...t, dependsOn: ['revision-suggestions'] } : t) }), /Cycle/);
 });
