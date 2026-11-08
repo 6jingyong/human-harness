@@ -70,15 +70,29 @@ function prepareTask(projectId: string, stepId: string, runId: string): Executor
 }
 
 /** Shared authoritative run lifecycle. Backends return proposals and cannot commit state. */
-export async function executeOneAgentTask(projectId: string, requestedStepId?: string, override?: TaskExecutor) {
+export async function executeOneAgentTask(projectId: string, requestedStepId?: string,
+  override?: TaskExecutor, signal?: AbortSignal) {
   // Select before reserving: an unsupported or missing adapter must not strand a running task.
   const executor = override ?? selectedExecutor();
   const started = startAgent(projectId, requestedStepId);
+  let abortHandler: (() => void) | undefined;
   try {
+    if (signal?.aborted) throw new Error('Agent run cancelled by human operator');
     const task = prepareTask(projectId, started.stepId, started.runId);
-    const response = executorOutputSchema.parse(await executor.execute(task, event => {
+    const completion = executor.execute(task, event => {
       recordExecutorEvent(projectId, started.stepId, started.runId, event);
-    }));
+    }, signal);
+    // Some providers do not implement transport cancellation. Even then, no
+    // late response may be accepted after the human cancels this WorkItem.
+    const responsePromise = signal ? Promise.race([
+      completion,
+      new Promise<never>((_resolve, reject) => {
+        abortHandler = () => reject(new Error('Agent run cancelled by human operator'));
+        signal.addEventListener('abort', abortHandler, { once: true });
+        if (signal.aborted) abortHandler();
+      })
+    ]) : completion;
+    const response = executorOutputSchema.parse(await responsePromise);
     const project = getProject(projectId);
     const knownMaterials = new Set(project.package.materials.map(m => m.id));
     const evidenceRefs = task.packet.readableInputs.map(a => a.artifactId);
@@ -112,5 +126,7 @@ export async function executeOneAgentTask(projectId: string, requestedStepId?: s
       error instanceof Error ? error.message : String(error)
     );
     throw error;
+  } finally {
+    if (signal && abortHandler) signal.removeEventListener('abort', abortHandler);
   }
 }
