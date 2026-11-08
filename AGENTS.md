@@ -16,6 +16,7 @@ Human Harness is a **project-first human–AI collaboration runtime**, not a cha
 
 - `README.md` and `docs/README.zh-CN.md`: product scope, usage and current limitations.
 - `docs/codex-reference.md`: primary external harness reference and study plan.
+- `docs/codex-app-server-study.md`: exact app-server lifecycle, Skills discovery, permission approvals and proposed TaskPacket mapping. Do not treat it as an already-implemented adapter.
 - `docs/protocol/human-harness-1.0.md`: project/executor contract.
 - `docs/interoperability.md`: MCP, Skills, document parsing and compatibility research.
 - `src/protocol/`: validated protocol shapes.
