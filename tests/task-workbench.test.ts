@@ -7,6 +7,7 @@ import { packageSchema } from '../src/protocol/v1';
 import { newProject } from '../src/core/runtime';
 import { currentWorkbenchItem, deriveWorkbenchQueues } from '../src/app/workbench-queue';
 import { TaskWorkbench } from '../src/app/task-workbench';
+import { ProjectMaterialLibrary } from '../src/app/project-material-library';
 
 const pkg = packageSchema.parse(handoffPackage);
 const fresh = () => newProject(pkg, 'example-project', 'Example', 'sha256:' + 'a'.repeat(64));
@@ -50,11 +51,13 @@ test('Human and Agent queue are two projections of one stable task ID across rev
 test('selected material renders upload and acceptance UI directly inside inspector', () => {
   const p = fresh();
   const html = markup(p);
-  assert.match(html, /任务工作台/);
-  assert.match(html, /人类待办/);
-  assert.match(html, /Agent 任务/);
-  assert.match(html, /提交资料，等待人工核验/);
-  assert.match(html, /type="file"/);
+  assert.match(html, /Human Todo/);
+  assert.match(html, /Agent Todo/);
+  assert.doesNotMatch(html, /提交资料，等待人工核验/);
+  assert.doesNotMatch(html, /type="file"/);
+  const selected = markup(p, 'material:source-a');
+  assert.match(selected, /提交资料，等待人工核验/);
+  assert.match(selected, /type="file"/);
   assert.doesNotMatch(html, /定位到任务操作/);
 
   p.materials['source-a'].state = 'received';
@@ -86,6 +89,12 @@ test('Agent candidate review and completed download are handled in the same deta
 
   p.steps.extract.state = 'done';
   const done = markup(p, 'step:extract');
-  assert.match(done, /下载已审核成果/);
+  assert.doesNotMatch(done, /下载已审核成果/);
   assert.doesNotMatch(done, /批准并交接下游/);
+  const library = renderToStaticMarkup(createElement(ProjectMaterialLibrary, {
+    project: p, onBack: () => undefined
+  }));
+  assert.match(library, /套用项目模板后的资料说明/);
+  assert.match(library, /候选字段及来源/);
+  assert.match(library, /下载已审核成果/);
 });
