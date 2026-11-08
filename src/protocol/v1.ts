@@ -33,6 +33,7 @@ const step = z.strictObject({
   kind: z.enum(['agent', 'script', 'human_action', 'human_decision', 'external_milestone']),
   title: description, instructions: description,
   dependsOn: z.array(id).max(50), needsMaterials: z.array(id).max(50),
+  requestableMaterialIds: z.array(id).max(20).optional(),
   when: condition.optional(), capabilityId: capabilityId.optional(),
   options: z.array(z.strictObject({ id, label: description })).min(2).max(20).optional(),
   requiresReview: z.boolean().optional(), outputContractId: id.optional(),
@@ -109,6 +110,15 @@ export const packageSchema = z.strictObject({
     }
     for (const dep of s.dependsOn) if (!steps.has(dep) || dep === s.id) error(s.id + ': invalid dependency ' + dep);
     for (const m of s.needsMaterials) if (!materials.has(m)) error(s.id + ': unknown material ' + m);
+    if (s.requestableMaterialIds?.length && s.kind !== 'agent' && s.kind !== 'script') {
+      error(s.id + ': only Agent/script steps may request Human material clarification');
+    }
+    if (s.requestableMaterialIds && new Set(s.requestableMaterialIds).size !== s.requestableMaterialIds.length) {
+      error(s.id + ': duplicate requestable material');
+    }
+    for (const m of s.requestableMaterialIds ?? []) {
+      if (!materials.has(m)) error(s.id + ': undeclared requestable material ' + m);
+    }
     for (const r of s.resourceIds ?? []) if (!assets.has(r)) error(s.id + ': unknown resource ' + r);
     checkCondition(s.when, 'step ' + s.id);
     if (s.kind === 'human_decision') {
