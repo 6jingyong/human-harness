@@ -1,19 +1,21 @@
 import { freshId } from '../core/runtime';
-import { getProject, getTaskPacket, markAgentFailed, startAgent, succeedAgent } from '../core/store';
+import { getProject, getTaskPacket, markAgentFailed, recordExecutorEvent, startAgent, succeedAgent } from '../core/store';
 import { taskResultSchema } from '../protocol/v1';
 import { executorOutputSchema, type ExecutorTask, type TaskExecutor } from './contracts';
 import { demoExecutor } from './demo';
+import { codexExecutor } from './codex';
 import { mastraExecutor } from './mastra';
 
 /** Fail closed: HH_EXECUTOR=codex must not quietly run a fake demo task. */
-export function configuredExecutorMode(mode = process.env.HH_EXECUTOR): 'demo' | 'mastra' {
+export function configuredExecutorMode(mode = process.env.HH_EXECUTOR): 'demo' | 'mastra' | 'codex' {
   if (!mode || mode === 'demo') return 'demo';
-  if (mode === 'mastra') return 'mastra';
-  throw new Error('Unsupported HH_EXECUTOR=' + mode + '; Codex is not integrated yet');
+  if (mode === 'mastra' || mode === 'codex') return mode;
+  throw new Error('Unsupported HH_EXECUTOR=' + mode);
 }
 
 function selectedExecutor(): TaskExecutor {
-  return configuredExecutorMode() === 'mastra' ? mastraExecutor : demoExecutor;
+  const mode = configuredExecutorMode();
+  return mode === 'codex' ? codexExecutor : mode === 'mastra' ? mastraExecutor : demoExecutor;
 }
 
 /** Only authorized artifact revisions and review feedback are visible to the executor. */
@@ -48,7 +50,9 @@ export async function executeOneAgentTask(projectId: string, requestedStepId?: s
   const started = startAgent(projectId, requestedStepId);
   try {
     const task = prepareTask(projectId, started.stepId, started.runId);
-    const response = executorOutputSchema.parse(await executor.execute(task));
+    const response = executorOutputSchema.parse(await executor.execute(task, event => {
+      recordExecutorEvent(projectId, started.stepId, started.runId, event);
+    }));
     const project = getProject(projectId);
     const knownMaterials = new Set(project.package.materials.map(m => m.id));
     const evidenceRefs = task.packet.readableInputs.map(a => a.artifactId);
