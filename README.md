@@ -8,7 +8,9 @@ Human Harness turns a reusable project template into two coordinated views: a **
 
 - Next.js dual-pane dashboard with project creation and project selection.
 - Two starter templates: general research, and site-investigation workflow (not an actual environmental report template).
-- Strictly validated JSON template import, versioned in SQLite; existing projects keep their original task snapshot.
+- Strictly validated JSON template import with v2 **executable project packages**: initial human inputs, staged workflow, bundled references/document masters/trusted automations, and output contracts.
+- Full package snapshot per project; old projects stay pinned to their original template and resources.
+- Registered deterministic Markdown compilation and content validation before human review.
 - Human submissions: text or private file upload (12 MB), optional-task skipping.
 - Explicit task dependencies and states, human approval and rejection with feedback.
 - Mastra executor adapter and clearly labeled demo mode without API key.
@@ -24,7 +26,8 @@ Requirements: Node.js 22.19+ and npm, with persistent local disk.
 3. Copy .env.example to .env.local (the default HH_EXECUTOR=demo requires no key).
 4. Run npm run dev.
 5. Open http://localhost:3000 and create a project.
-6. To import a template, use the JSON file picker in the sidebar. Try examples/template.document-review.json.
+6. To import a complete v2 package, use the JSON file picker in the sidebar. Try examples/template.document-review.json.
+7. Complete the Human tasks, run/approve two LLM (or demo) stages, and then run the registered Markdown compilation step.
 
 When a task is ready, click the Agent pane's “运行下一项” button; then review the proposed output in the Human pane. Approving it unblocks dependent work.
 
@@ -53,12 +56,13 @@ Restart the server. Models use Mastra's provider/model naming. Set the matching 
 - src/app/api — server-side command boundary.
 - src/app/workspace.tsx — human/agent dashboard.
 - docs/architecture.md — state machine and future roadmap.
+- docs/project-package-v2.md — four-part template package design, resource boundaries, current support and limitations.
 
 ## Limits and deployment warning
 
 This is an early **local development foundation**, not a production-ready service. It has no authentication, multi-user permissions, background worker or public-deployment security. Do not expose the port publicly. PDF, CAD and image files are stored but not semantically parsed; the agent is told that their contents are unavailable.
 
-The .human-harness directory contains state.sqlite and uploads and is excluded from Git. Back up both components together.
+The .human-harness directory contains projects.sqlite and uploads and is excluded from Git. Back up both components together.
 
 ## Core principle
 
