@@ -2,7 +2,7 @@
 
 **一个以项目为中心、由人类和 AI Agent 共同执行任务的工作台。**
 
-[English README](../README.md) · [Protocol 1.0 协议](protocol/human-harness-1.0.md) · [插件与跨平台研究](interoperability.md) · [土地污染调查示例](../examples/land-investigation.hh.json)
+[English README](../README.md) · [Protocol 1.0 协议](protocol/human-harness-1.0.md) · [Codex 参考架构](codex-reference.md) · [插件与跨平台研究](interoperability.md) · [土地污染调查示例](../examples/land-investigation.hh.json)
 
 > **当前定位：本地开发原型。** 已实现基础项目流程、人工审核与演示执行，但并未实现正式 PDF/DOCX 内容解析、跨平台插件部署、真实 GIS 调研或正式行业报告。请勿将软件流程验收等同于专业技术验收。
 
@@ -118,11 +118,19 @@ tests/               流程与结构化协议回归测试
 
 目前本地状态保存在 `.human-harness/protocol-v1.sqlite`，上传文件在 `.human-harness/uploads/`。这些文件不提交 Git。旧版测试使用的 `projects.sqlite` 未迁移，也不会由新内核自动读取；删除本地旧目录前需先备份。
 
+## 优先参考 Codex 的成熟 Harness
+
+**今后的主要技术参考统一为 [Codex 开源架构](codex-reference.md)。** 不再默认平行研究一长串 Agent 框架。
+
+我们重点学习 Codex 的任务执行循环、上下文与会话管理、流式事件、工具路由、沙盒权限、人工审批，以及 `app-server`、SDK、`codex exec` 等集成边界。真正属于 Human Harness 的仍然是**项目模板、用户待办、资料生命周期、专业决策和最终交付验收**。
+
+当前代码依旧使用 Mastra；**尚未接入 Codex SDK 或 app-server**。我们先理解并验证接口，不因选定参考对象就马上替换已经可运行的代码。
+
 ## 我们接下来怎样学习成熟 Agent / 插件？
 
 **不复制整个成熟框架，而是优先复用它已经解决的问题。**
 
-- **Mastra**：保持作为当前 Agent 执行底座，学习它的工具调用、任务执行和 MCP 集成能力。
+- **Codex**：作为唯一主要的 Agent Harness 架构参考；优先核验 SDK、app-server 与权限/事件机制。Mastra 暂时保留为当前执行器。
 - **MCP**：将 PDF/DOCX 阅读、GIS、文件检索等操作作为跨 Agent 宿主可调用的工具暴露出去。
 - **Agent Skills**：使用 `SKILL.md` 组织操作说明、参考资料和可复用脚本。
 - **平台适配器**：分别测试 ChatGPT/Codex、Claude Code、Gemini CLI、Cursor 等环境的文件访问、工具权限、安装与认证差异。
