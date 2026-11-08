@@ -66,6 +66,7 @@ export function TaskWorkbench({
   const disabled = isPending(key);
   const pending = values[key] ?? '';
   const note = feedback[key] ?? '';
+  const attachedReviewNote = humanRequest ? (feedback[humanRequest.materialId] ?? '') : '';
   const activeRun = step ? project.runs.filter(run => run.stepId === step.id).at(-1) : undefined;
   const outputRevisions = step
     ? project.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === step.id).reverse()
@@ -167,15 +168,15 @@ export function TaskWorkbench({
             {humanRequest.status === 'awaiting_review' && <>
               <p className="source-revision">已提交：{requestUpload?.name ?? '原始文件'} · v{requestUpload?.revision ?? '?'}，尚未验收。</p>
               <label htmlFor={'human-request-review-' + key}>资料验收意见（退回时必填）</label>
-              <textarea id={'human-request-review-' + key} rows={3} value={note}
-                onChange={event => onFeedback(key, event.target.value)}
+              <textarea id={'human-request-review-' + key} rows={3} value={attachedReviewNote}
+                onChange={event => onFeedback(humanRequest.materialId, event.target.value)}
                 placeholder="检查来源与版本；不合格时填写退回原因" />
               <div className="actions">
                 <button type="button" className="primary" disabled={disabled}
                   onClick={() => onAction('accept_material', { materialId: humanRequest.materialId })}>
                   验收原件并继续 Agent
                 </button>
-                <button type="button" disabled={disabled || !note.trim()}
+                <button type="button" disabled={disabled || !attachedReviewNote.trim()}
                   onClick={() => onAction('reject_material', { materialId: humanRequest.materialId })}>退回补充文件</button>
               </div>
             </>}
