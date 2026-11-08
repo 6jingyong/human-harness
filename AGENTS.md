@@ -40,6 +40,14 @@ Read only the material relevant to the current task. Keep changes focused; avoid
 - For code changes, run `npm run typecheck` and relevant tests; run the production build when Next.js routes or build behavior change.
 - Never claim cross-platform compatibility solely because a standard like MCP or Agent Skills is mentioned. Require a recorded real host integration test.
 
+## Plugin reuse decision
+
+- **Prefer consuming installed native Codex Plugins/Skills/MCP tools.** Do not build a new PDF/DOCX parsing engine, MCP server or host-specific reader by default.
+- See `docs/codex-native-plugins.md` for verified inventory APIs, plugin readiness checks and current limitations.
+- Preserve template-owned field/validation requirements; reuse plugin-provided methods, and turn unresolved problems into a Human WorkItem.
+- Existing `experiments/document-methods/` is a historical contract test, **not the primary parser roadmap**.
+- Codex plugin discovery, installation and live model execution are **not integrated or smoke-tested** in the repository.
+
 ## Development direction
 
 First study the current open-source **Codex** harness and its supported SDK/app-server surfaces; avoid rebuilding the agent loop, sandbox, tool router or context lifecycle. Build PDF/DOCX capabilities once with a portable output contract, then expose them through separately tested project/MCP/Skill adapters. Do not replace the Mastra runtime without an executable integration test.
