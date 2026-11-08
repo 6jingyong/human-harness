@@ -4,6 +4,8 @@ import { Buffer } from 'node:buffer';
 test('Human Harness supports document → Agent → Human → Agent GUI handoff', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /从项目模板开始/ })).toBeVisible();
+  // Wait until client hydration and the async template index have both finished.
+  await expect(page.locator('#package-select')).toContainText('双文档信息核对与交付');
   await page.getByLabel('本次项目名称').fill('GUI 闭环测试 ' + Date.now());
   await page.getByRole('button', { name: /创建项目/ }).click();
   await expect(page.getByRole('heading', { name: '人机任务工作台' })).toBeVisible();
@@ -45,6 +47,7 @@ test('Human Harness supports document → Agent → Human → Agent GUI handoff'
 
 test('project scheduler controls stay interactive with Human Todo', async ({ page }) => {
   await page.goto('/');
+  await expect(page.locator('#package-select')).toContainText('双文档信息核对与交付');
   await page.getByLabel('本次项目名称').fill('调度操作测试 ' + Date.now());
   await page.getByRole('button', { name: /创建项目/ }).click();
   await expect(page.getByText('自动派发已开启')).toBeVisible();
