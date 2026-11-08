@@ -3,6 +3,7 @@
 > **Status:** architecture study and product decision, not an implemented Codex adapter.  
 > **Reviewed:** 2026-11-08  
 > **Canonical upstream:** https://github.com/openai/codex
+> **Technical follow-up:** [Codex app-server / Skills / permissions deep dive](codex-app-server-study.md) — concrete RPC/event mapping, scope and next smoke tests.
 
 ## Decision
 
