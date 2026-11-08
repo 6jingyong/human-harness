@@ -200,7 +200,7 @@ export function getTaskPacket(id: string, stepId: string, runId: string) {
 
 /** Store only Codex runtime identities/brief event types, never model-controlled project mutations. */
 export function recordExecutorEvent(id: string, stepId: string, runId: string,
-  event: { kind: 'thread' | 'turn'; id: string } | { kind: 'progress'; message: string }) {
+  event: { kind: 'thread'; id: string } | { kind: 'turn'; id: string } | { kind: 'progress'; message: string }) {
   return mutate(id, p => {
     const run = p.runs.find(r => r.id === runId && r.stepId === stepId);
     if (!run || run.status !== 'running' || p.steps[stepId]?.runId !== runId ||
