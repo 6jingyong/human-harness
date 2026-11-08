@@ -1,0 +1,349 @@
+{
+  "id": "land-investigation-runtime",
+  "title": "土地污染调查 · 分阶段执行示例",
+  "description": "演示建设用地调查的人工资料、专业决策、采样委托与后续质控报告触发；不具备实际 GIS、采样、检测或正式报告签发能力。",
+  "version": 1,
+  "schemaVersion": 3,
+  "workflow": {
+    "stages": [
+      {
+        "id": "intake",
+        "title": "项目资料",
+        "description": "先收集最小必要项和可选已有资料。"
+      },
+      {
+        "id": "stage1",
+        "title": "第一阶段识别",
+        "description": "AI 整理已收到的信息；专业人员决定是否进入采样调查。"
+      },
+      {
+        "id": "sampling",
+        "title": "采样方案与批准",
+        "description": "如进入第二阶段，则先准备和专业审定布点。"
+      },
+      {
+        "id": "field",
+        "title": "委托与机构工作",
+        "description": "按冻结方案委托机构；不提前索取尚未产生的质控报告。"
+      },
+      {
+        "id": "assessment",
+        "title": "数据与审核草稿",
+        "description": "收到现场、检测及质控证据后才进入结果审查。"
+      },
+      {
+        "id": "delivery",
+        "title": "交付草稿",
+        "description": "分支各自形成待审草稿。正式 DOCX 生成尚未接入。"
+      }
+    ]
+  },
+  "materials": [
+    {
+      "id": "identity",
+      "title": "项目身份与调查目的",
+      "taskId": "site-info",
+      "producer": "human",
+      "required": true
+    },
+    {
+      "id": "boundary",
+      "title": "地块红线及空间定位资料",
+      "taskId": "boundary",
+      "producer": "human",
+      "required": true
+    },
+    {
+      "id": "land-use",
+      "title": "规划用途及依据",
+      "taskId": "land-use",
+      "producer": "human",
+      "required": true
+    },
+    {
+      "id": "existing",
+      "title": "已有历史/企业/地勘/检测资料",
+      "taskId": "existing-materials",
+      "producer": "human",
+      "required": false
+    },
+    {
+      "id": "commission",
+      "title": "机构委托及执行安排",
+      "taskId": "commission",
+      "producer": "human",
+      "required": true
+    },
+    {
+      "id": "field-records",
+      "title": "现场采样与流转记录",
+      "taskId": "field-records",
+      "producer": "external_institution",
+      "required": true,
+      "note": "由机构产生，用户上传；完成现场工作后才提示。"
+    },
+    {
+      "id": "detection-report",
+      "title": "正式检测报告",
+      "taskId": "detection-report",
+      "producer": "external_institution",
+      "required": true,
+      "note": "由机构完成实验室检测后提交。"
+    },
+    {
+      "id": "qc-evidence",
+      "title": "相关质控记录及报告",
+      "taskId": "qc-report",
+      "producer": "external_institution",
+      "required": true,
+      "note": "质控贯穿工作，但实际文件应在相应工作完成后取得。"
+    }
+  ],
+  "resources": [
+    {
+      "id": "technical-note",
+      "kind": "reference",
+      "title": "调查范围与证据边界说明",
+      "origin": "Human Harness 示范，不是技术标准原文",
+      "content": "仅对用户提供且可读取的资料做文字整理。无现场踏勘、没有 GIS 技能时，不得声称已获取真实历史影像或完成企业调查。地块初步调查允许第一阶段结束，也可能进入采样分析；以专业人员决策为准。"
+    },
+    {
+      "id": "draft-structure",
+      "kind": "document-template",
+      "title": "内部调查草稿格式提示",
+      "origin": "Human Harness 示例",
+      "content": "# 工作草稿\n## 证据清单\n## 已知情况\n## 待专业核实内容\n此文件仅供内部审核，未经执业人员复核不得作为正式报告。"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "site-info",
+      "title": "填写项目基本信息",
+      "description": "项目位置、委托主体、调查目的与适用范围。",
+      "owner": "human",
+      "dependsOn": [],
+      "inputKind": "text",
+      "stageId": "intake"
+    },
+    {
+      "id": "boundary",
+      "title": "上传地块红线",
+      "description": "KML、GeoJSON、CAD 或其他地块边界原件；目前仅保存，不会假称完成 CAD/GIS 解析。",
+      "owner": "human",
+      "dependsOn": [],
+      "inputKind": "file",
+      "stageId": "intake"
+    },
+    {
+      "id": "land-use",
+      "title": "确认用途及其依据",
+      "description": "请说明拟变更或规划用途以及来源。",
+      "owner": "human",
+      "dependsOn": [],
+      "inputKind": "text",
+      "stageId": "intake"
+    },
+    {
+      "id": "existing-materials",
+      "title": "补充已有资料（可跳过）",
+      "description": "仅上传已经拥有的历史报告、地勘或检测资料。",
+      "owner": "human",
+      "dependsOn": [],
+      "inputKind": "either",
+      "optional": true,
+      "stageId": "intake"
+    },
+    {
+      "id": "stage1-inventory",
+      "title": "整理第一阶段现有证据",
+      "description": "仅基于已提交可读取的材料做证据清单和缺口分析。",
+      "owner": "agent",
+      "dependsOn": [
+        "site-info",
+        "boundary",
+        "land-use"
+      ],
+      "prompt": "仅整理收到且确实能读取的资料，形成事实、缺失证据、调查建议。不要虚构历史企业、现场踏勘或 GIS/影像结论。",
+      "reviewRequired": true,
+      "stageId": "stage1",
+      "resourceRefs": [
+        "technical-note"
+      ]
+    },
+    {
+      "id": "stage1-decision",
+      "title": "专业判断：是否进入采样调查？",
+      "description": "根据已审核资料与实际踏勘、访谈和适用规范，由具备相应能力的专业人员决定后续路线。",
+      "owner": "human",
+      "dependsOn": [
+        "stage1-inventory"
+      ],
+      "inputKind": "choice",
+      "choices": [
+        {
+          "value": "finish",
+          "label": "第一阶段结束，无需采样"
+        },
+        {
+          "value": "sampling",
+          "label": "进入采样调查"
+        }
+      ],
+      "stageId": "stage1"
+    },
+    {
+      "id": "first-stage-draft",
+      "title": "形成第一阶段内部草稿",
+      "description": "仅根据实际材料形成待审草稿，不虚构采样与质控数据。",
+      "owner": "agent",
+      "dependsOn": [
+        "stage1-decision"
+      ],
+      "activateWhen": {
+        "gateTaskId": "stage1-decision",
+        "equals": "finish"
+      },
+      "prompt": "仅形成第一阶段内部审核草稿。必须区分已获得证据与专业意见；不能宣称有实际采样/实验室成果。",
+      "reviewRequired": true,
+      "stageId": "delivery",
+      "resourceRefs": [
+        "technical-note",
+        "draft-structure"
+      ]
+    },
+    {
+      "id": "sampling-plan",
+      "title": "提出采样布点框架",
+      "description": "根据已知资料提出候选原则与资料需求，不虚构真实坐标和检测因子。",
+      "owner": "agent",
+      "dependsOn": [
+        "stage1-decision"
+      ],
+      "activateWhen": {
+        "gateTaskId": "stage1-decision",
+        "equals": "sampling"
+      },
+      "prompt": "给出候选布点思路、需要实际调查确认的参数、土壤/地下水选点依据。当前没有真实 GIS 工具，不得生成伪造坐标或声称已现场勘测。",
+      "reviewRequired": true,
+      "stageId": "sampling",
+      "resourceRefs": [
+        "technical-note"
+      ]
+    },
+    {
+      "id": "approve-plan",
+      "title": "审核并冻结采样方案",
+      "description": "由专业人员审核点位、深度、指标及坐标并确认已形成可执行方案。",
+      "owner": "human",
+      "dependsOn": [
+        "sampling-plan"
+      ],
+      "inputKind": "text",
+      "stageId": "sampling"
+    },
+    {
+      "id": "commission",
+      "title": "委托专业机构执行采样与检测",
+      "description": "采样方案确定后联系机构并登记委托/预计执行范围；此时无需上传尚未形成的质控报告。",
+      "owner": "human",
+      "dependsOn": [
+        "approve-plan"
+      ],
+      "inputKind": "either",
+      "stageId": "field"
+    },
+    {
+      "id": "institution-complete",
+      "title": "确认机构已完成相应现场及实验室工作",
+      "description": "这是机构实际工作完成后的人工确认，不能由 Agent 假装完成。",
+      "owner": "human",
+      "dependsOn": [
+        "commission"
+      ],
+      "inputKind": "text",
+      "stageId": "field"
+    },
+    {
+      "id": "field-records",
+      "title": "提交现场采样与流转记录",
+      "description": "机构现场工作完成后提交真实记录。",
+      "owner": "human",
+      "dependsOn": [
+        "institution-complete"
+      ],
+      "inputKind": "file",
+      "stageId": "field"
+    },
+    {
+      "id": "detection-report",
+      "title": "提交正式检测报告",
+      "description": "机构完成检测后提交对应报告；应有点位和样品标识。",
+      "owner": "human",
+      "dependsOn": [
+        "institution-complete"
+      ],
+      "inputKind": "file",
+      "stageId": "field"
+    },
+    {
+      "id": "qc-report",
+      "title": "提交质控记录与报告",
+      "description": "相关质控工作完成、文件实际形成后才出现在当前待办。",
+      "owner": "human",
+      "dependsOn": [
+        "institution-complete"
+      ],
+      "inputKind": "file",
+      "stageId": "field"
+    },
+    {
+      "id": "qc-review",
+      "title": "核查采样、检测和质控资料完整性",
+      "description": "核查资料是否齐全，指出无法读取或需专业审核的问题；不假称已解析 PDF。",
+      "owner": "agent",
+      "dependsOn": [
+        "field-records",
+        "detection-report",
+        "qc-report"
+      ],
+      "prompt": "根据可读输入及文件元数据列出资料完整性和对应关系。PDF/CAD等如未解析，明确说明无法验证数据。不得推断真实检测值或合格结论。",
+      "reviewRequired": true,
+      "stageId": "assessment",
+      "resourceRefs": [
+        "technical-note"
+      ]
+    },
+    {
+      "id": "sampling-draft",
+      "title": "形成采样调查内部草稿",
+      "description": "仅在资料与专业审核完整后形成待审文字；非正式签发文件。",
+      "owner": "agent",
+      "dependsOn": [
+        "qc-review"
+      ],
+      "prompt": "基于已审核结果形成内部调查工作草稿。检测数值如不可读或未经专业确认，说明缺口，不要捏造。",
+      "reviewRequired": true,
+      "stageId": "delivery",
+      "resourceRefs": [
+        "technical-note",
+        "draft-structure"
+      ]
+    }
+  ],
+  "deliverables": [
+    {
+      "id": "first-draft",
+      "taskId": "first-stage-draft",
+      "fileName": "first-stage-draft.md",
+      "format": "markdown",
+      "minChars": 30
+    },
+    {
+      "id": "sampling-draft",
+      "taskId": "sampling-draft",
+      "fileName": "sampling-investigation-draft.md",
+      "format": "markdown",
+      "minChars": 30
+    }
+  ]
+}
