@@ -8,7 +8,7 @@ import { packageSchema, taskPacketSchema, taskResultSchema, type HumanHarnessPac
 import {
   applyHumanStep, createTaskPacket, expireAbandonedRun, failAgent, finishAgent, freshId, newProject, now, receiveMaterial,
   reconcile, recordEvent, reserveAgent, retryAgent, reviewAgent, reviewMaterial,
-  type ProjectState, type RuntimeArtifact
+  executionPolicy, type ProjectState, type RuntimeArtifact
 } from './runtime';
 
 export class RuntimeError extends Error {}
@@ -207,6 +207,12 @@ export function startAgent(id: string, requestedStepId?: string): { project: Pro
       ? p.package.steps.find(s => s.id === requestedStepId)
       : p.package.steps.find(s => (s.kind === 'agent' || s.kind === 'script') && p.steps[s.id].state === 'ready');
     if (!step) throw new RuntimeError('No ready Agent task');
+    // Enforce project capacity in the same SQLite transaction as run reservation.
+    // A second app worker cannot bypass the limit by reading a stale UI snapshot.
+    const running = Object.values(p.steps).filter(state => state.state === 'running').length;
+    if (running >= executionPolicy(p).maxParallel) {
+      throw new RuntimeError('Project Agent concurrency limit reached');
+    }
     const runId = reserveAgent(p, step.id);
     return { stepId: step.id, runId };
   });
