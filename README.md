@@ -188,7 +188,7 @@ npm test
 npm run build
 ```
 
-Pull requests and reproducible bug reports are welcome. Particularly useful contributions include portable document-read adapters, sample document fixtures with permission to redistribute, protocol validation cases, and workflow examples with clear acceptance rules.
+Pull requests and reproducible bug reports are welcome. Particularly useful contributions include native Codex-plugin integration tests, protocol validation cases, and workflow examples with clear acceptance rules. We should not duplicate document parsers already available through suitable plugins.
 
 Before contributing a capability, specify **where it runs, what it can access, which hosts it supports, and how failures are reported**. No untrusted scripts may be executed merely by importing a project package.
 
