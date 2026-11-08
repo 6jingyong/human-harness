@@ -122,7 +122,7 @@ tests/               流程与结构化协议回归测试
 
 **今后的主要技术参考统一为 [Codex 开源架构](codex-reference.md)。** 不再默认平行研究一长串 Agent 框架。
 
-我们重点学习 Codex 的任务执行循环、上下文与会话管理、流式事件、工具路由、沙盒权限、人工审批，以及 `app-server`、SDK、`codex exec` 等集成边界。真正属于 Human Harness 的仍然是**项目模板、用户待办、资料生命周期、专业决策和最终交付验收**。
+我们重点学习 Codex 的任务执行循环、上下文与会话管理、流式事件、工具路由、沙盒权限、人工审批，以及 `app-server`、SDK、`codex exec` 等集成边界。已经整理 [app-server、Skills、三层审批的源码对照与最小集成方案](codex-app-server-study.md)。真正属于 Human Harness 的仍然是**项目模板、用户待办、资料生命周期、专业决策和最终交付验收**。
 
 当前代码依旧使用 Mastra；**尚未接入 Codex SDK 或 app-server**。我们先理解并验证接口，不因选定参考对象就马上替换已经可运行的代码。
 
