@@ -35,8 +35,8 @@ export function ProjectMaterialLibrary({ project, onBack }: {
           step.needsMaterials.includes(def.id));
         const interpretations = linkedSteps.flatMap(step =>
           project.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === step.id)
-            .sort((a, b) => b.revision - a.revision).map(artifact => ({
-              step, artifact, verified: project.steps[step.id]?.state === 'done'
+            .sort((a, b) => b.revision - a.revision).map((artifact, index) => ({
+              step, artifact, verified: index === 0 && project.steps[step.id]?.state === 'done'
             }))
         );
         return <article className="library-material" key={def.id}>
