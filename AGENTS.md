@@ -50,4 +50,4 @@ Read only the material relevant to the current task. Keep changes focused; avoid
 
 ## Development direction
 
-First study the current open-source **Codex** harness and its supported SDK/app-server surfaces; avoid rebuilding the agent loop, sandbox, tool router or context lifecycle. Build PDF/DOCX capabilities once with a portable output contract, then expose them through separately tested project/MCP/Skill adapters. Do not replace the Mastra runtime without an executable integration test.
+First study the current open-source **Codex** harness and its supported SDK/app-server surfaces; avoid rebuilding the agent loop, sandbox, tool router or context lifecycle. Prefer installed native Codex Plugins/Skills/MCP tools for PDF/DOCX and other standard operations. Build a new capability only for a demonstrated gap, then use the standard Plugin packaging and test actual hosts. Do not replace the Mastra runtime without an executable integration test.
