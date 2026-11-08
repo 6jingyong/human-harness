@@ -30,7 +30,7 @@ Human Harness 希望解决的不是“怎样让 AI 回答得更多”，而是�
 1. **手工创建或导入项目模板**。定义初始资料、项目阶段、任务依赖、条件分支、内置资源、能力和最终输出。
 2. **从模板创建具体项目**。系统冻结当时的模板版本和摘要；后续改模板不应静默改变已有项目。
 3. **看当前用户 TodoList**。提供真实资料、作出专业决策、确认外部机构进度，审核 Agent 产出。
-4. **运行 Agent 任务**。当前采用 Mastra 的单任务执行器；任务包限制输入和可用能力。
+4. **运行 Agent 任务**。现有 demo/Mastra 和 Codex 本地 app-server（仅文本任务）适配器；任务包限制输入和可用能力。Codex 实际登录调用仍须本机验收。
 5. **按条件推进**。资料收到不等于合格；只有通过审核，依赖任务才会被激活。
 6. **交付经过审核的成果**。当前支持 Markdown/JSON 下载；真正的 Word/PDF 排版和专业检查尚未接入。
 
@@ -66,7 +66,7 @@ Human Harness 希望解决的不是“怎样让 AI 回答得更多”，而是�
 | 模板 | 手动表单生成基础模板；导入/编辑严格 JSON | 二进制资源包、批量模板管理、跨平台分发 |
 | 项目 | SQLite 持久化、模板版本快照、条件任务激活 | 动态衍生任意新任务、上游修改自动失效重算 |
 | 人机协作 | 两栏任务、资料收取、人工选择、批准/退回 | 多用户权限、可公开部署的身份认证 |
-| Agent | Mastra 适配器、严格任务包和结果结构、无需 API Key 的演示模式 | 已完成的真实模型 API 验收、多执行器兼容测试 |
+| Agent | Demo/Mastra、Codex app-server 文本任务适配器（模拟协议 CI 通过）、严格任务包 | 真实 Codex 模型本机验收、插件及并行调度 |
 | 文档 | 可保存上传文件，纯文本可读取，Markdown/JSON 审核后下载 | PDF/DOCX/CAD 稳定解析、复杂文档格式还原 |
 | 插件 | 内部能力 ID / 协议预留 | MCP 客户端与服务端、Agent Skills 安装与跨宿主验收 |
 
@@ -132,7 +132,7 @@ Human Harness 不是一个主 Agent 依次执行全部任务的聊天循环，�
 
 当前已实现一层精简的可替换执行器：`src/executors/runner.ts` 统一负责任务预约、限制可见素材、验证候选成果和更新项目状态；`demo` / `mastra` 执行器只接受任务包与授权证据，不拥有整个项目数据库。测试覆盖数据作用域、非法输出以及未知执行器配置不回退演示模式。
 
-**下一步 P1 才是真实接入本地 Codex app-server**；目前仍不能设置 `HH_EXECUTOR=codex` 来执行真实模型。详见 [开发阶段与验收标准](roadmap-codex-v1.md)。
+**P1.1 已具备 Codex app-server 文本任务接入代码**：设置 `HH_EXECUTOR=codex` 后会尝试调用本机已安装的 Codex CLI，不会回退 demo。首次请先完成本机 Codex 登录，并运行 `npm run codex:smoke` 验证真实模型；CI 只验证模拟 JSON-RPC，并未证明真实调用已成功。文档 Skills/Plugins/MCP 尚未接入。详见 [开发阶段与验收标准](roadmap-codex-v1.md)。
 
 ## 优先参考 Codex 的成熟 Harness
 
@@ -140,7 +140,7 @@ Human Harness 不是一个主 Agent 依次执行全部任务的聊天循环，�
 
 我们重点学习 Codex 的任务执行循环、上下文与会话管理、流式事件、工具路由、沙盒权限、人工审批，以及 `app-server`、SDK、`codex exec` 等集成边界。已经整理 [app-server、Skills、三层审批的源码对照与最小集成方案](codex-app-server-study.md)。真正属于 Human Harness 的仍然是**项目模板、用户待办、资料生命周期、专业决策和最终交付验收**。
 
-当前代码依旧使用 Mastra；**尚未接入 Codex SDK 或 app-server**。我们先理解并验证接口，不因选定参考对象就马上替换已经可运行的代码。
+当前代码新增了 Codex app-server 文本任务适配器；**尚未通过真实登录模型调用验收，也未接入 Skills/Plugins/MCP**。我们先理解并验证接口，不因选定参考对象就马上替换已经可运行的代码。
 
 ## 新增：可复现的 PDF/DOCX 素材方法实验
 
@@ -160,7 +160,7 @@ Human Harness 主要利用 **Codex 本地的 Agent、Skill、Plugin、MCP 生态
 
 **两者应共享同一套 Human Harness 项目模板、素材处理方法、项目状态和用户 TodoList**；不同的仅是执行器、可用插件、宿主权限及连接器。不把 Codex 插件格式和 Octop 插件格式假定为直接兼容，也不立即维护两套 fork。
 
-[两种生态发行方案与边界](ecosystem-distributions.md)。**目前两种适配器都尚未接入，代码仍使用 Mastra 演示执行器。**
+[两种生态发行方案与边界](ecosystem-distributions.md)。**Codex 适配器已实现基础协议，但未完成真实模型验收；Octop 尚未接入。**
 
 ## 优先原生复用 Codex 插件，不再自行开发通用解析器
 
