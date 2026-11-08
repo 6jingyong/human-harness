@@ -89,3 +89,27 @@ test('HTTP execution-policy toggle pauses queued work and is validated', async (
   }), { params: Promise.resolve({ id }) });
   assert.equal(invalid.status, 400);
 });
+
+
+test('local material download returns exact project-owned bytes without internal filesystem paths', async () => {
+  const { GET } = await import('../src/app/api/v1/projects/[id]/materials/[artifactId]/route');
+  const p = store.createProject('document-handoff', 'File access boundary');
+  const content = Buffer.from('%PDF-1.7\noriginal-private-file');
+  const updated = store.submitMaterial(p.id, 'source-a', '', {
+    name: 'source.pdf', buffer: content
+  });
+  const artifact = updated.artifacts.find(a => a.kind === 'material' && a.ownerId === 'source-a');
+  assert.ok(artifact);
+  const result = await GET(new Request('http://localhost/material'), {
+    params: Promise.resolve({ id: p.id, artifactId: artifact.id })
+  });
+  assert.equal(result.status, 200);
+  assert.deepEqual(Buffer.from(await result.arrayBuffer()), content);
+  assert.match(result.headers.get('content-disposition') ?? '', /source\.pdf/);
+  assert.ok(!JSON.stringify(Object.fromEntries(result.headers)).includes('.human-harness'));
+  const another = store.createProject('document-handoff', 'Other project');
+  const foreign = await GET(new Request('http://localhost/material'), {
+    params: Promise.resolve({ id: another.id, artifactId: artifact.id })
+  });
+  assert.equal(foreign.status, 404);
+});
