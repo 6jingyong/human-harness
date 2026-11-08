@@ -152,6 +152,7 @@ export function setExecutionPolicy(id: string, autoDispatch: boolean, maxParalle
 }
 
 export function answerRequestedInput(id: string, requestId: string, value: string) {
+  if (!value.trim()) throw new RuntimeError('Human answer is required');
   if (value.length > 8000) throw new RuntimeError('Human answer is too long');
   return mutate(id, project => answerHumanRequest(project, requestId, value)).project;
 }
