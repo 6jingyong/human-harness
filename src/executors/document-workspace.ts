@@ -18,7 +18,10 @@ const formats = new Map<string, 'pdf' | 'docx'>([['.pdf', 'pdf'], ['.docx', 'doc
  * This directory is a temporary task capability, not a shared project mount.
  */
 export function stageAuthorizedDocuments(task: ExecutorTask, workdir: string): StagedDocument[] {
-  const candidates = task.evidence.filter(e => e.originalFile);
+  // Text-only uploads (such as KML/CSV) are already represented in authorized content.
+  // Stage the original only for supported office formats, or reject unreadable binary formats.
+  const candidates = task.evidence.filter(e => e.originalFile &&
+    (formats.has(extname(e.name).toLowerCase()) || e.content === null));
   if (!candidates.length) return [];
   const inputs = join(workdir, 'inputs');
   mkdirSync(inputs, { recursive: true, mode: 0o700 });
