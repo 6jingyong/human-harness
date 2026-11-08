@@ -2,7 +2,7 @@
 
 **一个以项目为中心、由人类和 AI Agent 共同执行任务的工作台。**
 
-[English README](../README.md) · **[Codex 版 V1 开发计划](roadmap-codex-v1.md)** · [Protocol 1.0 协议](protocol/human-harness-1.0.md) · [Codex 参考架构](codex-reference.md) · [插件与跨平台研究](interoperability.md) · [土地污染调查示例](../examples/land-investigation.hh.json)
+[通用文档交接 MVP](mvp-document-handoff.md) · [English README](../README.md) · **[Codex 版 V1 开发计划](roadmap-codex-v1.md)** · [Protocol 1.0 协议](protocol/human-harness-1.0.md) · [Codex 参考架构](codex-reference.md) · [插件与跨平台研究](interoperability.md) · [土地污染调查示例](../examples/land-investigation.hh.json)
 
 > **当前定位：本地开发原型。** 已实现基础项目流程、人工审核与演示执行，但并未实现正式 PDF/DOCX 内容解析、跨平台插件部署、真实 GIS 调研或正式行业报告。请勿将软件流程验收等同于专业技术验收。
 
@@ -168,7 +168,7 @@ Human Harness 主要利用 **Codex 本地的 Agent、Skill、Plugin、MCP 生态
 
 [原生 Codex 插件复用方案](codex-native-plugins.md) 给出了 `plugin/list`、`skills/list`、MCP 就绪状态、能力绑定及缺失能力处理方案。把 Human Harness 自身发布成一个 Codex Plugin 是**另一条可选方向**，但不是我们复用现成 PDF/DOCX 插件的前提。
 
-之前的合成 PDF/DOCX 实验仅保留作方法合同验证，不继续作为解析器研发路线。**目前 Codex 插件还没有接到 Human Harness 运行代码中。**
+之前的合成 PDF/DOCX 实验仅保留作方法合同验证，不继续作为解析器研发路线。**目前已有 PDF/DOCX Skill 的发现与显式调用桥接，但真实本机模型 + 文档 Skill 尚未验收；其他插件/MCP 能力仍未接入。**
 
 ## 我们接下来怎样学习成熟 Agent / 插件？
 
