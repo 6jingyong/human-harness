@@ -157,3 +157,76 @@ test('Human Todo HTTP action answers a model-requested clarification without cre
   assert.equal(resumed.materials['source-a'].artifactIds.length, 1);
   assert.equal(resumed.materials['source-a'].state, 'accepted');
 });
+
+
+test('HTTP Human request file upload remains pending until material approval', async () => {
+  const { executeOneAgentTask } = await import('../src/executors/runner');
+  const p = store.createProject('document-handoff', 'HTTP attachment review');
+  store.setExecutionPolicy(p.id, false, 1);
+  for (const [materialId, name] of [['source-a', 'a.pdf'], ['source-b', 'b.docx']]) {
+    store.submitMaterial(p.id, materialId, '', { name, buffer: Buffer.from('original input') });
+    store.reviewReceivedMaterial(p.id, materialId, true, '');
+  }
+  await executeOneAgentTask(p.id, 'extract', {
+    id: 'file-request-fixture',
+    async execute() {
+      return {
+        body: 'A newer original is required', limitations: [], materialRequests: [
+          { materialId: 'source-a', reason: '请提供最新版 PDF。' }
+        ]
+      };
+    }
+  });
+  const questionId = store.getProject(p.id).humanRequests![0].id;
+  const oldId = store.getProject(p.id).materials['source-a'].acceptedArtifactId;
+  const form = new FormData();
+  form.append('action', 'answer_human_request');
+  form.append('requestId', questionId);
+  form.append('value', '替换来源为最新版本');
+  form.append('file', new File([Buffer.from('%PDF-revised-fixture')], 'a-v2.pdf', {
+    type: 'application/pdf'
+  }));
+  const received = await actionAPI.POST(
+    new Request('http://localhost/api/v1/projects/' + p.id + '/actions', { method: 'POST', body: form }),
+    { params: Promise.resolve({ id: p.id }) }
+  );
+  assert.equal(received.status, 200, JSON.stringify(await received.json()));
+  const awaiting = store.getProject(p.id);
+  assert.equal(awaiting.steps.extract.state, 'waiting_input');
+  assert.equal(awaiting.humanRequests![0].status, 'awaiting_review');
+  assert.equal(awaiting.materials['source-a'].acceptedArtifactId, oldId);
+  await action(p.id, 'accept_material', { materialId: 'source-a' });
+  const accepted = store.getProject(p.id);
+  assert.equal(accepted.steps.extract.state, 'ready');
+  assert.equal(accepted.humanRequests![0].status, 'answered');
+  assert.equal(accepted.materials['source-a'].state, 'accepted');
+  assert.equal(accepted.materials['source-a'].artifactIds.length, 2);
+  assert.notEqual(accepted.materials['source-a'].acceptedArtifactId, oldId);
+});
+
+test('HTTP replace_material queues a new revision without bypassing source acceptance', async () => {
+  const p = store.createProject('document-handoff', 'HTTP explicit source replacement');
+  store.setExecutionPolicy(p.id, false, 1);
+  store.submitMaterial(p.id, 'source-a', '', {
+    name: 'a-v1.pdf', buffer: Buffer.from('initial')
+  });
+  store.reviewReceivedMaterial(p.id, 'source-a', true, '');
+  const oldAccepted = store.getProject(p.id).materials['source-a'].acceptedArtifactId;
+  const form = new FormData();
+  form.append('action', 'replace_material');
+  form.append('materialId', 'source-a');
+  form.append('file', new File([Buffer.from('new document')], 'a-v2.pdf', {
+    type: 'application/pdf'
+  }));
+  const response = await actionAPI.POST(
+    new Request('http://localhost/api/v1/projects/' + p.id + '/actions', { method: 'POST', body: form }),
+    { params: Promise.resolve({ id: p.id }) }
+  );
+  assert.equal(response.status, 200);
+  assert.equal(store.getProject(p.id).materials['source-a'].state, 'received');
+  assert.equal(store.getProject(p.id).materials['source-a'].acceptedArtifactId, oldAccepted);
+  await action(p.id, 'accept_material', { materialId: 'source-a' });
+  const updated = store.getProject(p.id);
+  assert.equal(updated.materials['source-a'].state, 'accepted');
+  assert.notEqual(updated.materials['source-a'].acceptedArtifactId, oldAccepted);
+});
