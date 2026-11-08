@@ -4,6 +4,12 @@ Status: **Protocol 1.0 runtime implemented as a local development foundation.** 
 Decision: **no backward compatibility with experimental v0.x schemaVersion 2 or 3**. Their source routes and schema validators have been removed; the old `projects.sqlite` database is not migrated.
 **Not yet implemented:** package ZIP import or bundled assets, executable script/skill installation under the new protocol, reliable automatic workers, full material provenance/content verification, dependency invalidation after revisions, GIS/CAD/PDF reading, professional quality control and real DOCX/PDF reports. These sections remain design targets, not claims about the current application.
 
+## Template-defined material handling (design addition, not implemented)
+
+**Human TodoList is the single place for business reviews and decisions**; no independent approval engine should be built. Source recognition, extraction instructions, validation checks and evidence provenance should be **declared by ProjectTemplate / MaterialRequirement** and executed by a chosen capability, Skill or human action. When a check cannot be completed, it should emit a targeted Human WorkItem. Any lower-level Codex sandbox/tool authorization is an execution safety concern, not another project approval queue.
+
+The existing runtime only supports receiving and manually accepting files. It **does not yet parse or professionally validate PDF/DOCX content**. The proposed template policies and concrete examples are in [template-material-processing.md](../template-material-processing.md).
+
 ## 0. Scope and principles
 
 Human Harness is an **operator for real-world projects**, not a chat service and not a template search platform.
