@@ -16,7 +16,7 @@
 
 **Human Harness 是 Parallel-first：人类任务与 Agent 任务按模板依赖图并行推进，而不是由一条主 Agent 会话串行驱动。已授权的 `ready` Agent WorkItem 应由后台调度器自动派发（受并发数、资源和权限约束），人类无需逐项点击启动；Human Todo 可随时独立处理。** 单个 WorkItem 内是否再使用 Codex 的 Subagents 属于另一层优化，不等同项目级并行。参见 [并行架构与验收](parallel-first.md)。
 
-当前项目状态与数据库事务已支持两个互不依赖的任务同时运行，已补回归测试；但**现有工作台仍以全局 `busy` 锁阻止并行交互，`run_agent` 仍阻塞至模型调用结束**。因此这只能算后端基础，不得宣称 V1 并行工作台已完成。
+**当前实现状态更新（2026-11-08）：** GUI 已去除 Human Todo 的项目级阻塞，本地 `LocalScheduler` 默认自动派发独立 Agent 工作项（新项目默认自动、旧项目默认暂停），项目级并发上限持久化且在数据库预约事务中强制执行。仍需实际 Codex 双并行验收、主动取消与跨进程可靠 worker，不将模拟执行当作完整 V1。
 
 将 **P1.1“单个 Codex 任务真实执行”** 与 **P1.2“多个 Codex 工作项并行+Human Todo 不阻塞”** 区分验收。P2 原生插件接入应在 P1.2 后展开。
 
@@ -59,7 +59,7 @@
 
 ### P1 — 真正跑通本地 Codex（第一优先级）
 
-**P1.1 本轮进展（2026-11-08）**：已在 `src/executors/codex.ts` 实现本地 stdio JSON-RPC 调用；`initialize → model/list → thread/start → turn/start → turn/completed`、候选输出 Zod 校验、进程退出/失败/越权审批拒绝、thread/turn ID 持久化、共享 runner 回写，以及带 fixture 的协议测试。提供 `npm run codex:smoke` 作为独立、真正运行本机 Codex 的验收命令。**CI 的协议回归不代表真实 Codex 已登录或模型调用通过。** 目前没有真实 Codex CLI/凭证验收记录，不宣称 P1.1 全部完成。中断恢复仍使用现有人工超时恢复机制，主动取消与页面进度流尚待补齐；P1.2 不提前展开。
+**P1.1 本轮进展（2026-11-08）**：已在 `src/executors/codex.ts` 实现本地 stdio JSON-RPC 调用；`initialize → model/list → thread/start → turn/start → turn/completed`、候选输出 Zod 校验、进程退出/失败/越权审批拒绝、thread/turn ID 持久化、共享 runner 回写，以及带 fixture 的协议测试。提供 `npm run codex:smoke` 作为独立、真正运行本机 Codex 的验收命令。**CI 的协议回归不代表真实 Codex 已登录或模型调用通过。** 目前没有真实 Codex CLI/凭证验收记录，不宣称 P1.1 全部完成。中断恢复仍使用现有人工超时恢复机制，主动取消与页面进度流尚待补齐；已按后续用户确认先开展 P1.2 本地自动调度原型，但真实 Codex 适配验收仍保持待办。
 
 **目的：让 Human Harness 工作台执行一项真实 Codex 任务。**
 
@@ -76,7 +76,7 @@
 
 #### P1.2 — 项目级真实并行与自动派发（P2 之前必须验收）
 
-**不是 Codex 内部子 Agent 并行，而是项目级多 WorkItem 并行。** 现有的 `executeOneAgentTask` 能被多次独立调用，但 GUI 的全局 `busy` 与阻塞式 HTTP 尚不符合这一目标。
+**不是 Codex 内部子 Agent 并行，而是项目级多 WorkItem 并行。** 现有 `LocalScheduler` 已接入自动派发与状态轮询，但只覆盖单机 Node 进程的 MVP，仍保留手动 `run_agent` 旧路径。
 
 - 由后端队列/调度器自动选取已授权的 `ready` Agent 工作项，按照明确并发上限执行多个独立 Codex thread/turn；对同一个 WorkItem 只允许一个 active run。
 - 将启动操作改为快速返回 runId，模型执行生命周期由持久化后端管理，页面刷新/关闭不丢失状态。
