@@ -32,7 +32,7 @@ type Props = {
 function TaskOption({ item, selected, onSelect }: {
   item: WorkbenchItem; selected: boolean; onSelect: (key: string) => void;
 }) {
-  const label = item.kind === 'request' ? (item.state === 'pending' ? '需要答复' : '已答复') :
+  const label = item.kind === 'request' ? ({ pending: '需要答复', awaiting_review: '附件待验收', answered: '已答复' }[item.state] ?? item.state) :
     item.kind === 'material' ? materialStates[item.state] : stepStates[item.state];
   return <button type="button" className={'workbench-item' + (selected ? ' selected' : '')}
     aria-pressed={selected} onClick={() => onSelect(item.key)} key={item.key}>
@@ -56,6 +56,9 @@ export function TaskWorkbench({
   const humanRequest = current?.kind === 'request'
     ? project.humanRequests?.find(request => request.id === current.id) : undefined;
   const currentMaterialState = material ? project.materials[material.id] : undefined;
+  const requestMaterial = humanRequest ? project.package.materials.find(m => m.id === humanRequest.materialId) : undefined;
+  const requestUpload = humanRequest?.attachmentArtifactId ?
+    project.artifacts.find(a => a.id === humanRequest.attachmentArtifactId) : undefined;
   const currentStepState = step ? project.steps[step.id] : undefined;
   const key = current?.id ?? '';
   const disabled = isPending(key);
@@ -123,7 +126,7 @@ export function TaskWorkbench({
             <span className="eyebrow">{material ? 'MATERIAL HANDOFF' :
               step?.kind === 'agent' || step?.kind === 'script' ? 'AGENT WORK ITEM' : 'HUMAN WORK ITEM'}</span>
             <span className={'task-state ' + current.state}>
-              {(current.kind === 'request' ? { pending: '需要答复', answered: '已答复' } :
+              {(current.kind === 'request' ? { pending: '需要答复', awaiting_review: '附件待验收', answered: '已答复' } :
                 material ? materialStates : stepStates)[current.state] ?? current.state}
             </span>
           </div>
@@ -136,15 +139,41 @@ export function TaskWorkbench({
           </div>
           {humanRequest && <section className="inspector-section">
             <h3>Agent 请求补充信息</h3>
-            <p>相关资料：{project.package.materials.find(m => m.id === humanRequest.materialId)?.title ?? humanRequest.materialId}</p>
+            <p>相关资料：{requestMaterial?.title ?? humanRequest.materialId}</p>
             <p>问题：{humanRequest.reason}</p>
-            <p className="muted">请填写实际知道的信息，或明确说明无法取得；本回答会交给原 Agent 继续处理，不会被标记为已核验原件。</p>
-            <label htmlFor={'human-request-' + key}>你的回复</label>
-            <textarea id={'human-request-' + key} rows={5} value={pending}
-              onChange={event => onValue(key, event.target.value)}
-              placeholder="补充信息、来源或无法提供的原因" />
-            <button type="button" className="primary" disabled={disabled || !pending.trim()}
-              onClick={() => onAction('answer_human_request', { requestId: key })}>提交回复并继续 Agent</button>
+            {humanRequest.status === 'pending' && <>
+              <p className="muted">可以填写说明。若提供新的原件，必须先经过资料验收；仅提交文字不会自动改变已核验文件。</p>
+              <label htmlFor={'human-request-' + key}>你的回复／来源说明</label>
+              <textarea id={'human-request-' + key} rows={4} value={pending}
+                onChange={event => onValue(key, event.target.value)}
+                placeholder="补充信息，或说明暂时无法取得" />
+              {requestMaterial?.formats.some(format => format !== 'text/plain') && <>
+                <label htmlFor={'human-request-file-' + key}>补充原始文件（选填，须人工验收）</label>
+                <input id={'human-request-file-' + key} type="file"
+                  accept={requestMaterial.formats.filter(format => format !== 'text/plain').join(',')}
+                  onChange={event => onFile(key, event.target.files?.[0])} />
+                {files[key] && <p className="muted">待提交：{files[key]?.name}</p>}
+              </>}
+              <button type="button" className="primary" disabled={disabled || (!pending.trim() && !files[key])}
+                onClick={() => onAction('answer_human_request', { requestId: key })}>
+                {files[key] ? '提交原件，等待资料验收' : '提交说明并继续 Agent'}
+              </button>
+            </>}
+            {humanRequest.status === 'awaiting_review' && <>
+              <p className="source-revision">已提交：{requestUpload?.name ?? '原始文件'} · v{requestUpload?.revision ?? '?'}，尚未验收。</p>
+              <label htmlFor={'human-request-review-' + key}>资料验收意见（退回时必填）</label>
+              <textarea id={'human-request-review-' + key} rows={3} value={note}
+                onChange={event => onFeedback(key, event.target.value)}
+                placeholder="检查来源与版本；不合格时填写退回原因" />
+              <div className="actions">
+                <button type="button" className="primary" disabled={disabled}
+                  onClick={() => onAction('accept_material', { materialId: humanRequest.materialId })}>
+                  验收原件并继续 Agent
+                </button>
+                <button type="button" disabled={disabled || !note.trim()}
+                  onClick={() => onAction('reject_material', { materialId: humanRequest.materialId })}>退回补充文件</button>
+              </div>
+            </>}
           </section>}
           {material && currentMaterialState && <>
             <section className="inspector-section">
