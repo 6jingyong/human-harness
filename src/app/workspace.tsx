@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { Project, Task } from '@/lib/domain';
 import { blockingDependencies, canStart } from '@/lib/domain';
+import { buildManualTemplateDraft } from '@/lib/manual-template';
 
 type TemplateSummary = { id: string; title: string; description: string; version: number };
 type ProjectSummary = { id: string; title: string; templateId: string; createdAt: string };
@@ -43,6 +44,11 @@ export function Workspace() {
   const [newName, setNewName] = useState('');
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [templateJson, setTemplateJson] = useState(starterManifest);
+  const [authorId, setAuthorId] = useState('my-custom-project');
+  const [authorTitle, setAuthorTitle] = useState('自定义项目');
+  const [authorDescription, setAuthorDescription] = useState('由用户手工配置的项目流程');
+  const [authorInputs, setAuthorInputs] = useState('项目目标与边界\n文件:项目原始资料');
+  const [authorGoal, setAuthorGoal] = useState('根据已收到的资料生成可审核的项目成果');
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<Record<string, File | null>>({});
@@ -86,6 +92,20 @@ export function Workspace() {
     } finally {
       field.value = '';
       setBusy(false);
+    }
+  }
+
+  function generateManualTemplate() {
+    setError(''); setInfo('');
+    try {
+      const template = buildManualTemplateDraft({
+        id: authorId, title: authorTitle, description: authorDescription,
+        initialInputs: authorInputs, agentGoal: authorGoal
+      });
+      setTemplateJson(JSON.stringify(template, null, 2));
+      setInfo('已根据表单生成完整任务模板。你可以继续修改下面的 JSON，再保存。');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -227,8 +247,18 @@ export function Workspace() {
             <section className="editor-screen">
               <span className="eyebrow">MANUAL TEMPLATE STUDIO</span>
               <h1>手动创建或修改项目模板</h1>
-              <p>模板描述初始资料、阶段、人工决策、Agent 任务、内置资源与成果。暂用带校验的 JSON 编辑器；不包含模板搜索或推荐。</p>
-              <textarea aria-label="项目模板 JSON 编辑器" spellCheck={false} className="json-editor" value={templateJson} onChange={event => setTemplateJson(event.target.value)} />
+              <p>先通过表单生成一个可运行的基础流程，再按需在 JSON 中添加人工决策、后续资料、内置资源和脚本。模板不需要搜索服务。</p>
+              <div className="author-grid">
+                <label>模板 ID（英文）<input value={authorId} onChange={e => setAuthorId(e.target.value)} /></label>
+                <label>模板名称<input value={authorTitle} onChange={e => setAuthorTitle(e.target.value)} /></label>
+                <label className="wide">项目描述<input value={authorDescription} onChange={e => setAuthorDescription(e.target.value)} /></label>
+                <label>初始用户资料（每行一项，文件项前缀“文件:”）<textarea rows={4} value={authorInputs} onChange={e => setAuthorInputs(e.target.value)} /></label>
+                <label>Agent 需要执行的任务说明<textarea rows={4} value={authorGoal} onChange={e => setAuthorGoal(e.target.value)} /></label>
+              </div>
+              <button type="button" disabled={busy} onClick={generateManualTemplate}>根据以上内容生成模板草稿</button>
+              <details className="advanced-editor" open>
+                <summary>高级设置：完整项目模板 JSON</summary>
+              <textarea aria-label="项目模板 JSON 编辑器" spellCheck={false} className="json-editor" value={templateJson} onChange={event => setTemplateJson(event.target.value)} /></details>
               <div className="actions"><button type="button" className="primary" disabled={busy} onClick={saveTemplateJson}>校验并保存模板</button><button type="button" disabled={busy} onClick={() => setShowTemplateEditor(false)}>返回项目</button></div>
               <p className="muted">项目创建后会冻结模板版本。可从仓库中的 examples/template.land-investigation-runtime.json 导入真实的分支示例。</p>
             </section>
