@@ -202,7 +202,10 @@ export function holdAgentForHuman(project: ProjectState, stepId: string, runId: 
   if (!requests.length || requests.length > 5 || result.producedArtifacts.length) {
     throw new Error('Human input request must have 1–5 questions and no completed artifact');
   }
-  const declared = new Set(project.package.materials.map(m => m.id));
+  const stepDef = project.package.steps.find(item => item.id === stepId);
+  const declared = new Set([
+    ...(stepDef?.needsMaterials ?? []), ...(stepDef?.requestableMaterialIds ?? [])
+  ]);
   const outstanding = project.humanRequests ?? [];
   const unique = new Set<string>();
   for (const request of requests) {
