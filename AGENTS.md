@@ -41,7 +41,7 @@ Read only the material relevant to the current task. Keep changes focused; avoid
 - Human TodoList must stay actionable while Agent tasks run. Never implement a project-global `busy` as the final interface behavior.
 - Independent WorkItems need independent run IDs / Codex thread-turn mappings, durable progress, input version tracking, and separate success/failure.
 - Same WorkItem must not run duplicate attempts concurrently. Avoid shared writable workspace collisions and late-result overwrites.
-- Existing runtime concurrency is regression-tested, but frontend is still serialized by a global busy flag; complete this in **P1.2**, after P1.1.
+- Local `src/executors/scheduler.ts` now auto-dispatches authorized ready Agent tasks after project API requests; the GUI uses independent Human Todo actions and polling. This is a single-process MVP: do not claim standalone durable workers, live Codex multi-run validation or multi-host scheduling.
 - Codex internal `spawn_agent` multitasking is **not a replacement** for Human Harness project-level parallelism.
 - See `docs/parallel-first.md`.
 
@@ -53,7 +53,7 @@ Read only the material relevant to the current task. Keep changes focused; avoid
 - For code changes, run `npm run typecheck` and relevant tests; run the production build when Next.js routes or build behavior change.
 - Never claim cross-platform compatibility solely because a standard like MCP or Agent Skills is mentioned. Require a recorded real host integration test.
 
-- **Current milestone contract:** `docs/roadmap-codex-v1.md` (P0–P5). Prioritize P1.1 local Codex app-server integration; do not divert into Octop or new PDF/DOCX parsers.
+- **Current milestone contract:** `docs/roadmap-codex-v1.md` (P0–P5). Local P1.2 dispatch/UI prototype has been advanced on user request; actual Codex app-server/Skills validation remains pending. Avoid unrelated Octop or parser work.
 
 ## Ecosystem architecture
 
