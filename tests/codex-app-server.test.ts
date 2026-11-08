@@ -1,6 +1,7 @@
 import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -96,4 +97,91 @@ test('P1.1: runner persists Codex identities; only runner submits candidate for 
   assert.equal(saved?.status, 'review');
   assert.equal(store.latestOutput(store.getProject(p.id), 'draft')?.content, 'Real protocol fixture answer');
   assert.equal(store.getProject(p.id).events.filter(e => e.type === 'executor.turn').length, 1);
+});
+
+const samplePdf = Buffer.from('%PDF-1.7\\n% HH fake PDF for staging only');
+const withPdf: ExecutorTask = {
+  ...task,
+  evidence: [{
+    artifactId: 'uploaded-pdf', revision: 1, role: 'case_evidence',
+    name: 'source.pdf', content: null,
+    originalFile: {
+      bytes: samplePdf, sha256: createHash('sha256').update(samplePdf).digest('hex')
+    }
+  }]
+};
+
+test('document execution is opt-in and cannot silently turn on shell access', async () => {
+  const old = process.env.HH_CODEX_DOCUMENTS;
+  delete process.env.HH_CODEX_DOCUMENTS;
+  try {
+    await assert.rejects(
+      () => runCodexTask(withPdf, { startProcess: start('document'), timeoutMs: 3000 }),
+      /HH_CODEX_DOCUMENTS=1/
+    );
+  } finally {
+    if (old !== undefined) process.env.HH_CODEX_DOCUMENTS = old;
+  }
+});
+
+test('PDF fixture verifies selected Skill path, staged original bytes and no-network sandbox', async () => {
+  const old = process.env.HH_CODEX_DOCUMENTS;
+  process.env.HH_CODEX_DOCUMENTS = '1';
+  try {
+    const events: ExecutorRunEvent[] = [];
+    const output = await runCodexTask(withPdf, {
+      startProcess: cwd => spawn(process.execPath, [fixture, 'document'], { stdio: 'pipe', cwd }),
+      timeoutMs: 3000,
+      onEvent: event => events.push(event)
+    });
+    assert.equal(output.body, 'Real protocol fixture answer');
+    assert.ok(events.some(e => e.kind === 'progress' && e.message.includes('Installed skill discovered')));
+  } finally {
+    if (old === undefined) delete process.env.HH_CODEX_DOCUMENTS;
+    else process.env.HH_CODEX_DOCUMENTS = old;
+  }
+});
+
+test('missing document Skill never produces a candidate', async () => {
+  const old = process.env.HH_CODEX_DOCUMENTS;
+  process.env.HH_CODEX_DOCUMENTS = '1';
+  try {
+    await assert.rejects(
+      () => runCodexTask(withPdf, { startProcess: start('no-skill'), timeoutMs: 3000 }),
+      /Required local Codex Skill not installed/
+    );
+  } finally {
+    if (old === undefined) delete process.env.HH_CODEX_DOCUMENTS;
+    else process.env.HH_CODEX_DOCUMENTS = old;
+  }
+});
+
+test('runner transports only currently accepted original bytes, not storage paths', async () => {
+  const pkg = manualProjectPackage({
+    id: 'codex-accepted-upload-scope', title: '文件读取作用域',
+    description: 'Verify only approved file revisions are passed',
+    inputs: '文件:证据报告', objective: '从授权资料提取信息'
+  });
+  store.importPackage(pkg);
+  const project = store.createProject(pkg.id, 'Accepted binary evidence');
+  store.submitMaterial(project.id, 'input-01', '', {
+    name: 'old.pdf', buffer: Buffer.from('rejected-old-pdf')
+  });
+  store.reviewReceivedMaterial(project.id, 'input-01', false, '旧版不接受');
+  store.submitMaterial(project.id, 'input-01', '', {
+    name: 'new.pdf', buffer: samplePdf
+  });
+  store.reviewReceivedMaterial(project.id, 'input-01', true, '');
+  const adapter: TaskExecutor = {
+    id: 'binary-scope-test',
+    async execute(input) {
+      assert.equal(input.evidence.length, 1);
+      assert.equal(input.evidence[0].name, 'new.pdf');
+      assert.deepEqual(Buffer.from(input.evidence[0].originalFile!.bytes), samplePdf);
+      assert.ok(!('filePath' in input.evidence[0]));
+      return { body: '来源明确的内部候选结果', limitations: [], materialRequests: [] };
+    }
+  };
+  const run = await executeOneAgentTask(project.id, 'draft', adapter);
+  assert.equal(run.project.steps.draft.state, 'review');
 });
