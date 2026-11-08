@@ -1,7 +1,7 @@
 'use client';
 
 import type { ProjectState } from '@/core/runtime';
-import { deriveWorkbenchQueues, type WorkbenchItem } from './workbench-queue';
+import { deriveWorkbenchQueues, groupAgentTasks, type WorkbenchItem } from './workbench-queue';
 
 const stepStates: Record<string, string> = {
   dormant: '未来阶段', blocked: '等待依赖', ready: '可执行', running: '执行中',
@@ -45,6 +45,7 @@ export function TaskWorkbench({
   values, feedback, files, onValue, onFeedback, onFile, isPending
 }: Props) {
   const queues = deriveWorkbenchQueues(project);
+  const agentGroups = groupAgentTasks(project, queues.agent);
   const current = selectedKey ?
     [...queues.human, ...queues.agent].find(item => item.key === selectedKey) : undefined;
   const material = current?.kind === 'material'
@@ -71,29 +72,40 @@ export function TaskWorkbench({
   const policy = project.execution ?? { autoDispatch: false, maxParallel: 2 };
 
   return <section className="todo-home" aria-label="Human Harness 任务工作台">
-    <div className="todo-row" aria-label="人类 TodoList">
-      <div className="todo-row-title">
-        <h2>Human Todo <span>{queues.human.length}</span></h2>
-        <small>你需要处理</small>
-      </div>
-      <div className="todo-row-items">
-        {queues.human.map(item => <TaskOption key={item.key} item={item}
-          selected={current?.key === item.key}
-          onSelect={key => onSelect(selectedKey === key ? '' : key)} />)}
-        {!queues.human.length && <p className="todo-empty">当前无需人工处理</p>}
-      </div>
-    </div>
-    <div className="todo-row" aria-label="Agent TodoList">
-      <div className="todo-row-title">
-        <h2>Agent Todo <span>{queues.agent.length}</span></h2>
-        <small>自动运行与依赖</small>
-      </div>
-      <div className="todo-row-items">
-        {queues.agent.map(item => <TaskOption key={item.key} item={item}
-          selected={current?.key === item.key}
-          onSelect={key => onSelect(selectedKey === key ? '' : key)} />)}
-        {!queues.agent.length && <p className="todo-empty">当前没有等待执行的任务</p>}
-      </div>
+    <div className="todo-columns">
+      <section className="todo-column" aria-label="人类 TodoList">
+        <header className="todo-column-heading"><h2>Human TodoList</h2><small>{queues.human.length} 项待处理</small></header>
+        <div className="todo-vertical-list">
+          {queues.human.map(item => <TaskOption key={item.key} item={item}
+            selected={current?.key === item.key}
+            onSelect={key => onSelect(selectedKey === key ? '' : key)} />)}
+          {!queues.human.length && <p className="todo-empty">当前无需人工处理</p>}
+        </div>
+      </section>
+      <section className="todo-column" aria-label="Agent TodoList">
+        <header className="todo-column-heading"><h2>Agent TodoList</h2><small>{queues.agent.length} 项任务</small></header>
+        <div className="agent-folders">
+          {agentGroups.map(group => <details className="agent-folder" key={group.id} open>
+            <summary><span>{group.title}</span><small>{group.tasks.length}</small></summary>
+            <div className="agent-folder-content">
+              {(['running', 'ready', 'failed', 'blocked'] as const).map(state => {
+                const tasks = group.tasks.filter(item => item.state === state);
+                if (!tasks.length) return null;
+                const label = { running: '运行中', ready: '待执行', failed: '执行失败', blocked: '等待依赖' }[state];
+                return <details className="agent-state-folder" key={state} open={state !== 'blocked'}>
+                  <summary><span>{label}</span><small>{tasks.length}</small></summary>
+                  <div className="todo-vertical-list">
+                    {tasks.map(item => <TaskOption key={item.key} item={item}
+                      selected={current?.key === item.key}
+                      onSelect={key => onSelect(selectedKey === key ? '' : key)} />)}
+                  </div>
+                </details>;
+              })}
+            </div>
+          </details>)}
+          {!agentGroups.length && <p className="todo-empty">当前没有待处理的 Agent 任务</p>}
+        </div>
+      </section>
     </div>
     {current && <div className="todo-detail-wrap">
       <div className="todo-detail-top"><span>任务详情</span>
