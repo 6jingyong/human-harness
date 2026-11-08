@@ -27,6 +27,9 @@ Human Harness is a **project-first human–AI collaboration runtime**, not a cha
 - `docs/interoperability.md`: MCP, Skills, document parsing and compatibility research.
 - `src/protocol/`: validated protocol shapes.
 - `src/core/`: project state and activation rules.
+- `src/executors/contracts.ts`: minimal read-only executor-visible scope and strict candidate schema.
+- `src/executors/runner.ts`: sole owner of task reservation, result validation, and project state commit.
+- `src/executors/demo.ts` and `src/executors/mastra.ts`: current replaceable adapters; **not** authoritative project services.
 - `src/executors/`: execution adapters.
 - `examples/land-investigation.hh.json`: domain workflow regression example.
 
