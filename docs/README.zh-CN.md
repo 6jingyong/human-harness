@@ -2,7 +2,7 @@
 
 **一个以项目为中心、由人类和 AI Agent 共同执行任务的工作台。**
 
-[English README](../README.md) · [Protocol 1.0 协议](protocol/human-harness-1.0.md) · [Codex 参考架构](codex-reference.md) · [插件与跨平台研究](interoperability.md) · [土地污染调查示例](../examples/land-investigation.hh.json)
+[English README](../README.md) · **[Codex 版 V1 开发计划](roadmap-codex-v1.md)** · [Protocol 1.0 协议](protocol/human-harness-1.0.md) · [Codex 参考架构](codex-reference.md) · [插件与跨平台研究](interoperability.md) · [土地污染调查示例](../examples/land-investigation.hh.json)
 
 > **当前定位：本地开发原型。** 已实现基础项目流程、人工审核与演示执行，但并未实现正式 PDF/DOCX 内容解析、跨平台插件部署、真实 GIS 调研或正式行业报告。请勿将软件流程验收等同于专业技术验收。
 
