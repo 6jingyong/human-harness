@@ -66,7 +66,7 @@ test('P1.1: missing local Codex process is explicit and cannot produce a candida
 test('P1.1: tools and template resources are rejected before app-server launch', async () => {
   await assert.rejects(() => runCodexTask({
     ...task, packet: { ...task.packet, toolsAllowed: ['uninstalled.parser'] }
-  }, { startProcess: start('success') }), /text-only/);
+  }, { startProcess: start('success') }), /capability binding/);
 });
 
 const temp = mkdtempSync(join(tmpdir(), 'hh-codex-runtime-test-'));
