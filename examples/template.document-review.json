@@ -1,0 +1,47 @@
+{
+  "id": "document-review",
+  "title": "文档审查项目",
+  "description": "用户提供审查目标和原始文本，Agent 生成问题清单并在人工审核后给出修订建议。",
+  "version": 1,
+  "tasks": [
+    {
+      "id": "objective",
+      "title": "填写审查目标",
+      "description": "说明文档用途、审查目标、适用约束和输出格式。",
+      "owner": "human",
+      "dependsOn": [],
+      "inputKind": "text"
+    },
+    {
+      "id": "source-document",
+      "title": "提交待审查文档",
+      "description": "首版建议提交 TXT、MD 或 JSON，以便 Agent 读取；PDF 暂时仅保存不解析。",
+      "owner": "human",
+      "dependsOn": [],
+      "inputKind": "file"
+    },
+    {
+      "id": "review-findings",
+      "title": "识别文本问题",
+      "description": "形成事实和结构性问题清单，等待人工审查。",
+      "owner": "agent",
+      "dependsOn": [
+        "objective",
+        "source-document"
+      ],
+      "prompt": "根据目标与可读文档内容，分点识别逻辑缺口、证据缺口、表述问题，明确哪些结论没有证据。不要编造引用。",
+      "reviewRequired": true
+    },
+    {
+      "id": "revision-suggestions",
+      "title": "输出修订建议",
+      "description": "按已审查的问题清单给出修订建议。",
+      "owner": "agent",
+      "dependsOn": [
+        "review-findings"
+      ],
+      "prompt": "根据审查通过的问题清单，输出可执行修订建议，附与原文对应的变更说明。没有读取到的段落不要擅自补全。",
+      "reviewRequired": true
+    }
+  ]
+}
