@@ -125,9 +125,10 @@ export function getProject(projectId: string): Project | null {
     const task = tasks.find(t => t.id === m.taskId);
     const taskArtifacts = artifacts.filter(a => a.taskId === m.taskId);
     const status = task?.status === 'not_applicable' ? 'not_applicable'
+      : task?.status === 'skipped' ? 'skipped'
       : task?.status === 'completed' ? 'received'
       : task && canStart(task, tasks) ? 'needed' : 'inactive';
-    return { ...m, status: status as 'not_applicable' | 'received' | 'needed' | 'inactive', artifactIds: taskArtifacts.map(a => a.id) };
+    return { ...m, status: status as 'not_applicable' | 'skipped' | 'received' | 'needed' | 'inactive', artifactIds: taskArtifacts.map(a => a.id) };
   }) ?? [];
   return {
     id: String(r.id), title: String(r.title), templateId: String(r.template_id),
