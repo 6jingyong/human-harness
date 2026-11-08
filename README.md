@@ -47,7 +47,7 @@ A future material requirement may be recorded on day one but remains outside the
 | Project execution | Persisted tasks, conditional branches, decisions, external milestones | General dynamic task creation; upstream change invalidation |
 | Human–AI collaboration | Human TodoList, Agent task queue, approve/reject/retry | Multi-user identity, permissions, secure public hosting |
 | Materials | Save files and text; request/receive/accept/reject; track versions | Robust PDF/DOCX/CAD parsing, content-level professional verification |
-| Agent executor | Demo/Mastra and text-only Codex app-server adapter (protocol CI tested) | Real Codex model smoke test; plugins; automated background workers |
+| Agent executor | Demo/Mastra, protocol-tested Codex adapter; local bounded auto-dispatch | Real Codex model smoke test; production worker/lease recovery; extended plugins |
 | Outputs | Reviewed Markdown/JSON downloads | Production DOCX/PDF compilation and publication |
 | Integration | Internal typed TaskPacket/TaskResult contracts | MCP client/server, portable Agent Skills, host-platform adapters |
 
@@ -164,7 +164,7 @@ This demonstrates how templates could specify recognition → field extraction �
 
 Human Harness is not a single root-agent conversation that serially drives a project. The **project dependency graph** makes independent Human Todo items and Agent WorkItems actionable at the same time. Policy-authorized ready Agent tasks should **auto-dispatch concurrently within resource/permission limits**, while Human Todo stays independently actionable; the user should not have to click Run for every Agent task. Codex may independently use subagents *inside* an individual run, but that is a different level of parallelism.
 
-**Current status:** the deterministic project core and shared runner support independent concurrent runs (covered by a controlled regression test), but the existing UI still has a global `busy` and blocking HTTP model calls. **True asynchronous multi-run UI is planned for P1.2**, after the first real Codex call. See [parallel-first contract](docs/parallel-first.md).
+**Current status (local prototype):** project-level auto-dispatch now runs eligible independent Agent WorkItems in the background with a per-project cap (default 2), and Human Todo actions are no longer blocked by another task's model call. Run state is persisted; the GUI polls every 2 seconds and offers pause/resume. **Limitations:** the worker is an in-process Node service started by web requests, not a standalone durable worker or multi-process queue; crash recovery is still explicit and real concurrent Codex runs are unverified. See [parallel-first contract](docs/parallel-first.md).
 
 ## One project core, more than one possible ecosystem
 
