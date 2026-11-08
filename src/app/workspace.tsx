@@ -180,6 +180,13 @@ export function Workspace() {
                 <div><span className="eyebrow">PROJECT / {project.templateId} v{project.templateVersion}</span><h1>{project.title}</h1></div>
                 <div className="stats"><div><b>{humans.filter(t => t.status === 'pending' || t.status === 'review').length}</b><span>用户待办</span></div><div><b>{readyAgents.length}</b><span>可执行 Agent</span></div><div><b>{project.artifacts.length}</b><span>成果与素材</span></div></div>
               </div>
+              {project.template?.schemaVersion === 2 && (
+                <section className="package-summary" aria-label="项目模板内置资源与交付契约">
+                  <div><strong>项目流程</strong><p>{project.template.workflow?.stages.map(s => s.title).join(' → ')}</p></div>
+                  <div><strong>内置资源与自动化</strong><p>{project.template.resources?.map(r => r.title).join(' · ') || '无'}</p></div>
+                  <div><strong>最终交付要求</strong><p>{project.template.deliverables?.map(d => d.fileName + '（' + d.format + '）').join(' · ') || '未规定'}</p></div>
+                </section>
+              )}
               <div className="columns">
                 <section className="panel">
                   <div className="panel-header"><div><span className="eyebrow">01 / HUMAN</span><h2>用户 TodoList</h2><p>提供素材、提交判断、审核 AI 结果。</p></div></div>
@@ -189,7 +196,7 @@ export function Workspace() {
                       const blockers = blockingDependencies(task, project.tasks);
                       const result = latestResult(task.id);
                       return <article className="task-card" key={task.id}>
-                        <div className="task-top"><span className="task-id">{task.id}</span>{badge(task)}</div>
+                        <div className="task-top"><span className="task-id">{task.stageId ? task.stageId + " / " : ""}{task.id}</span>{badge(task)}</div>
                         <h3>{task.title}</h3><p>{task.description}</p>
                         {blockers.length > 0 && task.status === 'pending' && <div className="blocked-by">等待：{blockers.join('、')}</div>}
                         {task.owner === 'human' && ready && (
