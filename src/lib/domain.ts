@@ -1,6 +1,10 @@
 export type Owner = 'human' | 'agent';
-export type Status = 'pending' | 'running' | 'review' | 'completed' | 'failed' | 'skipped';
-export type InputKind = 'text' | 'file' | 'either';
+export type Status = 'inactive' | 'not_applicable' | 'pending' | 'running' | 'review' | 'completed' | 'failed' | 'skipped';
+export type InputKind = 'text' | 'file' | 'either' | 'choice';
+export type DecisionChoice = { value: string; label: string };
+export type ActivationRule = { gateTaskId: string; equals: string };
+export type MaterialRequirement = { id: string; title: string; taskId: string; producer: 'human' | 'external_institution'; required?: boolean; note?: string };
+export type MaterialState = MaterialRequirement & { status: 'inactive' | 'needed' | 'accepted' | 'not_applicable'; artifactIds: string[] };
 
 export type TaskDefinition = {
   id: string;
@@ -15,6 +19,8 @@ export type TaskDefinition = {
   stageId?: string;
   resourceRefs?: string[];
   execution?: TaskExecution;
+  choices?: DecisionChoice[];
+  activateWhen?: ActivationRule;
 };
 
 // A project template is an executable package manifest, not merely a task list.
@@ -45,7 +51,8 @@ export type ProjectTemplate = {
   title: string;
   description: string;
   version: number;
-  schemaVersion?: 2;
+  schemaVersion?: 2 | 3;
+  materials?: MaterialRequirement[];
   workflow?: { stages: StageDefinition[] };
   resources?: TemplateResource[];
   deliverables?: DeliverableDefinition[];
@@ -75,6 +82,8 @@ export type Project = {
   templateVersion: number;
   createdAt: string;
   template?: ProjectTemplate;
+  decisions?: Record<string, string>;
+  materials?: MaterialState[];
   tasks: Task[];
   artifacts: Artifact[];
   events: { id: string; taskId: string | null; action: string; detail: string; createdAt: string }[];
@@ -90,7 +99,7 @@ export function validateTemplate(t: ProjectTemplate): void {
     if (task.owner === 'agent' && !task.prompt) throw new Error('Agent task is missing its prompt');
     for (const dep of task.dependsOn) if (!byId.has(dep) || dep === task.id) throw new Error('Invalid dependency: ' + dep);
   }
-  if (t.schemaVersion === 2 && (!t.workflow || !t.resources || !t.deliverables)) {
+  if ((t.schemaVersion === 2 || t.schemaVersion === 3) && (!t.workflow || !t.resources || !t.deliverables)) {
     throw new Error('v2 template requires workflow, resources and deliverables');
   }
   const stages = t.workflow?.stages ?? [];
@@ -109,7 +118,7 @@ export function validateTemplate(t: ProjectTemplate): void {
     }
   }
   for (const task of t.tasks) {
-    if (t.schemaVersion === 2 && (!task.stageId || !stageIds.has(task.stageId))) {
+    if ((t.schemaVersion === 2 || t.schemaVersion === 3) && (!task.stageId || !stageIds.has(task.stageId))) {
       throw new Error('v2 task requires a known workflow stage: ' + task.id);
     }
     if (task.stageId && !stageIds.has(task.stageId)) throw new Error('Unknown workflow stage');
@@ -141,8 +150,32 @@ export function validateTemplate(t: ProjectTemplate): void {
     const ext = output.format === 'markdown' ? '.md' : output.format === 'json' ? '.json' : '.txt';
     if (!output.fileName.endsWith(ext)) throw new Error('Deliverable filename extension must match format');
   }
-  if (t.schemaVersion === 2 && !outputs.length) throw new Error('v2 template needs at least one deliverable');
+  if ((t.schemaVersion === 2 || t.schemaVersion === 3) && !outputs.length) throw new Error('v2/v3 template needs at least one deliverable');
 
+  if (t.schemaVersion === 3) {
+    if (!t.materials) throw new Error('v3 template requires materials list');
+    const materialIds = new Set(t.materials.map(m => m.id));
+    if (materialIds.size !== t.materials.length) throw new Error('Duplicate material IDs');
+    for (const m of t.materials) {
+      if (!m.id || !m.title || !m.taskId) throw new Error('Invalid material requirement');
+      if (byId.get(m.taskId)?.owner !== 'human') throw new Error('Material must be produced by a human task');
+    }
+    for (const task of t.tasks) {
+      if (task.inputKind === 'choice') {
+        if (task.owner !== 'human' || !task.choices || task.choices.length < 2) throw new Error('Choice gate must belong to human and have 2+ options');
+        if (new Set(task.choices.map(choice => choice.value)).size !== task.choices.length) throw new Error('Duplicate choice values');
+      } else if (task.choices) throw new Error('Choices are only allowed on choice tasks');
+      if (task.activateWhen) {
+        const gate = byId.get(task.activateWhen.gateTaskId);
+        if (!gate || gate.inputKind !== 'choice' || !gate.choices?.some(c => c.value === task.activateWhen!.equals)) {
+          throw new Error('Activation must reference an existing choice gate and option');
+        }
+        if (!task.dependsOn.includes(gate.id)) throw new Error('Conditional task must depend on its decision gate');
+      }
+    }
+  } else if (t.materials?.length || t.tasks.some(task => task.activateWhen || task.inputKind === 'choice')) {
+    throw new Error('Material requirements and conditional choices require schemaVersion 3');
+  }
   const visited = new Set<string>();
   const visiting = new Set<string>();
   const dfs = (id: string) => {
