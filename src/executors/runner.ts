@@ -1,4 +1,6 @@
 import { freshId } from '../core/runtime';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { getProject, getTaskPacket, markAgentFailed, recordExecutorEvent, startAgent, succeedAgent } from '../core/store';
 import { taskResultSchema } from '../protocol/v1';
 import { executorOutputSchema, type ExecutorTask, type TaskExecutor } from './contracts';
@@ -25,15 +27,29 @@ function prepareTask(projectId: string, stepId: string, runId: string): Executor
   const step = project.package.steps.find(item => item.id === stepId);
   if (!step) throw new Error('Agent step disappeared from its pinned project package');
 
+  let totalOriginalBytes = 0;
   const evidence = packet.readableInputs.map(ref => {
     const artifact = project.artifacts.find(a => a.id === ref.artifactId && a.revision === ref.revision);
     if (!artifact) throw new Error('Authorized artifact was not found at expected revision');
+    // Only the exact accepted revision in the scoped packet can be exposed.
+    // Do not pass private paths to any executor or stage a rejected revision.
+    const bytes = artifact.filePath ? readFileSync(artifact.filePath) : undefined;
+    if (bytes) {
+      totalOriginalBytes += bytes.byteLength;
+      if (bytes.byteLength > 12 * 1024 * 1024 || totalOriginalBytes > 32 * 1024 * 1024) {
+        throw new Error('Authorized original files exceed the per-task 32 MB limit');
+      }
+    }
     return {
       artifactId: artifact.id,
       revision: artifact.revision,
       role: ref.role,
       name: artifact.name,
-      content: artifact.content
+      content: artifact.content,
+      ...(bytes ? { originalFile: {
+        bytes,
+        sha256: createHash('sha256').update(bytes).digest('hex')
+      } } : {})
     };
   });
   const reviewFeedback = project.events
