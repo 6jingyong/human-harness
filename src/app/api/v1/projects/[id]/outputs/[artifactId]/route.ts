@@ -11,7 +11,10 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
     if (!artifact) return Response.json({ error: 'Artifact not found' }, { status: 404 });
     const step = project.package.steps.find(s => s.id === artifact.ownerId);
     const contract = project.package.outputs.find(o => o.id === step?.outputContractId);
-    if (!contract || project.steps[artifact.ownerId]?.state !== 'done') {
+    const mostRecent = project.artifacts.filter(a =>
+      a.kind === 'agent_output' && a.ownerId === artifact.ownerId).at(-1);
+    if (!contract || project.steps[artifact.ownerId]?.state !== 'done' ||
+        mostRecent?.id !== artifact.id || artifact.invalidatedAt) {
       return Response.json({ error: 'Only reviewed deliverables can be exported' }, { status: 409 });
     }
     if (!['markdown', 'json'].includes(contract.format) || typeof artifact.content !== 'string') {
