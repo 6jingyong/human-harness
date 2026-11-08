@@ -30,8 +30,7 @@ const digest = (value: unknown) => 'sha256:' + createHash('sha256').update(JSON.
 const asError = (e: unknown) => e instanceof Error ? e : new Error(String(e));
 
 export function listPackages() {
-  const custom = db.prepare('SELECT id, version, definition FROM packages ORDER BY created_at DESC').all()
-    as Array<{ id: string; version: string; definition: string }>;
+  const custom = db.prepare('SELECT id, version, definition FROM packages ORDER BY created_at DESC').all() as Array<{ id: string; version: string; definition: string }>;
   const selected = new Map<string, HumanHarnessPackage>();
   selected.set(builtinPackage.id, builtinPackage);
   for (const row of custom) {
@@ -83,8 +82,7 @@ export function inspectReadiness(pkg: HumanHarnessPackage): { errors: string[] }
 }
 
 export function listProjects() {
-  return db.prepare('SELECT id, title, package_id, package_version, created_at FROM projects ORDER BY created_at DESC').all()
-    as Array<{ id: string; title: string; package_id: string; package_version: string; created_at: string }>;
+  return db.prepare('SELECT id, title, package_id, package_version, created_at FROM projects ORDER BY created_at DESC').all() as Array<{ id: string; title: string; package_id: string; package_version: string; created_at: string }>;
 }
 
 function loadProject(id: string): ProjectState {
