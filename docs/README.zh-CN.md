@@ -140,6 +140,16 @@ tests/               流程与结构化协议回归测试
 
 **这不是正式 PDF/DOCX 读取功能，也没有启动 Codex。** 实验只验证固定表头的合成表格，后续仍需扫描件、复杂表格及真实布局的系统测试。
 
+## 共用项目内核，未来可有 Codex / Octop 两种生态配置
+
+Human Harness 主要利用 **Codex 本地的 Agent、Skill、Plugin、MCP 生态**，不必继承 Codex Cloud、云端多人协作等在线产品特性。通过在线模型 API 执行任务仍可能需要网络，但这不等于依赖 Codex 云端产品。
+
+未来中国生态版可以优先评估腾讯云开源的 **Octop / Octop Harness**：它已有国内模型与飞书、钉钉、微信、企业微信、腾讯文档等连接器，以及独立的插件和 Skills 机制。
+
+**两者应共享同一套 Human Harness 项目模板、素材处理方法、项目状态和用户 TodoList**；不同的仅是执行器、可用插件、宿主权限及连接器。不把 Codex 插件格式和 Octop 插件格式假定为直接兼容，也不立即维护两套 fork。
+
+[两种生态发行方案与边界](ecosystem-distributions.md)。**目前两种适配器都尚未接入，代码仍使用 Mastra 演示执行器。**
+
 ## 优先原生复用 Codex 插件，不再自行开发通用解析器
 
 **下一步不开发自己的 PDF/DOCX 读取器。** Human Harness 只给出「当前项目需要提取哪些字段、核验什么、出现问题如何生成用户 Todo」，由 Codex 直接调用环境中已经安装、启用和可执行的 Plugin / Skill / MCP 工具。缺少能力时优先通过 Codex 原生机制安装/连接；只有确有缺口才研发新工具。
