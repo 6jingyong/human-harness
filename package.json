@@ -12,7 +12,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
-    "codex:smoke": "tsx scripts/codex-smoke.ts"
+    "codex:smoke": "tsx scripts/codex-smoke.ts",
+    "test:browser": "playwright test"
   },
   "dependencies": {
     "@mastra/core": "1.82.0",
@@ -28,6 +29,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "typescript": "^5.9.0",
-    "tsx": "^4.20.0"
+    "tsx": "^4.20.0",
+    "@playwright/test": "1.56.1"
   }
 }
