@@ -130,6 +130,16 @@ tests/               流程与结构化协议回归测试
 
 当前代码依旧使用 Mastra；**尚未接入 Codex SDK 或 app-server**。我们先理解并验证接口，不因选定参考对象就马上替换已经可运行的代码。
 
+## 新增：可复现的 PDF/DOCX 素材方法实验
+
+我们没有先开发通用插件，而是制作了**两份明确标注为合成测试资料、但是真正 PDF/DOCX 格式的文件**，用现成解析库读取原始表格，然后按 [方法声明](../experiments/document-methods/methods.json) 做字段完整性和跨文件一致性验证。结果确实找到 **S-002 点位冲突**和 **S-003 单位缺失**，并输出两条带原始位置的 Human Todo 建议。
+
+- [运行实验](../experiments/document-methods/README.md)
+- [测试结果与局限](document-methods-experiment.md)
+- [Codex 可发现的演示 Skill](../.agents/skills/document-evidence-demo/SKILL.md)
+
+**这不是正式 PDF/DOCX 读取功能，也没有启动 Codex。** 实验只验证固定表头的合成表格，后续仍需扫描件、复杂表格及真实布局的系统测试。
+
 ## 我们接下来怎样学习成熟 Agent / 插件？
 
 **不复制整个成熟框架，而是优先复用它已经解决的问题。**
