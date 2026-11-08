@@ -57,22 +57,22 @@ We are **designing** interoperability with MCP and Agent Skills; they are **not 
 
 Requirements: Node.js **22.19 recommended** (the package declares Node >=22.13), npm, and a computer with persistent local storage.
 
-**The implementation is currently in an open pull request, not yet on \`main\`.** Until it is merged, check out the development branch:
+**The implementation is currently in an open pull request, not yet on `main`.** Until it is merged, check out the development branch:
 
-\`\`\`bash
+```bash
 git clone https://github.com/6jingyong/human-harness.git
 cd human-harness
 git switch feat/project-first-foundation
 npm install
 cp .env.example .env.local
 npm run dev
-\`\`\`
+```
 
-On Windows, use PowerShell \`Copy-Item .env.example .env.local\` instead of \`cp\` if needed. Visit **http://localhost:3000**.
+On Windows, use PowerShell `Copy-Item .env.example .env.local` instead of `cp` if needed. Visit **http://localhost:3000**.
 
-The default \`HH_EXECUTOR=demo\` calls **no model or outside service**. The generated text is clearly marked as simulated, so it tests the workflow rather than actual research quality.
+The default `HH_EXECUTOR=demo` calls **no model or outside service**. The generated text is clearly marked as simulated, so it tests the workflow rather than actual research quality.
 
-For real Mastra calls, set \`HH_EXECUTOR=mastra\`, choose an **available model identifier** in \`HH_MODEL\`, and configure the relevant provider credentials. Actual API access and model availability have not been smoke-tested in this repository.
+For real Mastra calls, set `HH_EXECUTOR=mastra`, choose an **available model identifier** in `HH_MODEL`, and configure the relevant provider credentials. Actual API access and model availability have not been smoke-tested in this repository.
 
 ### Walk through the built-in example
 
@@ -90,7 +90,7 @@ The example's institutional work and professional approvals must be performed by
 
 ## How it works
 
-\`\`\`mermaid
+```mermaid
 flowchart TD
   A["Manually authored Project Package"] --> B["Project instance + pinned version"]
   B --> C["Deterministic project runtime"]
@@ -103,13 +103,13 @@ flowchart TD
   H --> I["Runtime validation and human review"]
   I --> C
   C --> J["Approved deliverable"]
-\`\`\`
+```
 
 The canonical internal protocol uses:
 
-- **\`hh.package/1\`** — project template: stages, material requirements, work steps, decisions, capabilities and output contracts.
-- **\`hh.task/1\`** — scoped job given to an executor, referencing only authorized evidence and tools.
-- **\`hh.result/1\`** — typed proposals and candidate artifacts; an agent cannot directly commit authoritative decisions or completed state.
+- **`hh.package/1`** — project template: stages, material requirements, work steps, decisions, capabilities and output contracts.
+- **`hh.task/1`** — scoped job given to an executor, referencing only authorized evidence and tools.
+- **`hh.result/1`** — typed proposals and candidate artifacts; an agent cannot directly commit authoritative decisions or completed state.
 
 A **MaterialRequirement** expresses *what must eventually exist*. A **WorkItem** expresses *who can do what now*. A **MaterialArtifact** expresses *what actually arrived*. These must remain separate.
 
@@ -117,7 +117,7 @@ The project runtime is responsible for state transitions. Mastra is an adapter f
 
 ### Source layout
 
-\`\`\`text
+```text
 src/
   protocol/        Canonical package / task / result validators
   core/            Workflow activation, decisions, evidence review, SQLite store
@@ -126,9 +126,9 @@ src/
 examples/          Runnable project package
 docs/              Protocol, domain blueprint, interoperability research
 tests/             Protocol and project-lifecycle regression tests
-\`\`\`
+```
 
-All state is local: \`.human-harness/protocol-v1.sqlite\` and \`.human-harness/uploads/\`. These files are git-ignored. Older experimental \`projects.sqlite\` data is not migrated or overwritten; back it up before any manual cleanup.
+All state is local: `.human-harness/protocol-v1.sqlite` and `.human-harness/uploads/`. These files are git-ignored. Older experimental `projects.sqlite` data is not migrated or overwritten; back it up before any manual cleanup.
 
 ## Plugin and platform direction
 
@@ -138,7 +138,7 @@ The proposed separation is:
 
 - **Core capability**: a headless reader, parser, document generator, GIS operation, etc., with explicit inputs, outputs, provenance and error contracts.
 - **MCP adapter**: expose those callable capabilities over appropriate local or remote MCP transports for compatible agent hosts.
-- **Agent Skill**: bundle portable workflow instructions, references and optional scripts in a \`SKILL.md\` package.
+- **Agent Skill**: bundle portable workflow instructions, references and optional scripts in a `SKILL.md` package.
 - **Host-specific adapters**: optional setup/configuration for ChatGPT, Claude Code, Codex, Gemini CLI, Cursor and other supported hosts.
 - **Human Harness adapter**: use the same capability inside a project, where evidence approval and timing are controlled by the project runtime.
 
@@ -148,11 +148,11 @@ The first planned interoperability case is **document reading**: PDF and DOCX �
 
 ## Development, safety and contribution
 
-\`\`\`bash
+```bash
 npm run typecheck
 npm test
 npm run build
-\`\`\`
+```
 
 Pull requests and reproducible bug reports are welcome. Particularly useful contributions include portable document-read adapters, sample document fixtures with permission to redistribute, protocol validation cases, and workflow examples with clear acceptance rules.
 
