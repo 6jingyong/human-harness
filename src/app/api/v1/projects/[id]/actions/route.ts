@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import {
-  completeHuman, recoverAbandonedAgent, retryFailedAgent, reviewAgentOutput, reviewReceivedMaterial,
+  answerRequestedInput, completeHuman, recoverAbandonedAgent, retryFailedAgent, reviewAgentOutput, reviewReceivedMaterial,
   RuntimeError, submitMaterial, setExecutionPolicy
 } from '@/core/store';
 import { ensureLocalScheduler } from '@/executors/scheduler';
@@ -18,7 +18,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const value = String(form.get('value') ?? '');
     const feedback = String(form.get('feedback') ?? '');
     let project;
-    if (action === 'complete_human') {
+    if (action === 'answer_human_request') {
+      project = answerRequestedInput(id, String(form.get('requestId') ?? ''), value);
+    } else if (action === 'complete_human') {
       project = completeHuman(id, stepId, value);
     } else if (action === 'submit_material') {
       const candidate = form.get('file');
