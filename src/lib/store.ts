@@ -4,7 +4,9 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { basename, extname, join, resolve } from 'node:path';
 import type { Artifact, Project, Task } from './domain';
 import { canStart, nextReadyAgentTask } from './domain';
-import { templateById } from './templates';
+import { templates } from './templates';
+import { parseTemplate } from './template-import';
+import type { ProjectTemplate } from './domain';
 
 export class DomainError extends Error {}
 
@@ -20,6 +22,7 @@ db.exec([
   'CREATE TABLE IF NOT EXISTS tasks (project_id TEXT NOT NULL REFERENCES projects(id), task_id TEXT NOT NULL, ordinal INTEGER NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, owner TEXT NOT NULL, status TEXT NOT NULL, optional INTEGER NOT NULL, review_required INTEGER NOT NULL, input_kind TEXT, prompt TEXT, depends_on TEXT NOT NULL, PRIMARY KEY (project_id, task_id))',
   'CREATE TABLE IF NOT EXISTS artifacts (id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), task_id TEXT NOT NULL, kind TEXT NOT NULL, name TEXT NOT NULL, content TEXT, file_path TEXT, created_at TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), task_id TEXT, action TEXT NOT NULL, detail TEXT NOT NULL, created_at TEXT NOT NULL)',
+  'CREATE TABLE IF NOT EXISTS custom_templates (id TEXT NOT NULL, version INTEGER NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, definition TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (id, version))',
   'CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id, ordinal)',
   'CREATE INDEX IF NOT EXISTS idx_artifacts_project ON artifacts(project_id, created_at)',
   'CREATE INDEX IF NOT EXISTS idx_events_project ON events(project_id, created_at)'
@@ -40,8 +43,40 @@ export function listProjects(): Array<{id: string; title: string; templateId: st
   }));
 }
 
+type TemplateSummary = { id: string; title: string; description: string; version: number };
+
+export function listTemplateSummaries(): TemplateSummary[] {
+  const builtin = templates.map(t => ({ id: t.id, title: t.title, description: t.description, version: t.version }));
+  const custom = rows('SELECT id, title, description, MAX(version) AS version FROM custom_templates GROUP BY id ORDER BY id')
+    .map(r => ({ id: String(r.id), title: String(r.title), description: String(r.description), version: Number(r.version) }));
+  return [...builtin, ...custom];
+}
+
+export function addTemplate(raw: unknown): TemplateSummary {
+  const template = parseTemplate(raw);
+  if (templates.some(t => t.id === template.id)) throw new DomainError('Template ID belongs to a built-in template');
+  db.transaction(() => {
+    const latest = db.prepare('SELECT MAX(version) AS version FROM custom_templates WHERE id = ?').get(template.id) as { version: number | null };
+    if (latest.version !== null && template.version <= Number(latest.version)) {
+      throw new DomainError('Template version must be greater than existing version');
+    }
+    db.prepare('INSERT INTO custom_templates VALUES (?, ?, ?, ?, ?, ?)').run(
+      template.id, template.version, template.title, template.description, JSON.stringify(template), now());
+  })();
+  return { id: template.id, title: template.title, description: template.description, version: template.version };
+}
+
+function findTemplate(templateId: string): ProjectTemplate {
+  const builtin = templates.find(t => t.id === templateId);
+  if (builtin) return builtin;
+  const row = db.prepare('SELECT definition FROM custom_templates WHERE id = ? ORDER BY version DESC LIMIT 1')
+    .get(templateId) as { definition: string } | undefined;
+  if (!row) throw new DomainError('Unknown template');
+  return parseTemplate(JSON.parse(row.definition));
+}
+
 export function createProject(templateId: string, rawTitle: string): Project {
-  const template = templateById(templateId);
+  const template = findTemplate(templateId);
   const title = rawTitle.trim();
   if (!title || title.length > 120) throw new DomainError('Project title must be 1–120 characters');
   const projectId = id();
