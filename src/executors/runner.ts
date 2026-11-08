@@ -153,6 +153,9 @@ export async function executeOneAgentTask(projectId: string, requestedStepId?: s
       }
     }
     if (response.materialRequests.length) {
+      if (task.workMethod?.onMissing === 'record_limitation') {
+        throw new Error('Pinned template method requires recording limitations instead of asking Human');
+      }
       const distinct = new Set<string>();
       for (const request of response.materialRequests) {
         if (!task.requestableMaterials?.some(m => m.id === request.materialId) ||
