@@ -6,6 +6,7 @@ import builtin from '../../examples/land-investigation.hh.json';
 import documentHandoff from '../../examples/document-handoff.hh.json';
 import { packageSchema, taskPacketSchema, taskResultSchema, type HumanHarnessPackage, type HumanHarnessTaskResult } from '../protocol/v1';
 import type { SemanticNote } from '../protocol/semantics';
+import type { MethodCheckResult } from '../executors/contracts';
 import {
   answerHumanRequest, applyHumanStep, attachHumanRequestArtifact, createTaskPacket, expireAbandonedRun, failAgent, finishAgent, freshId, holdAgentForHuman, newProject, now, receiveMaterial,
   reconcile, recordEvent, reserveAgent, retryAgent, reviewAgent, reviewMaterial,
@@ -275,7 +276,7 @@ export function recordExecutorEvent(id: string, stepId: string, runId: string,
 }
 
 export function succeedAgent(id: string, stepId: string, runId: string, rawResult: unknown, output: string,
-  semanticNotes: readonly SemanticNote[] = []) {
+  semanticNotes: readonly SemanticNote[] = [], methodChecks: readonly MethodCheckResult[] = []) {
   const result = taskResultSchema.parse(rawResult);
   if (!output.trim() || output.length > 120000) throw new RuntimeError('Agent returned empty or oversized output');
   return mutate(id, p => {
@@ -293,7 +294,8 @@ export function succeedAgent(id: string, stepId: string, runId: string, rawResul
       ownerId: stepId,
       revision: p.artifacts.filter(a => a.ownerId === stepId && a.kind === 'agent_output').length + 1,
       createdAt: now(),
-      ...(semanticNotes.length ? { semanticNotes: [...semanticNotes] } : {})
+      ...(semanticNotes.length ? { semanticNotes: [...semanticNotes] } : {}),
+      ...(methodChecks.length ? { methodChecks: [...methodChecks] } : {})
     };
     finishAgent(p, stepId, runId, result, artifact);
   }).project;
