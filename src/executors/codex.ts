@@ -112,6 +112,7 @@ export type CodexLaunchOptions = {
   /** Inject an actual stdio process for protocol tests; never used to simulate a model result in production. */
   startProcess?: (workspace: string) => ChildProcessWithoutNullStreams;
   timeoutMs?: number;
+  signal?: AbortSignal;
   onEvent?: (event: ExecutorRunEvent) => void;
 };
 
@@ -124,6 +125,7 @@ function parseOutput(text: string): ExecutorOutput {
 }
 
 export async function runCodexTask(task: ExecutorTask, options: CodexLaunchOptions = {}): Promise<ExecutorOutput> {
+  if (options.signal?.aborted) throw new Error('Agent run was cancelled before launch');
   if (task.packet.toolsAllowed.length || task.packet.templateResources.length) {
     throw new Error('Codex plugin/tool capability binding is not supported yet');
   }
@@ -144,6 +146,12 @@ export async function runCodexTask(task: ExecutorTask, options: CodexLaunchOptio
       env: codexEnvironment()
     })))(workspace);
   const client = new AppServerClient(child);
+  const onAbort = () => {
+    client.fail(new Error('Agent run cancelled by human operator'));
+    client.close(); // terminate the owned local Codex subprocess, not just its candidate.
+  };
+  options.signal?.addEventListener('abort', onAbort, { once: true });
+  if (options.signal?.aborted) onAbort();
   const requestedTimeout = options.timeoutMs ?? Number(process.env.HH_CODEX_TIMEOUT_MS || 600000);
   const timeoutMs = Number.isFinite(requestedTimeout) ? Math.min(1800000, Math.max(3000, requestedTimeout)) : 600000;
   let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -279,6 +287,7 @@ export async function runCodexTask(task: ExecutorTask, options: CodexLaunchOptio
     return response;
   } finally {
     if (timeout) clearTimeout(timeout);
+    options.signal?.removeEventListener('abort', onAbort);
     client.close();
     rmSync(workspace, { recursive: true, force: true });
   }
@@ -286,5 +295,5 @@ export async function runCodexTask(task: ExecutorTask, options: CodexLaunchOptio
 
 export const codexExecutor: TaskExecutor = {
   id: 'codex',
-  execute: (task, onEvent) => runCodexTask(task, { onEvent })
+  execute: (task, onEvent, signal) => runCodexTask(task, { onEvent, signal })
 };
