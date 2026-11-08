@@ -1,0 +1,98 @@
+'use client';
+
+import type { ProjectState } from '@/core/runtime';
+
+const materialStates: Record<string, string> = {
+  requested: '等待提供', received: '待审核', accepted: '已接受', rejected: '退回补充',
+  expected: '未来可能需要', dormant: '尚未启动', not_applicable: '不适用'
+};
+
+/**
+ * File/semantic workspace is intentionally separate from the two-row Todo home.
+ * Original file, template intent and reviewed Agent interpretation are distinct.
+ */
+export function ProjectMaterialLibrary({ project, onBack }: {
+  project: ProjectState; onBack: () => void;
+}) {
+  return <section className="library-page" aria-label="项目资料管理">
+    <header className="library-heading">
+      <button type="button" onClick={onBack}>← 返回 Todo</button>
+      <div><span className="eyebrow">PROJECT LIBRARY</span><h1>项目资料</h1>
+        <p>原件、模板对资料的要求和 Agent 的语义说明分别保存，不混为一份信息。</p></div>
+    </header>
+    <div className="library-meta">
+      <div><strong>项目</strong><span>{project.title}</span></div>
+      <div><strong>模板</strong><span>{project.package.title} · {project.templateVersion}</span></div>
+      <div><strong>资料数</strong><span>{project.artifacts.filter(a => a.kind === 'material').length}</span></div>
+    </div>
+    <div className="library-items">
+      {project.package.materials.map(def => {
+        const state = project.materials[def.id];
+        const versions = project.artifacts
+          .filter(a => a.kind === 'material' && a.ownerId === def.id)
+          .sort((a, b) => b.revision - a.revision);
+        const linkedSteps = project.package.steps.filter(step =>
+          step.needsMaterials.includes(def.id));
+        const interpretations = linkedSteps.flatMap(step =>
+          project.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === step.id)
+            .sort((a, b) => b.revision - a.revision).map(artifact => ({
+              step, artifact, verified: project.steps[step.id]?.state === 'done'
+            }))
+        );
+        return <article className="library-material" key={def.id}>
+          <header><div><h2>{def.title}</h2><small>{def.id}</small></div>
+            <span className="task-state">{materialStates[state?.state] ?? '未知'}</span></header>
+          <div className="library-section">
+            <h3>原始资料</h3>
+            {versions.map(artifact => <div className="library-file" key={artifact.id}>
+              <div><strong>{artifact.name}</strong><small>版本 {artifact.revision} · {artifact.createdAt.slice(0, 10)}
+                {state.artifactIds.at(-1) === artifact.id && state.state === 'accepted'
+                  ? ' · 当前接受版本' : ''}</small></div>
+              {artifact.content && <details><summary>查看文字内容或上传说明</summary>
+                <pre className="result">{artifact.content}</pre></details>}
+              {artifact.name !== '用户文本说明' && <a href={'/api/v1/projects/' +
+                encodeURIComponent(project.id) + '/materials/' + encodeURIComponent(artifact.id)}>
+                保存原件
+              </a>}
+            </div>)}
+            {!versions.length && <p className="muted">尚无资料文件。通过 Human Todo 按需提交。</p>}
+          </div>
+          <div className="library-section">
+            <h3>套用项目模板后的资料说明</h3>
+            <p>{def.description}</p>
+            {def.acceptance.length > 0 && <p className="muted">验收要求：{def.acceptance.join('；')}</p>}
+            {linkedSteps.map(step => <details className="template-analysis" key={step.id}>
+              <summary>{step.title} · {project.steps[step.id]?.state ?? '未知状态'}</summary>
+              <p>{step.instructions}</p>
+            </details>)}
+            {!linkedSteps.length && <p className="muted">模板暂未为该资料定义后续 Agent 处理步骤。</p>}
+          </div>
+          <div className="library-section semantic-section">
+            <h3>Agent 语义说明</h3>
+            {interpretations.map(({ step, artifact, verified }) =>
+              <details className="semantic-result" key={artifact.id}>
+                <summary>{step.title} · v{artifact.revision}
+                  <span>{verified ? '已审核' : '候选／未审核'}</span></summary>
+                <p className="semantic-provenance">
+                  本说明关联此资料，是因为项目模板将其列为该 Agent 任务的输入。
+                  {verified ? ' 该任务已通过人工审核。' : ' 尚不能视为最终结论。'}
+                </p>
+                <pre className="result">{artifact.content}</pre>
+              </details>)}
+            {!interpretations.length && <p className="muted">
+              暂无 Agent 处理后的语义说明。原件上传并不会自动生成可信的内容理解；
+              等相关 Agent 完成处理后，才会在此显示其候选结果。
+            </p>}
+          </div>
+        </article>;
+      })}
+    </div>
+    <details className="library-events">
+      <summary>项目操作记录（{project.events.length}）</summary>
+      {project.events.slice(-30).reverse().map(event => <div key={event.id}>
+        <time>{event.createdAt.slice(0, 19).replace('T', ' ')}</time>
+        <strong>{event.type}</strong><span>{event.subject}</span>
+      </div>)}
+    </details>
+  </section>;
+}
