@@ -168,6 +168,8 @@ test('human cancellation invalidates run, rejects late model output and requires
   assert.equal(before.steps.a.state, 'running');
   const runId = before.steps.a.runId;
   assert.ok(runId);
+  // Prevent the independent sibling from starting while we isolate cancellation.
+  store.setExecutionPolicy(id, false, 1);
   const after = scheduler.cancel(id, 'a');
   assert.equal(after.steps.a.state, 'failed');
   assert.equal(after.runs.find(run => run.id === runId)?.status, 'failed');
