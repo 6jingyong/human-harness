@@ -91,7 +91,7 @@ Human Harness has a persistent GUI and long-running tasks. The official Codex ap
 
 **Current decision:** first use installed Codex Plugins/Skills/MCP tools. Human Harness should read Codex's real plugin/skill availability at task runtime and delegate extraction, instead of designing and maintaining a separate generic PDF/DOCX backend. The earlier headless-parser proposal is a fallback only if actual available plugins cannot satisfy the task. See [native plugin strategy](codex-native-plugins.md).
 
-## PDF/DOCX: follow the Codex extension philosophy
+## PDF/DOCX: start with existing native Codex Plugins
 
 Codex is not itself a guarantee that arbitrary PDFs and DOCX files will be parsed safely and faithfully in every host.
 
@@ -111,7 +111,7 @@ document.read (one headless capability)
 - **Human Harness:** decides when a project needs the evidence and whether the resulting artifact is accepted.
 - **Host adapters:** configuration, credentials, sandbox permissions and supported file transport for Codex, ChatGPT, Claude, Gemini CLI, Cursor, etc.
 
-Start by evaluating a read-only PDF/DOCX capability (e.g. Docling as a **candidate**, not selected). Keep the original binary, page/structural anchors, table coordinates, extractor version, warnings and parse-status. **No** assumption that Markdown conversion constitutes professional verification.
+Start by discovering **already installed Codex document Plugins/Skills/MCP tools**. Evaluate the returned evidence against the project's expected fields, source anchors, and unresolved issues. Only when actual plugin capability is missing should we consider a new parser (such as Docling). **No** assumption that Markdown conversion constitutes professional verification.
 
 ## Principles borrowed from Codex worth keeping in our small repo
 
@@ -129,7 +129,7 @@ Start by evaluating a read-only PDF/DOCX capability (e.g. Docling as a **candida
 - No template discovery/marketplace.
 - No rewrite of Codex's Rust internals into TypeScript.
 - No automatic assumption that a ChatGPT plugin works in other hosts unchanged.
-- No installed PDF/DOCX plugin until a small read-only, traced, reproducible benchmark passes.
+- No custom PDF/DOCX plugin by default; consume already installed Codex capabilities and verify returned results before claiming support.
 - No unconditional migration from Mastra until a real Codex SDK/app-server smoke test proves the chosen integration.
 
 ## Narrow next learning sequence
@@ -140,6 +140,6 @@ Start by evaluating a read-only PDF/DOCX capability (e.g. Docling as a **candida
 
 **C. One approval/interrupt test.** Trigger an operation requiring consent in a disposable sandbox, then approve/deny and verify no project state corruption.
 
-**D. Only then document.read.** Evaluate PDF/DOCX extraction against source-traceable fixtures; distribute the same headless capability through MCP + Skill with host-specific testing.
+**D. Use an existing document Plugin or Skill.** Select a real installed Codex capability and test one scoped document task with template-defined output checks. Develop an independent parser only if necessary.
 
 This document is **research**, not a claim that these adapters exist today.
