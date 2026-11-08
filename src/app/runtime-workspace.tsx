@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ProjectState, RuntimeMaterial, RuntimeArtifact, RuntimeStep } from '@/core/runtime';
 import type { HumanHarnessPackage } from '@/protocol/v1';
 import { manualProjectPackage } from '@/protocol/manual';
@@ -46,6 +46,9 @@ export function RuntimeWorkspace() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [focusedHandoff, setFocusedHandoff] = useState('');
+  const [pendingActions, setPendingActions] = useState<Record<string, boolean>>({});
+  const pendingKeys = useRef(new Set<string>());
+  const projectRequestSequence = useRef(0);
 
   async function refreshIndex() {
     const data = await parseResponse(await fetch('/api/v1/projects', { cache: 'no-store' }));
@@ -53,12 +56,25 @@ export function RuntimeWorkspace() {
     setProjects(data.projects);
     setExecutor(data.executor);
   }
-  async function openProject(id: string) {
+  async function openProject(id: string, silent = false) {
+    const request = ++projectRequestSequence.current;
     const data = await parseResponse(await fetch('/api/v1/projects/' + encodeURIComponent(id), { cache: 'no-store' }));
+    if (request !== projectRequestSequence.current) return;
     setProject(withoutPaths(data.project));
-    setMode('project');
+    if (!silent) setMode('project');
   }
   useEffect(() => { refreshIndex().catch(e => setError(e.message)); }, []);
+  // Server owns active Codex turns. Refreshing the page does not interrupt them.
+  useEffect(() => {
+    if (!project?.id || mode !== 'project') return;
+    const projectId = project.id;
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void openProject(projectId, true).catch(() => { /* preserve current view until reconnect */ });
+      }
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [project?.id, mode]);
 
   async function create(event: React.FormEvent) {
     event.preventDefault();
@@ -69,7 +85,8 @@ export function RuntimeWorkspace() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ packageId, title: name })
       }));
-      setProject(data.project); setMode('project'); setName('');
+      projectRequestSequence.current++;
+      setProject(withoutPaths(data.project)); setMode('project'); setName('');
       await refreshIndex();
       setNotice('项目已创建。请先完成当前显示的用户资料任务。');
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
@@ -128,32 +145,55 @@ export function RuntimeWorkspace() {
     setNotice('已载入本地模板。请检查内容并保存。');
   }
 
-  async function action(type: string, extra: { stepId?: string; materialId?: string } = {}) {
+  async function action(
+    type: string,
+    extra: { stepId?: string; materialId?: string; autoDispatch?: boolean; maxParallel?: number } = {}
+  ) {
     if (!project || busy) return;
-    setBusy(true); setError(''); setNotice('');
-    const key = extra.stepId || extra.materialId || '';
+    const projectId = project.id;
+    const key = extra.stepId || extra.materialId || 'execution-policy';
+    const scopedKey = projectId + ':' + key;
+    // Serialize only operations on the same WorkItem, not the entire project.
+    if (pendingKeys.current.has(scopedKey)) return;
+    pendingKeys.current.add(scopedKey);
+    setPendingActions(old => ({ ...old, [scopedKey]: true }));
+    setError(''); setNotice('');
     const data = new FormData();
     data.append('action', type);
     if (extra.stepId) data.append('stepId', extra.stepId);
     if (extra.materialId) data.append('materialId', extra.materialId);
+    if (type === 'set_execution_policy') {
+      data.append('autoDispatch', String(extra.autoDispatch));
+      data.append('maxParallel', String(extra.maxParallel));
+    }
     data.append('value', values[key] || '');
     data.append('feedback', feedback[key] || '');
     if (files[key]) data.append('file', files[key]!);
     try {
-      const result = await parseResponse(await fetch('/api/v1/projects/' + encodeURIComponent(project.id) + '/actions', {
+      await parseResponse(await fetch('/api/v1/projects/' + encodeURIComponent(projectId) + '/actions', {
         method: 'POST', body: data
       }));
-      setProject(withoutPaths(result.project));
       if (['complete_human', 'submit_material'].includes(type)) {
         setValues(old => ({ ...old, [key]: '' }));
         setFiles(old => ({ ...old, [key]: undefined }));
       }
-      setNotice(type === 'run_agent' ? 'Agent 已执行一项任务，结果等待人工审核。' : '状态已保存，并重新检查后续任务依赖。');
+      await openProject(projectId, true);
+      setNotice(type === 'run_agent'
+        ? '本次 Agent 任务已执行，候选成果交由 Human Todo 审核。'
+        : type === 'set_execution_policy'
+          ? '项目自动派发设置已保存。已运行的任务不受暂停影响。'
+          : '任务已保存；符合依赖的其他 Agent 工作可自动开始。');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-      // Agent can fail after reservation; refresh the persisted failure state.
-      try { await openProject(project.id); } catch { /* original error takes precedence */ }
-    } finally { setBusy(false); }
+      try { await openProject(projectId, true); } catch { /* preserve original error */ }
+    } finally {
+      pendingKeys.current.delete(scopedKey);
+      setPendingActions(old => {
+        const next = { ...old };
+        delete next[scopedKey];
+        return next;
+      });
+    }
   }
 
   const readyMaterials = project?.package.materials.filter(m => ['requested', 'received', 'rejected'].includes(project.materials[m.id].state)) ?? [];
@@ -164,6 +204,9 @@ export function RuntimeWorkspace() {
   const agentReviews = project?.package.steps.filter(s => ['agent', 'script'].includes(s.kind) && project.steps[s.id].state === 'review') ?? [];
   const humanCount = readyHumanSteps.length + readyMaterials.length + agentReviews.length;
   const agentReady = agentSteps.filter(s => project?.steps[s.id].state === 'ready');
+  const agentRunning = agentSteps.filter(s => project?.steps[s.id].state === 'running').length;
+  const policy = project?.execution ?? { autoDispatch: false, maxParallel: 2 };
+  const isPending = (key: string) => busy || Boolean(pendingActions[(project?.id ?? '') + ':' + key]);
   const outputFor = (stepId: string) => project?.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === stepId).at(-1);
 
   type Handoff = {
@@ -266,13 +309,36 @@ export function RuntimeWorkspace() {
           <div className="project-header">
             <div><span className="eyebrow">{project.templateId} / {project.templateVersion}</span><h1>{project.title}</h1></div>
             <div className="stats"><div><b>{humanCount}</b><span>当前用户任务</span></div>
-              <div><b>{agentReady.length}</b><span>Agent 可执行</span></div>
+              <div><b>{agentRunning}</b><span>Agent 执行中</span></div>
+              <div><b>{agentReady.length}</b><span>Agent 等待派发</span></div>
               <div><b>{project.artifacts.length}</b><span>已归档成果</span></div></div>
           </div>
           <section className="package-summary">
             <div><strong>执行阶段</strong><p>{project.package.stages.map(s => s.title).join(' → ')}</p></div>
             <div><strong>模板版本</strong><p>{project.templateVersion} · {project.packageDigest.slice(0, 20)}…</p></div>
             <div><strong>最终交付（按分支）</strong><p>{project.package.outputs.map(o => o.fileName).join(' · ')}</p></div>
+          </section>
+          <section className="execution-toolbar" aria-label="Agent 自动派发设置">
+            <div><span className="eyebrow">PROJECT DISPATCH</span>
+              <strong>{policy.autoDispatch ? '自动派发已开启' : '自动派发已暂停'}</strong>
+              <p>按照任务依赖独立执行。暂停只阻止新任务，运行中的任务继续，人工 Todo 始终可用。</p>
+            </div>
+            <div className="execution-controls">
+              <label>项目并发数
+                <select aria-label="项目 Agent 最大并发数" value={policy.maxParallel}
+                  disabled={isPending('execution-policy')}
+                  onChange={e => action('set_execution_policy', {
+                    autoDispatch: policy.autoDispatch, maxParallel: Number(e.target.value)
+                  })}>
+                  {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </label>
+              <button type="button" className={policy.autoDispatch ? '' : 'primary'}
+                disabled={isPending('execution-policy')}
+                onClick={() => action('set_execution_policy', {
+                  autoDispatch: !policy.autoDispatch, maxParallel: policy.maxParallel
+                })}>{policy.autoDispatch ? '暂停自动派发' : '恢复自动派发'}</button>
+            </div>
           </section>
           <section className="handoff-board" aria-label="人机协作任务交接">
             <div className="handoff-header">
@@ -354,13 +420,13 @@ export function RuntimeWorkspace() {
                     {state.state === 'received' ? <>
                       <p>已收到：{state.artifactIds.map(id => project.artifacts.find(a => a.id === id)?.name).join('、')}。须由用户核实真实来源与要求，不能仅凭上传即视为合格。</p>
                       <textarea aria-label={m.title + '审核备注'} placeholder="退回时请说明原因" value={feedback[key] || ''} onChange={e => setFeedback(f => ({ ...f, [key]: e.target.value }))} />
-                      <div className="actions"><button type="button" className="primary" disabled={busy} onClick={() => action('accept_material', { materialId: key })}>确认资料可接受</button>
-                        <button type="button" disabled={busy || !(feedback[key] || '').trim()} onClick={() => action('reject_material', { materialId: key })}>退回补充</button></div>
+                      <div className="actions"><button type="button" className="primary" disabled={isPending(key)} onClick={() => action('accept_material', { materialId: key })}>确认资料可接受</button>
+                        <button type="button" disabled={isPending(key) || !(feedback[key] || '').trim()} onClick={() => action('reject_material', { materialId: key })}>退回补充</button></div>
                     </> : <>
                       {m.formats.includes('text/plain') && <textarea aria-label={m.title} rows={3}
                         value={values[key] || ''} onChange={e => setValues(v => ({ ...v, [key]: e.target.value }))} placeholder="输入资料或来源说明" />}
                       {m.formats.some(format => format !== 'text/plain') && <input type="file" accept={m.formats.filter(format => format !== 'text/plain').join(',')} aria-label={m.title + '文件'} onChange={e => setFiles(v => ({ ...v, [key]: e.target.files?.[0] }))} />}
-                      <button type="button" className="primary" disabled={busy} onClick={() => action('submit_material', { materialId: key })}>提交资料</button>
+                      <button type="button" className="primary" disabled={isPending(key)} onClick={() => action('submit_material', { materialId: key })}>提交资料</button>
                       {state.state === 'rejected' && <p className="error-text">该资料已退回，请重新提交。</p>}
                     </>}
                   </article>;
@@ -372,7 +438,7 @@ export function RuntimeWorkspace() {
                     <option value="">请选择决策结果</option>{s.options?.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
                   </select> : <textarea rows={3} aria-label={s.title + '确认说明'} value={values[s.id] || ''}
                     onChange={e => setValues(v => ({ ...v, [s.id]: e.target.value }))} placeholder="填写真实完成情况与依据" />}
-                  <button type="button" className="primary" disabled={busy || !(values[s.id] || '').trim()}
+                  <button type="button" className="primary" disabled={isPending(s.id) || !(values[s.id] || '').trim()}
                     onClick={() => action('complete_human', { stepId: s.id })}>确认并推进流程</button>
                 </article>)}
                 {agentReviews.map(s => {
@@ -382,8 +448,8 @@ export function RuntimeWorkspace() {
                     <h3>{s.title}</h3>{output && <pre className="result">{output.content}</pre>}
                     <textarea aria-label={s.title + '审核说明'} value={feedback[s.id] || ''}
                       onChange={e => setFeedback(f => ({ ...f, [s.id]: e.target.value }))} placeholder="退回原因或审核备注" />
-                    <div className="actions"><button className="primary" type="button" disabled={busy} onClick={() => action('approve_agent', { stepId: s.id })}>批准结果</button>
-                      <button type="button" disabled={busy || !(feedback[s.id] || '').trim()} onClick={() => action('reject_agent', { stepId: s.id })}>退回重做</button></div>
+                    <div className="actions"><button className="primary" type="button" disabled={isPending(s.id)} onClick={() => action('approve_agent', { stepId: s.id })}>批准结果</button>
+                      <button type="button" disabled={isPending(s.id) || !(feedback[s.id] || '').trim()} onClick={() => action('reject_agent', { stepId: s.id })}>退回重做</button></div>
                   </article>;
                 })}
               </div>
@@ -398,9 +464,21 @@ export function RuntimeWorkspace() {
                     <div className="task-top"><span className="task-id">{s.stageId} / {s.id}</span>
                       <span className={'badge ' + status.state}>{workLabels[status.state]}</span></div>
                     <h3>{s.title}</h3><p>{s.instructions}</p>
-                    {status.state === 'ready' && <button type="button" className="primary" disabled={busy} onClick={() => action('run_agent', { stepId: s.id })}>运行此 Agent 任务</button>}
-                    {status.state === 'failed' && <button type="button" disabled={busy} onClick={() => action('retry_agent', { stepId: s.id })}>重新允许执行</button>}
-                    {status.state === 'running' && <button type="button" disabled={busy} onClick={() => action('recover_agent', { stepId: s.id })}>恢复超时任务（运行超过15分钟）</button>}
+                    {status.state === 'ready' && (policy.autoDispatch
+                      ? <p className="dispatch-hint">已进入自动调度队列，满足并发上限时开始执行。</p>
+                      : <button type="button" className="primary" disabled={isPending(s.id)}
+                          onClick={() => action('run_agent', { stepId: s.id })}>手动执行一次</button>)}
+                    {status.state === 'failed' && <button type="button" disabled={isPending(s.id)}
+                      onClick={() => action('retry_agent', { stepId: s.id })}>重新允许执行</button>}
+                    {status.state === 'running' && <>
+                      <p className="dispatch-hint">后台执行中，人工任务仍可提交；刷新页面不会取消本次任务。</p>
+                      {project.runs.filter(run => run.stepId === s.id).slice(-1).map(run =>
+                        <p className="run-detail" key={run.id}>Run {run.id.slice(0, 8)} ·
+                          {run.codexTurnId ? ' Codex turn ' + run.codexTurnId : ' 等待执行器事件'}
+                          {run.lastExecutorEvent ? ' · ' + run.lastExecutorEvent : ''}</p>)}
+                      <button type="button" disabled={isPending(s.id)}
+                        onClick={() => action('recover_agent', { stepId: s.id })}>恢复已超时任务（超过15分钟且人工确认）</button>
+                    </>}
                     {versions.map((a, index) => <details className="output" key={a.id} open={index === 0 && status.state === 'review'}>
                       <summary>候选成果 v{a.revision} · {a.name}</summary>
                       {index === 0 && status.state === 'done' && s.outputContractId && <a className="file-download" href={'/api/v1/projects/' + encodeURIComponent(project.id) + '/outputs/' + encodeURIComponent(a.id)}>下载审核通过的成果</a>}
