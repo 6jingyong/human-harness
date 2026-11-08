@@ -48,6 +48,7 @@ createInterface({ input: process.stdin }).on('line', line => {
       return;
     }
     send({ id: msg.id, result: { turn: { id: 'turn-fixture' } } });
+    if (mode === 'stalled') return; // intentionally hold the turn until host cancels
     if (mode === 'disconnect') { process.exit(7); return; }
     if (mode === 'approval') {
       send({ id: 9001, method: 'item/commandExecution/requestApproval', params: { threadId: 'thread-fixture', turnId: 'turn-fixture' } });
