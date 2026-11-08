@@ -168,7 +168,7 @@ export function RuntimeWorkspace() {
   return <div className="app">
     <header className="topbar">
       <div className="brand"><span className="brand-mark">H/H</span><span>Human Harness<small>项目运行 · Protocol 1.0</small></span></div>
-      <div className="head-info"><span className="tiny-label">Executor</span><b>{executor === 'demo' ? 'Demo（不调用模型）' : 'Mastra（真实模型）'}</b></div>
+      <div className="head-info"><span className="tiny-label">Executor</span><b>{executor === 'demo' ? 'Demo（不调用模型）' : executor === 'codex' ? 'Codex（本机 app-server）' : 'Mastra（真实模型）'}</b></div>
     </header>
     <div className="shell">
       <aside className="sidebar">
