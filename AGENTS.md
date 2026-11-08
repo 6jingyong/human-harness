@@ -21,6 +21,9 @@ Human Harness is a **project-first human–AI collaboration runtime**, not a cha
 - `docs/codex-reference.md`: primary external harness reference and study plan.
 - `docs/codex-app-server-study.md`: exact app-server lifecycle, Skills discovery, permission approvals and proposed TaskPacket mapping. Do not treat it as an already-implemented adapter.
 - `docs/protocol/human-harness-1.0.md`: project/executor contract.
+- `docs/document-methods-experiment.md`: actually executed synthetic PDF/DOCX experiment, measured results and limitations.
+- `experiments/document-methods/`: standalone method declaration, fixture generator and read-only parser experiment.
+- `.agents/skills/document-evidence-demo/SKILL.md`: optional Codex-discoverable demo instructions; NOT a production document capability.
 - `docs/interoperability.md`: MCP, Skills, document parsing and compatibility research.
 - `src/protocol/`: validated protocol shapes.
 - `src/core/`: project state and activation rules.
