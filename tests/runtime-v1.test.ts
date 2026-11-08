@@ -134,3 +134,19 @@ test('LLM results cannot directly mutate the work ledger', () => {
   assert.equal(store.getProject(p.id).decisions['stage1-route'], undefined);
   assert.equal(packageSchema.safeParse({ ...pkg, schemaVersion: 3 }).success, false);
 });
+
+
+test('expired Agent execution needs an explicit recovery action and can be retried', async () => {
+  const { expireAbandonedRun, retryAgent } = await import('../src/core/runtime');
+  const p = store.createProject('land-investigation', 'Recovery example');
+  provideInput(p.id);
+  const reserved = store.startAgent(p.id, 'inventory');
+  assert.equal(reserved.project.steps.inventory.state, 'running');
+  assert.throws(() => expireAbandonedRun(reserved.project, 'inventory'), /15-minute/);
+  reserved.project.steps.inventory.startedAt = '2020-01-01T00:00:00.000Z';
+  expireAbandonedRun(reserved.project, 'inventory', Date.parse('2026-01-01T00:00:00.000Z'));
+  assert.equal(reserved.project.steps.inventory.state, 'failed');
+  assert.equal(reserved.project.runs.at(-1)?.status, 'failed');
+  retryAgent(reserved.project, 'inventory');
+  assert.equal(reserved.project.steps.inventory.state, 'ready');
+});
