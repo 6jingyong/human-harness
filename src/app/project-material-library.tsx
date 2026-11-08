@@ -36,14 +36,14 @@ export function ProjectMaterialLibrary({ project, onBack }: {
         const interpretations = linkedSteps.flatMap(step =>
           project.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === step.id)
             .sort((a, b) => b.revision - a.revision).map((artifact, index) => ({
-              step, artifact, verified: index === 0 && project.steps[step.id]?.state === 'done'
+              step, artifact, verified: index === 0 && !artifact.invalidatedAt && project.steps[step.id]?.state === 'done'
             }))
         );
         const structured = interpretations.flatMap(({ step, artifact, verified }) =>
           (artifact.semanticNotes ?? []).filter(note => note.materialId === def.id)
             .map(note => ({ step, artifact, verified, note }))
         );
-        const acceptedSourceId = state?.state === 'accepted' ? state.artifactIds.at(-1) : undefined;
+        const acceptedSourceId = state?.acceptedArtifactId ?? (state?.state === 'accepted' ? state.artifactIds.at(-1) : undefined);
         return <article className="library-material" key={def.id}>
           <header><div><h2>{def.title}</h2><small>{def.id}</small></div>
             <span className="task-state">{materialStates[state?.state] ?? '未知'}</span></header>
@@ -51,7 +51,7 @@ export function ProjectMaterialLibrary({ project, onBack }: {
             <h3>原始资料</h3>
             {versions.map(artifact => <div className="library-file" key={artifact.id}>
               <div><strong>{artifact.name}</strong><small>版本 {artifact.revision} · {artifact.createdAt.slice(0, 10)}
-                {state.artifactIds.at(-1) === artifact.id && state.state === 'accepted'
+                {acceptedSourceId === artifact.id && state.state === 'accepted'
                   ? ' · 当前接受版本' : ''}</small></div>
               {artifact.content && <details><summary>查看文字内容或上传说明</summary>
                 <pre className="result">{artifact.content}</pre></details>}
