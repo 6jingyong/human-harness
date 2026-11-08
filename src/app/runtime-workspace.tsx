@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { ProjectState, RuntimeMaterial, RuntimeArtifact, RuntimeStep } from '@/core/runtime';
+import type { ProjectState } from '@/core/runtime';
+import { deriveWorkbenchQueues } from './workbench-queue';
+import { TaskWorkbench } from './task-workbench';
 import type { HumanHarnessPackage } from '@/protocol/v1';
 import { manualProjectPackage } from '@/protocol/manual';
 
@@ -61,7 +63,7 @@ export function RuntimeWorkspace() {
     const data = await parseResponse(await fetch('/api/v1/projects/' + encodeURIComponent(id), { cache: 'no-store' }));
     if (request !== projectRequestSequence.current) return;
     setProject(withoutPaths(data.project));
-    if (!silent) setMode('project');
+    if (!silent) { setMode('project'); setFocusedHandoff(''); }
   }
   useEffect(() => { refreshIndex().catch(e => setError(e.message)); }, []);
   // Server owns active Codex turns. Refreshing the page does not interrupt them.
@@ -86,7 +88,7 @@ export function RuntimeWorkspace() {
         body: JSON.stringify({ packageId, title: name })
       }));
       projectRequestSequence.current++;
-      setProject(withoutPaths(data.project)); setMode('project'); setName('');
+      setProject(withoutPaths(data.project)); setFocusedHandoff(''); setMode('project'); setName('');
       await refreshIndex();
       setNotice('项目已创建。请先完成当前显示的用户资料任务。');
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
@@ -196,53 +198,16 @@ export function RuntimeWorkspace() {
     }
   }
 
-  const readyMaterials = project?.package.materials.filter(m => ['requested', 'received', 'rejected'].includes(project.materials[m.id].state)) ?? [];
-  const futureMaterials = project?.package.materials.filter(m => ['dormant', 'expected', 'not_applicable'].includes(project.materials[m.id].state)) ?? [];
-  const readyHumanSteps = project?.package.steps.filter(s =>
-    ['human_action', 'human_decision', 'external_milestone'].includes(s.kind) && project.steps[s.id].state === 'ready') ?? [];
-  const agentSteps = project?.package.steps.filter(s => ['agent', 'script'].includes(s.kind) && project.steps[s.id].state !== 'not_applicable') ?? [];
-  const agentReviews = project?.package.steps.filter(s => ['agent', 'script'].includes(s.kind) && project.steps[s.id].state === 'review') ?? [];
-  const humanCount = readyHumanSteps.length + readyMaterials.length + agentReviews.length;
-  const agentReady = agentSteps.filter(s => project?.steps[s.id].state === 'ready');
-  const agentRunning = agentSteps.filter(s => project?.steps[s.id].state === 'running').length;
+  const queues = project ? deriveWorkbenchQueues(project) : null;
+  const humanCount = queues?.human.length ?? 0;
+  const agentReady = project?.package.steps.filter(s =>
+    ['agent', 'script'].includes(s.kind) && project.steps[s.id].state === 'ready') ?? [];
+  const agentRunning = project?.package.steps.filter(s =>
+    ['agent', 'script'].includes(s.kind) && project.steps[s.id].state === 'running').length ?? 0;
+  const futureMaterials = project?.package.materials.filter(m =>
+    ['dormant', 'expected', 'not_applicable'].includes(project.materials[m.id].state)) ?? [];
   const policy = project?.execution ?? { autoDispatch: false, maxParallel: 2 };
   const isPending = (key: string) => busy || Boolean(pendingActions[(project?.id ?? '') + ':' + key]);
-  const outputFor = (stepId: string) => project?.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === stepId).at(-1);
-
-  type Handoff = {
-    key: string; title: string; status: string; target: string;
-    stepId?: string; materialId?: string;
-  };
-  const humanHandoffs: Handoff[] = [
-    ...readyMaterials.map(m => ({
-      key: 'material-' + m.id, title: m.title,
-      status: materialLabels[project!.materials[m.id].state],
-      target: 'hh-material-' + m.id, materialId: m.id
-    })),
-    ...readyHumanSteps.map(s => ({
-      key: 'human-' + s.id, title: s.title, status: '待执行',
-      target: 'hh-human-' + s.id, stepId: s.id
-    })),
-    ...agentReviews.map(s => ({
-      key: 'review-' + s.id, title: s.title, status: '待审阅',
-      target: 'hh-review-' + s.id, stepId: s.id
-    }))
-  ];
-  const agentHandoffs: Handoff[] = agentSteps
-    .filter(s => ['ready', 'running', 'failed'].includes(project!.steps[s.id].state))
-    .map(s => ({
-      key: 'agent-' + s.id, title: s.title,
-      status: workLabels[project!.steps[s.id].state],
-      target: 'hh-agent-' + s.id, stepId: s.id
-    }));
-  const allHandoffs = [...humanHandoffs, ...agentHandoffs];
-  const currentHandoff = allHandoffs.find(h => h.key === focusedHandoff) ?? allHandoffs[0];
-  const currentStep = currentHandoff?.stepId
-    ? project?.package.steps.find(s => s.id === currentHandoff.stepId) : undefined;
-  const currentMaterial = currentHandoff?.materialId
-    ? project?.package.materials.find(m => m.id === currentHandoff.materialId) : undefined;
-  const currentRun = currentStep
-    ? project?.runs.filter(run => run.stepId === currentStep.id).at(-1) : undefined;
 
   return <div className="app">
     <header className="topbar">
@@ -340,155 +305,15 @@ export function RuntimeWorkspace() {
                 })}>{policy.autoDispatch ? '暂停自动派发' : '恢复自动派发'}</button>
             </div>
           </section>
-          <section className="handoff-board" aria-label="人机协作任务交接">
-            <div className="handoff-header">
-              <div><span className="eyebrow">LIVE HANDOFF</span><h2>当前交接工作台</h2>
-                <p>同一项目任务图的两种执行者视图。点击任务查看依赖与验收，再定位到原有 Todo 操作。</p></div>
-              <button type="button" onClick={() => openProject(project.id).catch(e => setError(e.message))}>
-                ↻ 刷新状态
-              </button>
-            </div>
-            <div className="handoff-grid">
-              <div className="handoff-lane">
-                <h3>人类 · 需要你处理 <span>{humanHandoffs.length}</span></h3>
-                {humanHandoffs.length ? humanHandoffs.map(item =>
-                  <button type="button" key={item.key} className={'handoff-link ' + (currentHandoff?.key === item.key ? 'selected' : '')}
-                    aria-pressed={currentHandoff?.key === item.key} onClick={() => setFocusedHandoff(item.key)}>
-                    <strong>{item.title}</strong><small>{item.status}</small>
-                  </button>) : <p className="muted">目前没有需要人工处理的任务。</p>}
-              </div>
-              <div className="handoff-lane">
-                <h3>Agent · 可执行与运行中 <span>{agentHandoffs.length}</span></h3>
-                {agentHandoffs.length ? agentHandoffs.map(item =>
-                  <button type="button" key={item.key} className={'handoff-link ' + (currentHandoff?.key === item.key ? 'selected' : '')}
-                    aria-pressed={currentHandoff?.key === item.key} onClick={() => setFocusedHandoff(item.key)}>
-                    <strong>{item.title}</strong><small>{item.status}</small>
-                  </button>) : <p className="muted">当前 Agent 任务均在等待、审核或已完成。</p>}
-              </div>
-              <div className="handoff-detail" aria-live="polite">
-                <span className="eyebrow">TASK CONTEXT</span>
-                {currentHandoff ? <>
-                  <h3>{currentHandoff.title}</h3>
-                  <p>{currentStep?.instructions ?? currentMaterial?.description}</p>
-                  {currentStep && <>
-                    <div className="detail-row"><strong>前置任务</strong><span>
-                      {currentStep.dependsOn.length
-                        ? currentStep.dependsOn.map(id => id + ' · ' + (project.steps[id]?.state ?? '未知')).join(' / ')
-                        : '无'}
-                    </span></div>
-                    <div className="detail-row"><strong>所需资料</strong><span>
-                      {currentStep.needsMaterials.length
-                        ? currentStep.needsMaterials.map(id =>
-                          (project.package.materials.find(m => m.id === id)?.title ?? id) +
-                          ' · ' + (materialLabels[project.materials[id]?.state] ?? '未知')
-                        ).join(' / ')
-                        : '无'}
-                    </span></div>
-                    {currentRun && <div className="detail-row"><strong>最近一次执行</strong><span>
-                      {currentRun.status} · {currentRun.codexThreadId ? 'Codex thread ' + currentRun.codexThreadId : '未记录 Codex thread'}
-                    </span></div>}
-                  </>}
-                  {currentMaterial && <>
-                    <div className="detail-row"><strong>验收条件</strong><span>{currentMaterial.acceptance.join('；')}</span></div>
-                    <div className="detail-row"><strong>资料版本</strong><span>
-                      {project.materials[currentMaterial.id]?.artifactIds.length ?? 0} 个提交版本
-                    </span></div>
-                  </>}
-                  <button type="button" className="handoff-jump" onClick={() =>
-                    document.getElementById(currentHandoff.target)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                  }>定位到任务操作</button>
-                </> : <p>当前没有待交接任务。可从下方查看阶段、材料与已完成成果。</p>}
-              </div>
-            </div>
-            {executor === 'codex' && <p className="handoff-warning">
-              Codex 文档读取为本地实验能力：仅对已接受的 PDF/DOCX 原件启用受控工作目录；需要本机已安装相应 Skill，
-              并设置 HH_CODEX_DOCUMENTS=1。真实模型与技能执行仍需本机验收。
-            </p>}
-          </section>
-          <div className="columns">
-            <section className="panel">
-              <div className="panel-header"><span className="eyebrow">HUMAN</span><h2>当前用户 TodoList</h2><p>只显示此刻可以采取行动的资料、决策及审核；未来资料不提前索取。</p></div>
-              <div className="cards">
-                {!humanCount && <p className="muted">暂时没有待办。可查看 Agent 执行区或等待外部工作完成。</p>}
-                {readyMaterials.map(m => {
-                  const state = project.materials[m.id];
-                  const key = m.id;
-                  return <article className="task-card" id={"hh-material-" + m.id} key={m.id}>
-                    <div className="task-top"><span className="task-id">{m.id} · {m.producer}</span>
-                      <span className={'badge ' + state.state}>{materialLabels[state.state]}</span></div>
-                    <h3>{m.title}</h3><p>{m.description}</p>
-                    {state.state === 'received' ? <>
-                      <p>已收到：{state.artifactIds.map(id => project.artifacts.find(a => a.id === id)?.name).join('、')}。须由用户核实真实来源与要求，不能仅凭上传即视为合格。</p>
-                      <textarea aria-label={m.title + '审核备注'} placeholder="退回时请说明原因" value={feedback[key] || ''} onChange={e => setFeedback(f => ({ ...f, [key]: e.target.value }))} />
-                      <div className="actions"><button type="button" className="primary" disabled={isPending(key)} onClick={() => action('accept_material', { materialId: key })}>确认资料可接受</button>
-                        <button type="button" disabled={isPending(key) || !(feedback[key] || '').trim()} onClick={() => action('reject_material', { materialId: key })}>退回补充</button></div>
-                    </> : <>
-                      {m.formats.includes('text/plain') && <textarea aria-label={m.title} rows={3}
-                        value={values[key] || ''} onChange={e => setValues(v => ({ ...v, [key]: e.target.value }))} placeholder="输入资料或来源说明" />}
-                      {m.formats.some(format => format !== 'text/plain') && <input type="file" accept={m.formats.filter(format => format !== 'text/plain').join(',')} aria-label={m.title + '文件'} onChange={e => setFiles(v => ({ ...v, [key]: e.target.files?.[0] }))} />}
-                      <button type="button" className="primary" disabled={isPending(key)} onClick={() => action('submit_material', { materialId: key })}>提交资料</button>
-                      {state.state === 'rejected' && <p className="error-text">该资料已退回，请重新提交。</p>}
-                    </>}
-                  </article>;
-                })}
-                {readyHumanSteps.map(s => <article className="task-card" id={"hh-human-" + s.id} key={s.id}>
-                  <div className="task-top"><span className="task-id">{s.stageId} / {s.id}</span><span className="badge ready">待人工完成</span></div>
-                  <h3>{s.title}</h3><p>{s.instructions}</p>
-                  {s.kind === 'human_decision' ? <select aria-label={s.title + '选项'} value={values[s.id] || ''} onChange={e => setValues(v => ({ ...v, [s.id]: e.target.value }))}>
-                    <option value="">请选择决策结果</option>{s.options?.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-                  </select> : <textarea rows={3} aria-label={s.title + '确认说明'} value={values[s.id] || ''}
-                    onChange={e => setValues(v => ({ ...v, [s.id]: e.target.value }))} placeholder="填写真实完成情况与依据" />}
-                  <button type="button" className="primary" disabled={isPending(s.id) || !(values[s.id] || '').trim()}
-                    onClick={() => action('complete_human', { stepId: s.id })}>确认并推进流程</button>
-                </article>)}
-                {agentReviews.map(s => {
-                  const output = outputFor(s.id);
-                  return <article className="task-card" id={"hh-review-" + s.id} key={s.id}>
-                    <div className="task-top"><span className="task-id">{s.id}</span><span className="badge review">等待人工审核</span></div>
-                    <h3>{s.title}</h3>{output && <pre className="result">{output.content}</pre>}
-                    <textarea aria-label={s.title + '审核说明'} value={feedback[s.id] || ''}
-                      onChange={e => setFeedback(f => ({ ...f, [s.id]: e.target.value }))} placeholder="退回原因或审核备注" />
-                    <div className="actions"><button className="primary" type="button" disabled={isPending(s.id)} onClick={() => action('approve_agent', { stepId: s.id })}>批准结果</button>
-                      <button type="button" disabled={isPending(s.id) || !(feedback[s.id] || '').trim()} onClick={() => action('reject_agent', { stepId: s.id })}>退回重做</button></div>
-                  </article>;
-                })}
-              </div>
-            </section>
-            <section className="panel">
-              <div className="panel-header"><span className="eyebrow">AGENT</span><h2>Agent 执行与候选成果</h2><p>现有执行器只完成任务，Human Harness 控制素材范围、项目状态和人工审核。</p></div>
-              <div className="cards">
-                {agentSteps.map(s => {
-                  const status = project.steps[s.id];
-                  const versions = project.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === s.id).reverse();
-                  return <article className="task-card" id={"hh-agent-" + s.id} key={s.id}>
-                    <div className="task-top"><span className="task-id">{s.stageId} / {s.id}</span>
-                      <span className={'badge ' + status.state}>{workLabels[status.state]}</span></div>
-                    <h3>{s.title}</h3><p>{s.instructions}</p>
-                    {status.state === 'ready' && (policy.autoDispatch
-                      ? <p className="dispatch-hint">已进入自动调度队列，满足并发上限时开始执行。</p>
-                      : <button type="button" className="primary" disabled={isPending(s.id)}
-                          onClick={() => action('run_agent', { stepId: s.id })}>手动执行一次</button>)}
-                    {status.state === 'failed' && <button type="button" disabled={isPending(s.id)}
-                      onClick={() => action('retry_agent', { stepId: s.id })}>重新允许执行</button>}
-                    {status.state === 'running' && <>
-                      <p className="dispatch-hint">后台执行中，人工任务仍可提交；刷新页面不会取消本次任务。</p>
-                      {project.runs.filter(run => run.stepId === s.id).slice(-1).map(run =>
-                        <p className="run-detail" key={run.id}>Run {run.id.slice(0, 8)} ·
-                          {run.codexTurnId ? ' Codex turn ' + run.codexTurnId : ' 等待执行器事件'}
-                          {run.lastExecutorEvent ? ' · ' + run.lastExecutorEvent : ''}</p>)}
-                      <button type="button" disabled={isPending(s.id)}
-                        onClick={() => action('recover_agent', { stepId: s.id })}>恢复已超时任务（超过15分钟且人工确认）</button>
-                    </>}
-                    {versions.map((a, index) => <details className="output" key={a.id} open={index === 0 && status.state === 'review'}>
-                      <summary>候选成果 v{a.revision} · {a.name}</summary>
-                      {index === 0 && status.state === 'done' && s.outputContractId && <a className="file-download" href={'/api/v1/projects/' + encodeURIComponent(project.id) + '/outputs/' + encodeURIComponent(a.id)}>下载审核通过的成果</a>}
-                      <pre className="result">{a.content}</pre>
-                    </details>)}
-                  </article>;
-                })}
-              </div>
-            </section>
-          </div>
+          <TaskWorkbench project={project} executor={executor}
+            selectedKey={focusedHandoff} onSelect={setFocusedHandoff}
+            onRefresh={() => openProject(project.id).catch(e => setError(e.message))}
+            onAction={action} values={values} feedback={feedback} files={files}
+            onValue={(key, value) => setValues(old => ({ ...old, [key]: value }))}
+            onFeedback={(key, value) => setFeedback(old => ({ ...old, [key]: value }))}
+            onFile={(key, file) => setFiles(old => ({ ...old, [key]: file }))}
+            isPending={isPending}
+          />
           <section className="timeline material-overview">
             <div className="panel-header"><span className="eyebrow">MATERIAL ROADMAP</span><h2>未来资料需求</h2>
               <p>模板预先知道资料的存在，但只有条件满足后才会进入上面的用户 TodoList。</p></div>
