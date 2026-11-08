@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createProject, DomainError, listProjects } from '@/lib/store';
-import { templates } from '@/lib/templates';
+import { createProject, DomainError, listProjects, listTemplateSummaries } from '@/lib/store';
 import { executorMode } from '@/lib/executor';
 
 export const runtime = 'nodejs';
@@ -9,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   return NextResponse.json({
     projects: listProjects(),
-    templates: templates.map(t => ({ id: t.id, title: t.title, description: t.description, version: t.version })),
+    templates: listTemplateSummaries(),
     executorMode
   });
 }
