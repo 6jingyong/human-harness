@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { HumanHarnessPackage, Condition, HumanHarnessTaskPacket, HumanHarnessTaskResult } from '../protocol/v1';
 import type { SemanticNote } from '../protocol/semantics';
 
-export type WorkState = 'dormant' | 'blocked' | 'ready' | 'running' | 'review' | 'done' | 'not_applicable' | 'failed';
+export type WorkState = 'dormant' | 'blocked' | 'ready' | 'running' | 'waiting_input' | 'review' | 'done' | 'not_applicable' | 'failed';
 export type RequirementState = 'dormant' | 'expected' | 'requested' | 'received' | 'accepted' | 'rejected' | 'not_applicable';
 export type RuntimeStep = { state: WorkState; runId?: string; startedAt?: string };
 export type RuntimeMaterial = { state: RequirementState; artifactIds: string[] };
@@ -11,7 +11,15 @@ export type RuntimeArtifact = {
   ownerId: string; revision: number; filePath?: string; createdAt: string;
   semanticNotes?: SemanticNote[];
 };
-export type RuntimeRun = { id: string; stepId: string; status: 'running' | 'review' | 'failed'; startedAt: string; endedAt?: string; result?: HumanHarnessTaskResult; error?: string; codexThreadId?: string; codexTurnId?: string; lastExecutorEvent?: string };
+export type RuntimeRun = { id: string; stepId: string; status: 'running' | 'needs_input' | 'review' | 'failed'; startedAt: string; endedAt?: string; result?: HumanHarnessTaskResult; error?: string; codexThreadId?: string; codexTurnId?: string; lastExecutorEvent?: string };
+/** Runtime-only Human Todo spawned by a material question against a template-declared input.
+ * The model may request clarification, but cannot add arbitrary requirements to the template.
+ */
+export type HumanInputRequest = {
+  id: string; stepId: string; runId: string; materialId: string;
+  reason: string; status: 'pending' | 'answered';
+  createdAt: string; answer?: string; answeredAt?: string;
+};
 export type ProjectEvent = { id: string; type: string; subject: string; detail: string; createdAt: string };
 export type ExecutionPolicy = { autoDispatch: boolean; maxParallel: number };
 /** Older projects have no policy: keep them paused until the user explicitly enables automation. */
@@ -28,6 +36,7 @@ export type ProjectState = {
   decisions: Record<string, string>;
   artifacts: RuntimeArtifact[];
   runs: RuntimeRun[];
+  humanRequests?: HumanInputRequest[];
   events: ProjectEvent[];
 };
 
@@ -77,7 +86,7 @@ export function reconcile(project: ProjectState): ProjectState {
     }
     for (const def of project.package.steps) {
       const step = project.steps[def.id];
-      if (!step || ['running', 'review', 'done', 'failed'].includes(step.state)) continue;
+      if (!step || ['running', 'waiting_input', 'review', 'done', 'failed'].includes(step.state)) continue;
       const branch = evaluateCondition(def.when, project);
       const upstream = def.dependsOn.map(id => project.steps[id]?.state);
       const materials = def.needsMaterials.map(id => project.materials[id]?.state);
@@ -104,7 +113,7 @@ export function newProject(pkg: HumanHarnessPackage, id: string, title: string, 
     createdAt: now(), package: pkg,
     steps: Object.fromEntries(pkg.steps.map(s => [s.id, { state: 'dormant' as const }])),
     materials: Object.fromEntries(pkg.materials.map(m => [m.id, { state: 'dormant' as const, artifactIds: [] }])),
-    decisions: {}, artifacts: [], runs: [], events: []
+    decisions: {}, artifacts: [], runs: [], humanRequests: [], events: []
   };
   recordEvent(project, 'project.created', pkg.id, pkg.version);
   return reconcile(project);
@@ -176,6 +185,75 @@ export function finishAgent(project: ProjectState, stepId: string, runId: string
   run.status = 'review'; run.endedAt = now(); run.result = result;
   state.state = 'review';
   recordEvent(project, 'run.review_requested', stepId, runId);
+}
+
+/**
+ * A needs-input response is not a completed candidate. It creates Human Todo
+ * questions and suspends only this Agent WorkItem. No automatic approval.
+ */
+export function holdAgentForHuman(project: ProjectState, stepId: string, runId: string,
+  result: HumanHarnessTaskResult, requests: readonly { materialId: string; reason: string }[]): void {
+  const step = project.steps[stepId];
+  const run = project.runs.find(item => item.id === runId && item.stepId === stepId);
+  if (step?.state !== 'running' || step.runId !== runId || run?.status !== 'running' ||
+      result.runId !== runId || result.workItemId !== stepId || result.outcome !== 'needs_input') {
+    throw new Error('Run identity or needs-input result mismatch');
+  }
+  if (!requests.length || requests.length > 5 || result.producedArtifacts.length) {
+    throw new Error('Human input request must have 1–5 questions and no completed artifact');
+  }
+  const declared = new Set(project.package.materials.map(m => m.id));
+  const outstanding = project.humanRequests ?? [];
+  const unique = new Set<string>();
+  for (const request of requests) {
+    if (!declared.has(request.materialId) || !request.reason.trim() ||
+        unique.has(request.materialId)) {
+      throw new Error('Human input request must cite a distinct template-declared material');
+    }
+    unique.add(request.materialId);
+    // A second identical request after an answer is a loop, not new evidence.
+    if (outstanding.some(item => item.stepId === stepId && item.materialId === request.materialId)) {
+      throw new Error('Repeated human request for the same material; retry needs human review');
+    }
+  }
+  if (outstanding.filter(item => item.stepId === stepId).length + requests.length > 5) {
+    throw new Error('Agent exceeded the per-step human request limit');
+  }
+  project.humanRequests ??= [];
+  for (const request of requests) {
+    const id = freshId();
+    project.humanRequests.push({
+      id, stepId, runId, materialId: request.materialId,
+      reason: request.reason.trim(), status: 'pending', createdAt: now()
+    });
+    recordEvent(project, 'human.requested', id, stepId + '/' + request.materialId);
+  }
+  run.status = 'needs_input'; run.result = result; run.endedAt = now();
+  step.state = 'waiting_input';
+  recordEvent(project, 'run.needs_input', stepId, runId);
+}
+
+/** Human answer is the only authorization needed to resume this Agent task.
+ * Human wording remains explicitly declared information, not validated evidence.
+ */
+export function answerHumanRequest(project: ProjectState, requestId: string, rawValue: string): void {
+  const value = rawValue.trim();
+  if (!value || value.length > 8000) throw new Error('Human answer must contain 1–8000 characters');
+  const item = project.humanRequests?.find(request => request.id === requestId);
+  if (!item || item.status !== 'pending' ||
+      project.steps[item.stepId]?.state !== 'waiting_input') {
+    throw new Error('Human request is not pending');
+  }
+  item.status = 'answered'; item.answer = value; item.answeredAt = now();
+  recordEvent(project, 'human.request_answered', requestId, item.stepId);
+  if (!project.humanRequests?.some(request =>
+    request.stepId === item.stepId && request.status === 'pending')) {
+    const step = project.steps[item.stepId];
+    step.state = 'ready';
+    delete step.runId; delete step.startedAt;
+    recordEvent(project, 'run.resumed_from_human', item.stepId);
+    reconcile(project);
+  }
 }
 
 export function reviewAgent(project: ProjectState, stepId: string, approved: boolean, feedback: string): void {
