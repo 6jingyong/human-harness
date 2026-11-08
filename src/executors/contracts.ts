@@ -9,6 +9,8 @@ export type AuthorizedEvidence = Readonly<{
   name: string;
   /** Null means the original file is stored but its contents have not been parsed. */
   content: string | null;
+  /** A copy of an accepted original, never the private storage path. Codex stages these bytes per run. */
+  originalFile?: Readonly<{ bytes: Uint8Array; sha256: string }>;
 }>;
 
 export type ExecutorTask = Readonly<{
