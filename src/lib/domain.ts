@@ -129,6 +129,9 @@ export function validateTemplate(t: ProjectTemplate): void {
   const outputs = t.deliverables ?? [];
   const outputIds = new Set(outputs.map(output => output.id));
   if (outputs.length !== outputIds.size) throw new Error('Duplicate deliverable IDs');
+  if (outputs.length !== new Set(outputs.map(o => o.taskId)).size) {
+    throw new Error('Only one deliverable per producing task is currently supported');
+  }
   for (const output of outputs) {
     const producingTask = byId.get(output.taskId);
     if (!producingTask || producingTask.owner !== 'agent') throw new Error('Deliverable must reference an agent task');
