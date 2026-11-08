@@ -105,6 +105,8 @@ PASS: two original-format files parsed; two precise Human Todo proposals
 - **Codex/MCP/插件兼容**：本轮没有启动 Codex、暴露 MCP 服务或测试其他平台；当前的实验方法不能当成已安装插件。
 - **持久化**：本轮仅输出 `proposed` 的 Todo，不更改 Human Harness 项目账本。任务去重、源文件修订后重新校验等问题需要下一轮设计。
 
+> **方向更新：** 不继续沿着这次合成文件实验扩展自制通用解析器。该实验只保留为“模板声明字段、来源与异常 Todo”方法的证据。下一步优先通过 Codex 的原生插件清单及现成工具进行端到端验证。详见 [Codex Plugin 原生复用](codex-native-plugins.md)。
+
 ## 6. 后续应该先补什么
 
 先收集或制作具有明确再分发许可的**不同布局和异常类型**的样例，尤其是扫描件、合并单元格、多页表格与中文文本。给这些素材建立**人工确认的预期结果和来源锚点**。在此之前，不应直接修改正式模板 Schema，也不应声称“PDF/DOCX 已支持”。
