@@ -265,3 +265,87 @@ test('P0: an unconfigured executor fails before reserving a task', async () => {
   assert.equal(store.getProject(p.id).runs.length, before);
   assert.equal(stepState(p.id, 'inventory'), 'ready');
 });
+
+
+test('P0 parallel contract: independent Agent jobs and Human Todo progress concurrently', async () => {
+  const template = manualProjectPackage({
+    id: 'parallel-research',
+    title: '并行项目模板',
+    description: '两个独立 Agent 工作与一项人工工作并行推进',
+    inputs: '项目目标',
+    objective: '整理已知材料'
+  });
+  const originalAgent = template.steps[0];
+  const originalOutput = template.outputs[0];
+  const makeAgent = (id: string, dependsOn: string[] = []) => ({
+    ...originalAgent, id, title: id, dependsOn,
+    outputContractId: 'out-' + id
+  });
+  const pkg = packageSchema.parse({
+    ...template,
+    steps: [
+      makeAgent('agent-a'),
+      makeAgent('agent-b'),
+      {
+        id: 'human-task', stageId: 'work', kind: 'human_action',
+        title: '确认外部进度', instructions: '由用户自行确认',
+        dependsOn: [], needsMaterials: []
+      },
+      makeAgent('merge', ['agent-a', 'agent-b', 'human-task'])
+    ],
+    outputs: ['agent-a', 'agent-b', 'merge'].map(id => ({
+      ...originalOutput, id: 'out-' + id, fileName: id + '.md', producingStepId: id
+    }))
+  });
+  store.importPackage(pkg);
+  const p = store.createProject(pkg.id, 'Parallel orchestration example');
+  assert.equal(stepState(p.id, 'human-task'), 'ready');
+  store.submitMaterial(p.id, 'input-01', '已接受的项目初始信息');
+  store.reviewReceivedMaterial(p.id, 'input-01', true, '');
+  assert.equal(stepState(p.id, 'agent-a'), 'ready');
+  assert.equal(stepState(p.id, 'agent-b'), 'ready');
+  assert.equal(stepState(p.id, 'merge'), 'blocked');
+
+  const releases = new Map<string, (body: string) => void>();
+  const deferred: TaskExecutor = {
+    id: 'controlled-concurrent-test',
+    async execute(task) {
+      return new Promise(resolve => {
+        releases.set(task.packet.workItemId, body => resolve({
+          body, limitations: [], materialRequests: []
+        }));
+      });
+    }
+  };
+  const first = executeOneAgentTask(p.id, 'agent-a', deferred);
+  const second = executeOneAgentTask(p.id, 'agent-b', deferred);
+  assert.equal(stepState(p.id, 'agent-a'), 'running');
+  assert.equal(stepState(p.id, 'agent-b'), 'running');
+  assert.equal(releases.size, 2);
+  assert.equal(store.getProject(p.id).runs.filter(r => r.status === 'running').length, 2);
+  await assert.rejects(
+    () => executeOneAgentTask(p.id, 'agent-a', deferred),
+    /not ready/
+  );
+  assert.equal(store.getProject(p.id).runs.length, 2);
+
+  // The user can finish a separate Todo while both Agent tasks are still in flight.
+  store.completeHuman(p.id, 'human-task', '外部事项完成，记录已核对');
+  assert.equal(stepState(p.id, 'human-task'), 'done');
+  assert.equal(stepState(p.id, 'agent-a'), 'running');
+  assert.equal(stepState(p.id, 'agent-b'), 'running');
+
+  // Independently completed work is persisted without completing its sibling.
+  releases.get('agent-b')!('第二项并行任务成果');
+  await second;
+  assert.equal(stepState(p.id, 'agent-b'), 'review');
+  assert.equal(stepState(p.id, 'agent-a'), 'running');
+  store.reviewAgentOutput(p.id, 'agent-b', true, '用户认可第二项成果');
+  assert.equal(stepState(p.id, 'merge'), 'blocked');
+
+  releases.get('agent-a')!('第一项并行任务成果');
+  await first;
+  store.reviewAgentOutput(p.id, 'agent-a', true, '用户认可第一项成果');
+  assert.equal(stepState(p.id, 'merge'), 'ready');
+  assert.equal(store.getProject(p.id).events.filter(e => e.type === 'run.started').length, 2);
+});
