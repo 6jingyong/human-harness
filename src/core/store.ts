@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { basename, extname, join, resolve } from 'node:path';
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import builtin from '../../examples/land-investigation.hh.json';
+import documentHandoff from '../../examples/document-handoff.hh.json';
 import { packageSchema, taskPacketSchema, taskResultSchema, type HumanHarnessPackage, type HumanHarnessTaskResult } from '../protocol/v1';
 import {
   applyHumanStep, createTaskPacket, expireAbandonedRun, failAgent, finishAgent, freshId, newProject, now, receiveMaterial,
@@ -26,13 +27,14 @@ db.exec([
 ].join(';') + ';');
 
 const builtinPackage = packageSchema.parse(builtin);
+const builtinPackages = [builtinPackage, packageSchema.parse(documentHandoff)];
 const digest = (value: unknown) => 'sha256:' + createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const asError = (e: unknown) => e instanceof Error ? e : new Error(String(e));
 
 export function listPackages() {
   const custom = db.prepare('SELECT id, version, definition FROM packages ORDER BY created_at DESC').all() as Array<{ id: string; version: string; definition: string }>;
   const selected = new Map<string, HumanHarnessPackage>();
-  selected.set(builtinPackage.id, builtinPackage);
+  for (const item of builtinPackages) selected.set(item.id, item);
   for (const row of custom) {
     const pkg = packageSchema.parse(JSON.parse(row.definition));
     if (!selected.has(pkg.id)) selected.set(pkg.id, pkg);
@@ -40,12 +42,13 @@ export function listPackages() {
   return [...selected.values()].map(pkg => ({
     id: pkg.id, version: pkg.version, title: pkg.title, description: pkg.description,
     stages: pkg.stages.length, materials: pkg.materials.length, steps: pkg.steps.length,
-    builtin: pkg.id === builtinPackage.id
+    builtin: builtinPackages.some(item => item.id === pkg.id)
   }));
 }
 
 export function getPackage(id: string, version?: string): HumanHarnessPackage {
-  if (id === builtinPackage.id && (!version || version === builtinPackage.version)) return builtinPackage;
+  const known = builtinPackages.find(item => item.id === id && (!version || version === item.version));
+  if (known) return known;
   const row = version
     ? db.prepare('SELECT definition FROM packages WHERE id = ? AND version = ?').get(id, version) as { definition: string } | undefined
     : db.prepare('SELECT definition FROM packages WHERE id = ? ORDER BY created_at DESC LIMIT 1').get(id) as { definition: string } | undefined;
@@ -55,7 +58,7 @@ export function getPackage(id: string, version?: string): HumanHarnessPackage {
 
 export function importPackage(raw: unknown) {
   const pkg = packageSchema.parse(raw);
-  if (pkg.id === builtinPackage.id) throw new RuntimeError('Built-in package ID cannot be overwritten');
+  if (builtinPackages.some(item => item.id === pkg.id)) throw new RuntimeError('Built-in package ID cannot be overwritten');
   const check = inspectReadiness(pkg);
   if (check.errors.length) throw new RuntimeError('Package has unavailable capabilities: ' + check.errors.join('; '));
   try {
