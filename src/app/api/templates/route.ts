@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
-import { addTemplate, DomainError } from '@/lib/store';
+import { addTemplate, DomainError, findTemplate } from '@/lib/store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,5 +23,15 @@ export async function POST(request: Request) {
     }
     console.error('Template import error:', error);
     return NextResponse.json({ error: 'Failed to import template' }, { status: 500 });
+  }
+}
+
+export async function GET(request: Request) {
+  const id = new URL(request.url).searchParams.get('id');
+  if (!id) return NextResponse.json({ error: 'Template id is required' }, { status: 400 });
+  try {
+    return NextResponse.json({ template: findTemplate(id) });
+  } catch {
+    return NextResponse.json({ error: 'Template not found' }, { status: 404 });
   }
 }
