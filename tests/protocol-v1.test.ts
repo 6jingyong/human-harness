@@ -92,3 +92,31 @@ test('rejects material activation deadlocks across future work and evidence', ()
   // qc-review requires qc-evidence, which cannot be requested until qc-review finishes.
   assert.equal(packageSchema.safeParse(broken).success, false);
 });
+
+
+test('template-defined Agent lanes validate unique owners and cannot assign human steps', () => {
+  const valid = {
+    ...base,
+    agents: [
+      { id: 'agent-a', title: '资料提取 Agent', description: '来源判读与证据提取' },
+      { id: 'agent-b', title: '成果整合 Agent', description: '根据审核结果生成草稿' }
+    ],
+    steps: base.steps.map(s => s.id === 'inventory'
+      ? { ...s, agentId: 'agent-a' } : s.id === 'qc-review'
+        ? { ...s, agentId: 'agent-b' } : s)
+  };
+  assert.equal(packageSchema.safeParse(valid).success, true);
+  assert.equal(packageSchema.safeParse({
+    ...valid, agents: [...valid.agents, valid.agents[0]]
+  }).success, false);
+  assert.equal(packageSchema.safeParse({
+    ...valid, steps: valid.steps.map(s => s.id === 'inventory'
+      ? { ...s, agentId: 'agent-x' } : s)
+  }).success, false);
+  assert.equal(packageSchema.safeParse({
+    ...valid, steps: valid.steps.map(s => s.id === 'commission'
+      ? { ...s, agentId: 'agent-a' } : s)
+  }).success, false);
+  // Backwards-compatible packages without named Agent lanes keep a default owner.
+  assert.equal(packageSchema.safeParse(base).success, true);
+});
