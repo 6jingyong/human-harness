@@ -11,7 +11,13 @@ export type RuntimeArtifact = {
 };
 export type RuntimeRun = { id: string; stepId: string; status: 'running' | 'review' | 'failed'; startedAt: string; endedAt?: string; result?: HumanHarnessTaskResult; error?: string; codexThreadId?: string; codexTurnId?: string; lastExecutorEvent?: string };
 export type ProjectEvent = { id: string; type: string; subject: string; detail: string; createdAt: string };
+export type ExecutionPolicy = { autoDispatch: boolean; maxParallel: number };
+/** Older projects have no policy: keep them paused until the user explicitly enables automation. */
+export const executionPolicy = (project: ProjectState): ExecutionPolicy =>
+  project.execution ?? { autoDispatch: false, maxParallel: 2 };
+
 export type ProjectState = {
+  execution?: ExecutionPolicy;
   id: string; title: string; templateId: string; templateVersion: string;
   packageDigest: string; createdAt: string;
   package: HumanHarnessPackage;
@@ -92,6 +98,7 @@ export function reconcile(project: ProjectState): ProjectState {
 export function newProject(pkg: HumanHarnessPackage, id: string, title: string, packageDigest: string): ProjectState {
   const project: ProjectState = {
     id, title, templateId: pkg.id, templateVersion: pkg.version, packageDigest,
+    execution: { autoDispatch: true, maxParallel: 2 },
     createdAt: now(), package: pkg,
     steps: Object.fromEntries(pkg.steps.map(s => [s.id, { state: 'dormant' as const }])),
     materials: Object.fromEntries(pkg.materials.map(m => [m.id, { state: 'dormant' as const, artifactIds: [] }])),
