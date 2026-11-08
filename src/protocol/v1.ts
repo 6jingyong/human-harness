@@ -27,8 +27,9 @@ const material = z.strictObject({
   formats: z.array(z.string().min(1).max(100)).max(20),
   acceptance: z.array(description).min(1).max(20), description
 });
+const agentGroup = z.strictObject({ id, title: description, description });
 const step = z.strictObject({
-  id, stageId: id,
+  id, stageId: id, agentId: id.optional(),
   kind: z.enum(['agent', 'script', 'human_action', 'human_decision', 'external_milestone']),
   title: description, instructions: description,
   dependsOn: z.array(id).max(50), needsMaterials: z.array(id).max(50),
@@ -50,6 +51,7 @@ export const packageSchema = z.strictObject({
   id, version: z.string().regex(/^\d+\.\d+\.\d+$/),
   title: description, description,
   stages: z.array(stage).min(1).max(100),
+  agents: z.array(agentGroup).max(20).optional(),
   capabilities: z.array(capability).max(100),
   assets: z.array(asset).max(200),
   materials: z.array(material).max(300),
@@ -61,6 +63,7 @@ export const packageSchema = z.strictObject({
     if (new Set(ids).size !== ids.length) error('Duplicate ' + label + ' IDs');
   };
   unique(pkg.stages.map(x => x.id), 'stage');
+  unique((pkg.agents ?? []).map(x => x.id), 'agent');
   unique(pkg.steps.map(x => x.id), 'step');
   unique(pkg.materials.map(x => x.id), 'material');
   unique(pkg.capabilities.map(x => x.id), 'capability');
@@ -68,6 +71,7 @@ export const packageSchema = z.strictObject({
   unique(pkg.outputs.map(x => x.id), 'output');
 
   const stageIds = new Set(pkg.stages.map(x => x.id));
+  const agentIds = new Set((pkg.agents ?? []).map(x => x.id));
   const steps = new Map(pkg.steps.map(x => [x.id, x]));
   const materials = new Set(pkg.materials.map(x => x.id));
   const capabilities = new Map(pkg.capabilities.map(x => [x.id, x]));
@@ -99,6 +103,10 @@ export const packageSchema = z.strictObject({
   }
   for (const s of pkg.steps) {
     if (!stageIds.has(s.stageId)) error(s.id + ': unknown stage');
+    if (s.agentId && !agentIds.has(s.agentId)) error(s.id + ': unknown agent assignment ' + s.agentId);
+    if (s.agentId && s.kind !== 'agent' && s.kind !== 'script') {
+      error(s.id + ': only Agent/script work can declare an agent assignment');
+    }
     for (const dep of s.dependsOn) if (!steps.has(dep) || dep === s.id) error(s.id + ': invalid dependency ' + dep);
     for (const m of s.needsMaterials) if (!materials.has(m)) error(s.id + ': unknown material ' + m);
     for (const r of s.resourceIds ?? []) if (!assets.has(r)) error(s.id + ': unknown resource ' + r);
