@@ -18,6 +18,8 @@ export type ExecutorTask = Readonly<{
   stepTitle: string;
   evidence: readonly AuthorizedEvidence[];
   reviewFeedback: readonly string[];
+  /** Completed direct upstream Human Todo answers, explicitly scoped by task dependencies. */
+  humanHandoffs?: readonly Readonly<{ stepId: string; kind: string; value: string }>[];
 }>;
 
 /** A candidate from an executor, never a command to mutate authoritative project state. */
@@ -59,6 +61,10 @@ export function renderTextContext(task: ExecutorTask): string {
     chunks.push(text);
     remaining -= text.length;
     if (!remaining) break;
+  }
+  if (task.humanHandoffs?.length) {
+    chunks.push('Completed upstream Human Todo answers (user declarations, not independently verified):\n' +
+      JSON.stringify(task.humanHandoffs, null, 2));
   }
   if (task.reviewFeedback.length) {
     chunks.push('Previous review feedback:\n' + task.reviewFeedback.join('\n'));
