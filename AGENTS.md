@@ -37,7 +37,7 @@ Read only the material relevant to the current task. Keep changes focused; avoid
 
 ## Parallel-first project scheduling
 
-- The ProjectPackage dependency graph, **not an LLM planner conversation**, determines which tasks are runnable concurrently.
+- The ProjectPackage dependency graph, **not an LLM planner conversation**, determines which tasks are runnable concurrently. **Policy-authorized ready Agent tasks should auto-dispatch** when resources/capability constraints allow; users should not have to click Run for each. Do not bypass execution permissions or user pause/cost constraints.
 - Human TodoList must stay actionable while Agent tasks run. Never implement a project-global `busy` as the final interface behavior.
 - Independent WorkItems need independent run IDs / Codex thread-turn mappings, durable progress, input version tracking, and separate success/failure.
 - Same WorkItem must not run duplicate attempts concurrently. Avoid shared writable workspace collisions and late-result overwrites.
