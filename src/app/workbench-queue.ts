@@ -33,10 +33,10 @@ export function deriveWorkbenchQueues(project: ProjectState): WorkbenchQueues {
 
   for (const material of project.package.materials) {
     const state = project.materials[material.id]?.state;
-    // Attachment review is already represented by its originating Human Todo.
-    // Don't create a second identical "received file" card.
-    if (state === 'received' && (project.humanRequests ?? []).some(request =>
-      !request.invalidatedAt && request.status === 'awaiting_review' &&
+    // When an active Agent question targets this material, one Human Todo is
+    // enough; its inspector owns clarification AND optional file acceptance.
+    if (activeMaterials.has(state) && (project.humanRequests ?? []).some(request =>
+      !request.invalidatedAt && request.status !== 'answered' &&
       request.materialId === material.id)) continue;
     if (!state || state === 'dormant' || state === 'expected' || state === 'not_applicable') continue;
     const entry: WorkbenchItem = {
