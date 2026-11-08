@@ -160,7 +160,7 @@ This demonstrates how templates could specify recognition â†’ field extraction â
 
 ## Parallel-first by default
 
-Human Harness is not a single root-agent conversation that serially drives a project. The **project dependency graph** makes independent Human Todo items and Agent WorkItems actionable at the same time; independent Agent runs can execute in parallel. Codex may independently use subagents *inside* an individual run, but that is a different level of parallelism.
+Human Harness is not a single root-agent conversation that serially drives a project. The **project dependency graph** makes independent Human Todo items and Agent WorkItems actionable at the same time. Policy-authorized ready Agent tasks should **auto-dispatch concurrently within resource/permission limits**, while Human Todo stays independently actionable; the user should not have to click Run for every Agent task. Codex may independently use subagents *inside* an individual run, but that is a different level of parallelism.
 
 **Current status:** the deterministic project core and shared runner support independent concurrent runs (covered by a controlled regression test), but the existing UI still has a global `busy` and blocking HTTP model calls. **True asynchronous multi-run UI is planned for P1.2**, after the first real Codex call. See [parallel-first contract](docs/parallel-first.md).
 
