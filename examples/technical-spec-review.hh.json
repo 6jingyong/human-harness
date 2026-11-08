@@ -1,0 +1,257 @@
+{
+  "protocol": "hh.package/1",
+  "id": "technical-spec-review",
+  "version": "1.0.0",
+  "title": "双来源技术规格核对（模板方法示例）",
+  "description": "两个独立 Agent 分别核查采购需求与供应商规格，发生冲突时由用户核实，最后由第三个 Agent 汇总成有出处的待审记录。仅为通用工作方法验证，不是自动采购审批。",
+  "stages": [
+    {
+      "id": "intake",
+      "title": "获取原件",
+      "description": "接收并审核两份真实来源文本"
+    },
+    {
+      "id": "parallel",
+      "title": "独立分析",
+      "description": "Agent A 与 B 不相互等待，分别按模板方法提取并自检"
+    },
+    {
+      "id": "resolve",
+      "title": "人工解决冲突",
+      "description": "由用户决定使用哪些证据以及如何处理不一致"
+    },
+    {
+      "id": "deliver",
+      "title": "合并输出",
+      "description": "Agent C 按人类意见形成待审技术说明"
+    }
+  ],
+  "agents": [
+    {
+      "id": "agent-a",
+      "title": "Agent A · 需求核对",
+      "description": "独立核查项目需求"
+    },
+    {
+      "id": "agent-b",
+      "title": "Agent B · 供应商核对",
+      "description": "独立核查对方规格与版次"
+    },
+    {
+      "id": "agent-c",
+      "title": "Agent C · 成果整合",
+      "description": "使用双方审核记录和人工意见出具候选结论"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "mastra.agent",
+      "kind": "agent",
+      "description": "经 Human Harness 授权的通用 Agent 执行接口（可适配 Codex）"
+    }
+  ],
+  "assets": [],
+  "materials": [
+    {
+      "id": "purchase-spec",
+      "title": "需求方技术要求",
+      "producer": "human",
+      "formats": [
+        "text/plain"
+      ],
+      "description": "要求提供带出处与日期的真实需求说明。",
+      "method": {
+        "acquisition": "由用户提供采购需求的原始文本或正式摘录，并说明发布方与日期。",
+        "extraction": "逐字段提取额定电压、功率、单位以及对应原文位置，不推断缺失指标。",
+        "verification": [
+          "核对单位与原文一致",
+          "注明原始来源和版本，无法确认则标注待核"
+        ]
+      },
+      "acceptance": [
+        "来源、编制单位和版本已说明",
+        "文本与本次核对项目相关"
+      ]
+    },
+    {
+      "id": "supplier-spec",
+      "title": "供应商技术规格",
+      "producer": "human",
+      "formats": [
+        "text/plain"
+      ],
+      "description": "要求提供同一设备对应的真实规格说明。",
+      "method": {
+        "acquisition": "由用户提供供应商当前版次的产品规格原文，无法取得时记录缺口。",
+        "extraction": "提取供应商声明的额定电压、功率及适用条件，引用具体原文。",
+        "verification": [
+          "确认供应商规格版本与拟采购型号对应",
+          "区分厂商声明与用户补充口述信息"
+        ]
+      },
+      "acceptance": [
+        "供应商、型号和资料来源已说明",
+        "文本包含至少一项可核查的参数"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "id": "check-demand",
+      "stageId": "parallel",
+      "agentId": "agent-a",
+      "kind": "agent",
+      "title": "提取需求方参数",
+      "instructions": "仅处理需求方技术要求，输出参数、单位、引用与未知项；不得读取其他未授权资料。",
+      "dependsOn": [],
+      "needsMaterials": [
+        "purchase-spec"
+      ],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "demand-analysis",
+      "requiresReview": true,
+      "method": {
+        "procedure": [
+          "读取项目授权的需求原文",
+          "逐字段摘取电压及功率，列出原文引用和单位",
+          "对照模板方法逐项自检，不自行决定供应商是否满足需求"
+        ],
+        "checks": [
+          {
+            "id": "demand-trace",
+            "criterion": "每个已提取参数必须标明原始需求来源与位置"
+          },
+          {
+            "id": "demand-units",
+            "criterion": "所列单位必须与来源一致，不应推测转换"
+          }
+        ],
+        "onMissing": "record_limitation"
+      }
+    },
+    {
+      "id": "check-supplier",
+      "stageId": "parallel",
+      "agentId": "agent-b",
+      "kind": "agent",
+      "title": "提取供应商参数",
+      "instructions": "仅处理供应商规格原文；若资料版次不明确，可按模板授权向人类提问，并等待补充答复。",
+      "dependsOn": [],
+      "needsMaterials": [
+        "supplier-spec"
+      ],
+      "requestableMaterialIds": [
+        "supplier-spec"
+      ],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "supplier-analysis",
+      "requiresReview": true,
+      "method": {
+        "procedure": [
+          "核查型号、版次和供应商声明",
+          "提取电压、功率、单位与对应引用",
+          "无法确认材料版本时向 Human Todo 请求澄清，不将猜测当作事实"
+        ],
+        "checks": [
+          {
+            "id": "supplier-trace",
+            "criterion": "供应商每项参数均引用对应的已授权规格来源"
+          },
+          {
+            "id": "supplier-edition",
+            "criterion": "明确说明供应商版本是否已经得到核实"
+          }
+        ],
+        "onMissing": "request_human"
+      }
+    },
+    {
+      "id": "resolve-conflict",
+      "stageId": "resolve",
+      "kind": "human_action",
+      "title": "确认两份规格的冲突处理意见",
+      "instructions": "检查两个 Agent 已审核参数摘录。若电压等指标冲突，请指定应采信的正式需求、暂不能采信的供应商参数及后续待办；不得默认为产品合格。",
+      "dependsOn": [
+        "check-demand",
+        "check-supplier"
+      ],
+      "needsMaterials": []
+    },
+    {
+      "id": "publish-draft",
+      "stageId": "deliver",
+      "agentId": "agent-c",
+      "kind": "agent",
+      "title": "整理规格差异与后续处理记录",
+      "instructions": "仅依赖已审核的两个分析结果和明确的人工意见，形成一份结构化技术核对稿。分列原文证据、差异、人工决定和仍待落实事项。",
+      "dependsOn": [
+        "check-demand",
+        "check-supplier",
+        "resolve-conflict"
+      ],
+      "needsMaterials": [
+        "purchase-spec",
+        "supplier-spec"
+      ],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "comparison-draft",
+      "requiresReview": true,
+      "method": {
+        "procedure": [
+          "汇总两项已审核 Agent 分析并检查原始材料",
+          "以人工核对意见为决策输入，清楚标注未确认的供应商适配性",
+          "输出有来源的差异和后续处理清单"
+        ],
+        "checks": [
+          {
+            "id": "comparison-sources",
+            "criterion": "需引用至少一项已授权的源文档及已审核上游成果"
+          },
+          {
+            "id": "comparison-human",
+            "criterion": "明确复述人工审核意见，不得将其描述为供应商正式承诺"
+          }
+        ],
+        "onMissing": "record_limitation"
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "id": "demand-analysis",
+      "title": "需求方参数核对候选稿",
+      "audience": "internal",
+      "fileName": "demand.md",
+      "format": "markdown",
+      "producingStepId": "check-demand",
+      "acceptance": [
+        "引用需求来源且未补造指标"
+      ],
+      "humanSignoff": true
+    },
+    {
+      "id": "supplier-analysis",
+      "title": "供应商参数核对候选稿",
+      "audience": "internal",
+      "fileName": "supplier.md",
+      "format": "markdown",
+      "producingStepId": "check-supplier",
+      "acceptance": [
+        "引用供应商材料并核对版次"
+      ],
+      "humanSignoff": true
+    },
+    {
+      "id": "comparison-draft",
+      "title": "最终规格差异待审说明",
+      "audience": "internal",
+      "fileName": "comparison.md",
+      "format": "markdown",
+      "producingStepId": "publish-draft",
+      "acceptance": [
+        "根据人工意见明确差异并区分事实与结论"
+      ],
+      "humanSignoff": true
+    }
+  ]
+}
