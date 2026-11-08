@@ -207,6 +207,7 @@ export function startAgent(id: string, requestedStepId?: string): { project: Pro
       ? p.package.steps.find(s => s.id === requestedStepId)
       : p.package.steps.find(s => (s.kind === 'agent' || s.kind === 'script') && p.steps[s.id].state === 'ready');
     if (!step) throw new RuntimeError('No ready Agent task');
+    if (p.steps[step.id]?.state !== 'ready') throw new RuntimeError('Agent work item is not ready');
     // Enforce project capacity in the same SQLite transaction as run reservation.
     // A second app worker cannot bypass the limit by reading a stale UI snapshot.
     const running = Object.values(p.steps).filter(state => state.state === 'running').length;
