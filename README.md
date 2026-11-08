@@ -158,6 +158,12 @@ This demonstrates how templates could specify recognition â†’ field extraction â
 - [Measured results and limitations](docs/document-methods-experiment.md)
 - [Demo Skill](.agents/skills/document-evidence-demo/SKILL.md)
 
+## Parallel-first by default
+
+Human Harness is not a single root-agent conversation that serially drives a project. The **project dependency graph** makes independent Human Todo items and Agent WorkItems actionable at the same time; independent Agent runs can execute in parallel. Codex may independently use subagents *inside* an individual run, but that is a different level of parallelism.
+
+**Current status:** the deterministic project core and shared runner support independent concurrent runs (covered by a controlled regression test), but the existing UI still has a global `busy` and blocking HTTP model calls. **True asynchronous multi-run UI is planned for P1.2**, after the first real Codex call. See [parallel-first contract](docs/parallel-first.md).
+
 ## One project core, more than one possible ecosystem
 
 Human Harness needs **Codex's local Agent/Skill/Plugin ecosystem**, not Codex Cloud or hosted collaboration features. The initial target is a **local Codex execution adapter**; online model APIs or external tools remain optional choices made by the user, not mandatory Codex product integrations.
