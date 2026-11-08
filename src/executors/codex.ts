@@ -25,9 +25,9 @@ function codexEnvironment(): NodeJS.ProcessEnv {
     'PATHEXT', 'COMSPEC', 'LANG', 'LC_ALL', 'LC_CTYPE', 'CODEX_HOME',
     'TERM', 'ProgramFiles', 'ProgramFiles(x86)'
   ];
-  return Object.fromEntries(allowed.flatMap(key =>
+  return { NODE_ENV: process.env.NODE_ENV ?? 'development', ...Object.fromEntries(allowed.flatMap(key =>
     process.env[key] === undefined ? [] : [[key, process.env[key]]]
-  ));
+  )) };
 }
 
 /** One stdio connection per authorized work item; no cross-project conversation state. */
