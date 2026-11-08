@@ -172,3 +172,24 @@ test('the Mastra-facing packet is scoped and a forged run cannot commit output',
   store.markAgentFailed(p.id, 'inventory', reserved.runId, 'Test cleanup');
   assert.equal(stepState(p.id, 'inventory'), 'failed');
 });
+
+
+test('rejected material revisions never enter the Agent evidence packet', () => {
+  const p = store.createProject('land-investigation', 'Material versioning example');
+  const first = store.submitMaterial(p.id, 'project-identity', '无效的项目资料');
+  const rejectedId = first.materials['project-identity'].artifactIds[0];
+  store.reviewReceivedMaterial(p.id, 'project-identity', false, '不符合项目范围');
+  const second = store.submitMaterial(p.id, 'project-identity', '经修正的项目资料及依据');
+  const latestId = second.materials['project-identity'].artifactIds.at(-1);
+  store.reviewReceivedMaterial(p.id, 'project-identity', true, '资料已核对');
+  store.submitMaterial(p.id, 'boundary', '', { name: 'boundary.kml', buffer: Buffer.from('<kml/>') });
+  store.reviewReceivedMaterial(p.id, 'boundary', true, '');
+  store.submitMaterial(p.id, 'land-use', '用地用途资料');
+  store.reviewReceivedMaterial(p.id, 'land-use', true, '');
+  const reserved = store.startAgent(p.id, 'inventory');
+  const refs = store.getTaskPacket(p.id, 'inventory', reserved.runId).readableInputs.map(i => i.artifactId);
+  assert.equal(refs.includes(rejectedId), false);
+  assert.equal(refs.includes(latestId!), true);
+  assert.equal(refs.length, 3);
+  store.markAgentFailed(p.id, 'inventory', reserved.runId, 'Test cleanup');
+});
