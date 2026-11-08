@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import {
-  completeHuman, getProject, retryFailedAgent, reviewAgentOutput, reviewReceivedMaterial,
+  completeHuman, recoverAbandonedAgent, retryFailedAgent, reviewAgentOutput, reviewReceivedMaterial,
   RuntimeError, submitMaterial
 } from '@/core/store';
 import { executeOneAgentTask } from '@/executors/mastra';
@@ -31,6 +31,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       project = reviewAgentOutput(id, stepId, action === 'approve_agent', feedback);
     } else if (action === 'retry_agent') {
       project = retryFailedAgent(id, stepId);
+    } else if (action === 'recover_agent') {
+      project = recoverAbandonedAgent(id, stepId);
     } else if (action === 'run_agent') {
       const result = await executeOneAgentTask(id, stepId || undefined);
       project = result.project;
