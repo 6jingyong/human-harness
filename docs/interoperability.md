@@ -108,6 +108,10 @@ Two environments might both “support MCP” but still differ in:
 References: https://modelcontextprotocol.io/specification/2026-07-28  
 MCP transports: https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2026-07-28/basic/transports/index.mdx
 
+## Material-processing methods belong to the template
+
+Host portability only answers **how to call a capability**. ProjectTemplate must separately define **what to extract from each material and how to validate it**, including dependencies on other records and escalation of unresolved issues into the single Human TodoList. See [template-driven material processing](template-material-processing.md). Do not create a separate professional approval queue as part of the interoperability layer.
+
 ## 4. First candidate: document.read (PDF / DOCX)
 
 ### Why this first?
