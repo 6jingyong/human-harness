@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import handoffPackage from '../examples/document-handoff.hh.json';
 import { packageSchema } from '../src/protocol/v1';
 import { newProject } from '../src/core/runtime';
-import { currentWorkbenchItem, deriveWorkbenchQueues } from '../src/app/workbench-queue';
+import { currentWorkbenchItem, deriveWorkbenchQueues, groupAgentTasks } from '../src/app/workbench-queue';
 import { TaskWorkbench } from '../src/app/task-workbench';
 import { ProjectMaterialLibrary } from '../src/app/project-material-library';
 
@@ -52,7 +52,10 @@ test('selected material renders upload and acceptance UI directly inside inspect
   const p = fresh();
   const html = markup(p);
   assert.match(html, /Human Todo/);
-  assert.match(html, /Agent Todo/);
+  assert.match(html, /Agent TodoList/);
+  assert.match(html, /Agent A · 资料提取/);
+  assert.match(html, /Agent B · 成果整理/);
+  assert.match(html, /等待依赖/);
   assert.doesNotMatch(html, /提交资料，等待人工核验/);
   assert.doesNotMatch(html, /type="file"/);
   const selected = markup(p, 'material:source-a');
@@ -97,4 +100,22 @@ test('Agent candidate review and completed download are handled in the same deta
   assert.match(library, /套用项目模板后的资料说明/);
   assert.match(library, /候选字段及来源/);
   assert.match(library, /下载已审核成果/);
+});
+
+
+test('Agent lanes are planned by template; states remain foldable without creating extra runtimes', () => {
+  const p = fresh();
+  let groups = groupAgentTasks(p, deriveWorkbenchQueues(p).agent);
+  assert.deepEqual(groups.map(g => g.id), ['agent-a', 'agent-b']);
+  assert.equal(groups[0].counts.blocked, 1);
+  assert.equal(groups[1].counts.blocked, 1);
+  p.materials['source-a'].state = 'accepted';
+  p.materials['source-b'].state = 'accepted';
+  p.steps.extract.state = 'running';
+  groups = groupAgentTasks(p, deriveWorkbenchQueues(p).agent);
+  assert.equal(groups[0].counts.running, 1);
+  assert.equal(groups[1].counts.blocked, 1);
+  const html = markup(p);
+  assert.match(html, /agent-folder/);
+  assert.match(html, /agent-state-folder/);
 });
