@@ -75,7 +75,12 @@ function prepareTask(projectId: string, stepId: string, runId: string): Executor
       value: 'Question about template material ' + request.materialId + ': ' +
         request.reason + '\nHuman response (not independently verified): ' + request.answer
     }));
+  const allowedMaterialIds = new Set([...step.needsMaterials, ...(step.requestableMaterialIds ?? [])]);
+  const requestableMaterials = project.package.materials
+    .filter(m => allowedMaterialIds.has(m.id))
+    .map(m => ({ id: m.id, title: m.title, description: m.description }));
   return { packet, stepTitle: step.title, evidence, reviewFeedback,
+    requestableMaterials,
     humanHandoffs: [...humanHandoffs, ...requestedAnswers],
     approvedSemanticNotes: approvedSemanticNotes(project, step.needsMaterials) };
 }
@@ -105,7 +110,6 @@ export async function executeOneAgentTask(projectId: string, requestedStepId?: s
     ]) : completion;
     const response = executorOutputSchema.parse(await responsePromise);
     const project = getProject(projectId);
-    const knownMaterials = new Set(project.package.materials.map(m => m.id));
     // AI notes are candidates. An invented or cross-scope citation rejects the
     // entire run; only a human-reviewed output can become reusable knowledge.
     const scopedEvidence = new Map(task.evidence
@@ -125,8 +129,9 @@ export async function executeOneAgentTask(projectId: string, requestedStepId?: s
     if (response.materialRequests.length) {
       const distinct = new Set<string>();
       for (const request of response.materialRequests) {
-        if (!knownMaterials.has(request.materialId) || distinct.has(request.materialId)) {
-          throw new Error('Agent requested an unknown or duplicate template material');
+        if (!task.requestableMaterials?.some(m => m.id === request.materialId) ||
+            distinct.has(request.materialId)) {
+          throw new Error('Agent requested an unauthorized or duplicate template material');
         }
         distinct.add(request.materialId);
       }
