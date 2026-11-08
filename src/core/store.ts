@@ -157,6 +157,12 @@ export function submitMaterial(id: string, materialId: string, rawText: string, 
     return mutate(id, p => {
       const def = p.package.materials.find(m => m.id === materialId);
       if (!def) throw new RuntimeError('Material requirement is not declared in this package');
+      if (!upload && !def.formats.includes('text/plain')) {
+        throw new RuntimeError('This requirement needs an original file; text notes alone are insufficient');
+      }
+      if (upload && !def.formats.some(x => x !== 'text/plain')) {
+        throw new RuntimeError('This requirement expects text rather than an uploaded file');
+      }
       const name = upload ? basename(upload.name).slice(0, 150) || 'upload' : '用户文本说明';
       const readable = upload && textExtensions.has(extname(name).toLowerCase())
         ? upload.buffer.toString('utf8').slice(0, 30000) : null;
