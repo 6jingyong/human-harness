@@ -1,14 +1,14 @@
 import Database from 'better-sqlite3';
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { basename, extname, join } from 'node:path';
+import { basename, extname, join, resolve } from 'node:path';
 import type { Artifact, Project, Task } from './domain';
 import { canStart, nextReadyAgentTask } from './domain';
 import { templateById } from './templates';
 
 export class DomainError extends Error {}
 
-const dataDir = join(process.cwd(), '.human-harness');
+const dataDir = process.env.HH_DATA_DIR ? resolve(process.env.HH_DATA_DIR) : join(process.cwd(), '.human-harness');
 mkdirSync(dataDir, { recursive: true });
 const db = new Database(join(dataDir, 'projects.sqlite'));
 db.pragma('journal_mode = WAL');
