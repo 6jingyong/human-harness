@@ -4,7 +4,6 @@ import {
   completeHuman, recoverAbandonedAgent, retryFailedAgent, reviewAgentOutput, reviewReceivedMaterial,
   RuntimeError, submitMaterial, setExecutionPolicy
 } from '@/core/store';
-import { executeOneAgentTask } from '@/executors/runner';
 import { ensureLocalScheduler } from '@/executors/scheduler';
 
 export const runtime = 'nodejs'; export const dynamic = 'force-dynamic';
@@ -40,8 +39,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       if (enabled !== 'true' && enabled !== 'false') throw new RuntimeError('Invalid autoDispatch');
       project = setExecutionPolicy(id, enabled === 'true', maxParallel);
     } else if (action === 'run_agent') {
-      const result = await executeOneAgentTask(id, stepId || undefined);
-      project = result.project;
+      project = ensureLocalScheduler().runOnce(id, stepId);
+    } else if (action === 'cancel_agent') {
+      project = ensureLocalScheduler().cancel(id, stepId);
     } else {
       throw new RuntimeError('Unknown action');
     }
