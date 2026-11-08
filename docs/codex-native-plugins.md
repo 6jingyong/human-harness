@@ -4,6 +4,8 @@
 >
 > 官方依据：[Codex / ChatGPT Plugins 架构](https://developers.openai.com/plugins/concepts/plugins) · [Plugin 打包规范](https://developers.openai.com/plugins/build/plugins) · [Codex app-server 源码协议](https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md)
 
+> **生态方向补充：** 本文只涉及首个 Codex 适配器，并不意味着 Human Harness 的项目状态机永久依赖 Codex。未来可通过相同的 TaskPacket/TaskResult 接入 TencentCloud/Octop Harness，复用其国内模型、连接器和原生插件。不同平台的插件打包**不保证互通**，详见 [多生态发行路线](ecosystem-distributions.md)。不依赖 Codex Cloud 等联机产品功能。
+
 ## 结论
 
 **把 Codex 视为已经存在的 Agent + Skills + Plugins 运行时。Human Harness 只负责项目，不重新实现文件读取、通用解析或插件系统。**
