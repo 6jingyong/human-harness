@@ -16,6 +16,9 @@ async function createProject(page: import('@playwright/test').Page, title: strin
   await page.getByRole('button', { name: /创建项目/ }).click();
   await expect(page.getByRole('heading', { name: /Human Todo/ })).toBeVisible();
   await expect(page.getByRole('heading', { name: /Agent Todo/ })).toBeVisible();
+  // Wait for the off-canvas menu's closing transition before snapshots.
+  await expect(page.getByRole('button', { name: '打开菜单' })).toBeVisible();
+  await expect(page.locator('.navigation-drawer')).not.toBeVisible();
 }
 
 test('simple two-row UI completes Human → Agent → Human → Agent and opens material library', async ({ page }) => {
