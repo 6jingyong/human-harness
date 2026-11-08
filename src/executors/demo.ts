@@ -22,7 +22,12 @@ export const demoExecutor: TaskExecutor = {
     return {
       body,
       limitations: ['Demo mode: no real Agent or professional investigation tools were called.'],
-      materialRequests: []
+      materialRequests: [],
+      ...(task.workMethod ? { methodChecks: task.workMethod.checks.map(check => ({
+        checkId: check.id, status: 'unverified' as const,
+        explanation: 'Demo 未运行模型、专业 Skill 或实际验证方法，因此不能证明此项通过。',
+        evidenceRefs: []
+      })) } : {})
     };
   }
 };
