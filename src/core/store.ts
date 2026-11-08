@@ -7,7 +7,7 @@ import documentHandoff from '../../examples/document-handoff.hh.json';
 import { packageSchema, taskPacketSchema, taskResultSchema, type HumanHarnessPackage, type HumanHarnessTaskResult } from '../protocol/v1';
 import type { SemanticNote } from '../protocol/semantics';
 import {
-  applyHumanStep, createTaskPacket, expireAbandonedRun, failAgent, finishAgent, freshId, newProject, now, receiveMaterial,
+  answerHumanRequest, applyHumanStep, createTaskPacket, expireAbandonedRun, failAgent, finishAgent, freshId, holdAgentForHuman, newProject, now, receiveMaterial,
   reconcile, recordEvent, reserveAgent, retryAgent, reviewAgent, reviewMaterial,
   executionPolicy, type ProjectState, type RuntimeArtifact
 } from './runtime';
@@ -149,6 +149,17 @@ export function setExecutionPolicy(id: string, autoDispatch: boolean, maxParalle
     recordEvent(project, 'execution.policy_changed', project.id,
       (autoDispatch ? 'auto' : 'paused') + ': ' + maxParallel);
   }).project;
+}
+
+export function answerRequestedInput(id: string, requestId: string, value: string) {
+  if (value.length > 8000) throw new RuntimeError('Human answer is too long');
+  return mutate(id, project => answerHumanRequest(project, requestId, value)).project;
+}
+
+export function awaitHumanInput(id: string, stepId: string, runId: string, rawResult: unknown,
+  requests: readonly { materialId: string; reason: string }[]) {
+  const result = taskResultSchema.parse(rawResult);
+  return mutate(id, project => holdAgentForHuman(project, stepId, runId, result, requests)).project;
 }
 
 export function completeHuman(id: string, stepId: string, value: string) {
