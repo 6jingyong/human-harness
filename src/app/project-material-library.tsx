@@ -94,6 +94,12 @@ export function ProjectMaterialLibrary({ project, onBack, onReplace, values, fil
             <h3>套用项目模板后的资料说明</h3>
             <p>{def.description}</p>
             {def.acceptance.length > 0 && <p className="muted">验收要求：{def.acceptance.join('；')}</p>}
+            {def.method && <details className="template-analysis">
+              <summary>查看模板的资料获取、信息提取与核验方法</summary>
+              <p><strong>获取：</strong>{def.method.acquisition}</p>
+              <p><strong>提取：</strong>{def.method.extraction}</p>
+              <ul>{def.method.verification.map((rule, index) => <li key={index}>{rule}</li>)}</ul>
+            </details>}
             {linkedSteps.map(step => <details className="template-analysis" key={step.id}>
               <summary>{step.title} · {project.steps[step.id]?.state ?? '未知状态'}</summary>
               <p>{step.instructions}</p>
