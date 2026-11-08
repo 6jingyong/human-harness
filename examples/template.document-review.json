@@ -2,7 +2,7 @@
   "id": "document-review",
   "title": "文档审查项目",
   "description": "用户提供审查目标和原始文本，Agent 生成问题清单并在人工审核后给出修订建议。",
-  "version": 1,
+  "version": 2,
   "tasks": [
     {
       "id": "objective",
@@ -10,7 +10,8 @@
       "description": "说明文档用途、审查目标、适用约束和输出格式。",
       "owner": "human",
       "dependsOn": [],
-      "inputKind": "text"
+      "inputKind": "text",
+      "stageId": "intake"
     },
     {
       "id": "source-document",
@@ -18,7 +19,8 @@
       "description": "首版建议提交 TXT、MD 或 JSON，以便 Agent 读取；PDF 暂时仅保存不解析。",
       "owner": "human",
       "dependsOn": [],
-      "inputKind": "file"
+      "inputKind": "file",
+      "stageId": "intake"
     },
     {
       "id": "review-findings",
@@ -30,7 +32,11 @@
         "source-document"
       ],
       "prompt": "根据目标与可读文档内容，分点识别逻辑缺口、证据缺口、表述问题，明确哪些结论没有证据。不要编造引用。",
-      "reviewRequired": true
+      "reviewRequired": true,
+      "stageId": "review",
+      "resourceRefs": [
+        "review-guideline"
+      ]
     },
     {
       "id": "revision-suggestions",
@@ -41,7 +47,88 @@
         "review-findings"
       ],
       "prompt": "根据审查通过的问题清单，输出可执行修订建议，附与原文对应的变更说明。没有读取到的段落不要擅自补全。",
+      "reviewRequired": true,
+      "stageId": "review",
+      "resourceRefs": [
+        "review-guideline"
+      ]
+    },
+    {
+      "id": "compile-deliverable",
+      "title": "按母版组装交付文档",
+      "description": "确定性读取已审核的成果，将其填充到内置 Markdown 母版。",
+      "owner": "agent",
+      "dependsOn": [
+        "revision-suggestions"
+      ],
+      "stageId": "delivery",
+      "resourceRefs": [
+        "markdown-master",
+        "md-compiler"
+      ],
+      "execution": {
+        "mode": "script",
+        "scriptId": "assemble-markdown-v1"
+      },
+      "prompt": "调用受信任的 Markdown 组装器，不能由模型随意改动最终文档结构。",
       "reviewRequired": true
+    }
+  ],
+  "schemaVersion": 2,
+  "workflow": {
+    "stages": [
+      {
+        "id": "intake",
+        "title": "用户输入",
+        "description": "收集本项目事实与原始文档，避免重复提交模板内置资源。"
+      },
+      {
+        "id": "review",
+        "title": "识别与修订",
+        "description": "Agent 生成问题清单与修订建议；成果需人工审查。"
+      },
+      {
+        "id": "delivery",
+        "title": "确定性成稿",
+        "description": "脚本整合已审核的成果，校验交付物结构。"
+      }
+    ]
+  },
+  "resources": [
+    {
+      "id": "review-guideline",
+      "kind": "reference",
+      "title": "内置文档审查规则",
+      "origin": "Human Harness example; illustrative, not a government or industry standard",
+      "content": "检查事实来源、逻辑一致性、缺失证据和措辞。不捏造文献。将用户内部待办与最终交付成果分开。"
+    },
+    {
+      "id": "markdown-master",
+      "kind": "document-template",
+      "title": "文档审查交付母版",
+      "origin": "Human Harness example template",
+      "content": "# {{PROJECT_TITLE}}\n\n> 由项目已审核成果确定性组装。内容仅供审查，不代表独立核验完成。\n\n## 输入材料\n\n{{INPUT_MATERIALS}}\n\n## 审核成果\n\n{{REVIEWED_OUTPUTS}}\n\n## 交付说明\n\n请在对外使用前完成必要的专业复核。\n"
+    },
+    {
+      "id": "md-compiler",
+      "kind": "automation",
+      "title": "Markdown 确定性组装脚本",
+      "scriptId": "assemble-markdown-v1",
+      "origin": "Built-in Human Harness script registry"
+    }
+  ],
+  "deliverables": [
+    {
+      "id": "review-report",
+      "taskId": "compile-deliverable",
+      "fileName": "document-review.md",
+      "format": "markdown",
+      "minChars": 100,
+      "requiredHeadings": [
+        "## 输入材料",
+        "## 审核成果",
+        "## 交付说明"
+      ]
     }
   ]
 }
