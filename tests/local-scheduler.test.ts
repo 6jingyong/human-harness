@@ -154,6 +154,11 @@ test('legacy projects with no policy do not silently begin paid model calls', as
 
 test('human cancellation invalidates run, rejects late model output and requires explicit retry', async () => {
   const id = makeProject('cancel-late-output');
+  // Earlier scheduler tests leave distinct projects in this shared test DB.
+  // Pause them so this fixture only owns the run it intends to cancel.
+  for (const row of store.listProjects()) {
+    if (row.id !== id) store.setExecutionPolicy(row.id, false, 1);
+  }
   store.setExecutionPolicy(id, true, 1);
   const releases = new Map<string, (text: string) => void>();
   const scheduler = new LocalScheduler({
