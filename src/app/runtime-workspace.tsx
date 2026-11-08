@@ -80,8 +80,16 @@ export function RuntimeWorkspace() {
     try {
       const data = await parseResponse(await fetch('/api/v1/packages?id=' + encodeURIComponent(packageId)));
       const selected: HumanHarnessPackage = data.package;
-      // Built-ins use a new ID so users do not overwrite the installed reference package.
-      const copy = { ...selected, id: selected.id + '-custom', version: '1.0.0' };
+      // Built-ins are copied under a new ID; custom templates can be edited as a new immutable version.
+      const builtin = selected.id === 'land-investigation';
+      const parts = selected.version.split('.').map(Number);
+      const nextVersion = parts.length === 3 && parts.every(Number.isInteger)
+        ? [parts[0], parts[1], parts[2] + 1].join('.') : '1.0.0';
+      const copy = {
+        ...selected,
+        id: builtin ? selected.id + '-custom' : selected.id,
+        version: builtin ? '1.0.0' : nextVersion
+      };
       setEditor(JSON.stringify(copy, null, 2));
       setMode('editor');
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
