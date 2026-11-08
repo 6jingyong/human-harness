@@ -30,14 +30,14 @@ export function RuntimeWorkspace() {
   const [packages, setPackages] = useState<PackageSummary[]>([]);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [project, setProject] = useState<ProjectState | null>(null);
-  const [packageId, setPackageId] = useState('land-investigation');
+  const [packageId, setPackageId] = useState('document-handoff');
   const [name, setName] = useState('');
   const [mode, setMode] = useState<'project' | 'editor'>('project');
   const [executor, setExecutor] = useState('demo');
   const [editor, setEditor] = useState('');
   const [form, setForm] = useState({
-    id: 'my-investigation', title: '我的项目', description: '项目模板',
-    inputs: '项目范围与目标\n文件:原始资料', objective: '根据已核验资料形成可审阅的内部成果'
+    id: 'my-document-project', title: '资料整理项目', description: '通用文档工作流',
+    inputs: '文件:原始资料A\n文件:原始资料B', objective: '根据已核验资料形成可审阅的内部成果'
   });
   const [values, setValues] = useState<Record<string, string>>({});
   const [feedback, setFeedback] = useState<Record<string, string>>({});
@@ -82,7 +82,7 @@ export function RuntimeWorkspace() {
       const data = await parseResponse(await fetch('/api/v1/packages?id=' + encodeURIComponent(packageId)));
       const selected: HumanHarnessPackage = data.package;
       // Built-ins are copied under a new ID; custom templates can be edited as a new immutable version.
-      const builtin = selected.id === 'land-investigation';
+      const builtin = packages.some(p => p.id === selected.id && p.builtin);
       const parts = selected.version.split('.').map(Number);
       const nextVersion = parts.length === 3 && parts.every(Number.isInteger)
         ? [parts[0], parts[1], parts[2] + 1].join('.') : '1.0.0';
@@ -216,7 +216,7 @@ export function RuntimeWorkspace() {
             {packages.map(p => <option key={p.id} value={p.id}>{p.title} · {p.version}</option>)}
           </select>
           <label htmlFor="new-project-name">本次项目名称</label>
-          <input id="new-project-name" maxLength={150} value={name} onChange={e => setName(e.target.value)} placeholder="例如：某地块污染状况调查" />
+          <input id="new-project-name" maxLength={150} value={name} onChange={e => setName(e.target.value)} placeholder="例如：市场资料核对项目" />
           <button className="primary" type="submit" disabled={!name.trim() || busy}>＋ 创建项目</button>
         </form>
         <div className="section-label with-gap">模板管理</div>
@@ -359,7 +359,7 @@ export function RuntimeWorkspace() {
                     </> : <>
                       {m.formats.includes('text/plain') && <textarea aria-label={m.title} rows={3}
                         value={values[key] || ''} onChange={e => setValues(v => ({ ...v, [key]: e.target.value }))} placeholder="输入资料或来源说明" />}
-                      {m.formats.some(format => format !== 'text/plain') && <input type="file" aria-label={m.title + '文件'} onChange={e => setFiles(v => ({ ...v, [key]: e.target.files?.[0] }))} />}
+                      {m.formats.some(format => format !== 'text/plain') && <input type="file" accept={m.formats.filter(format => format !== 'text/plain').join(',')} aria-label={m.title + '文件'} onChange={e => setFiles(v => ({ ...v, [key]: e.target.files?.[0] }))} />}
                       <button type="button" className="primary" disabled={busy} onClick={() => action('submit_material', { materialId: key })}>提交资料</button>
                       {state.state === 'rejected' && <p className="error-text">该资料已退回，请重新提交。</p>}
                     </>}
