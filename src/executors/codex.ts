@@ -116,11 +116,11 @@ export async function runCodexTask(task: ExecutorTask, options: CodexLaunchOptio
   const workspace = mkdtempSync(join(tmpdir(), 'hh-codex-'));
   const child = (options.startProcess ?? (() =>
     spawn(process.env.HH_CODEX_COMMAND || 'codex', ['app-server'], {
-      cwd: workspace, stdio: ['pipe', 'pipe', 'pipe'], shell: false, windowsHide: true
+      cwd: workspace, stdio: 'pipe', shell: false, windowsHide: true
     })))();
   const client = new AppServerClient(child);
-  const timeoutMs = Math.min(1800000, Math.max(3000, options.timeoutMs ??
-    Number(process.env.HH_CODEX_TIMEOUT_MS || 600000)));
+  const requestedTimeout = options.timeoutMs ?? Number(process.env.HH_CODEX_TIMEOUT_MS || 600000);
+  const timeoutMs = Number.isFinite(requestedTimeout) ? Math.min(1800000, Math.max(3000, requestedTimeout)) : 600000;
   let timeout: ReturnType<typeof setTimeout> | undefined;
   let resolveTurn!: () => void;
   let rejectTurn!: (error: Error) => void;
@@ -149,7 +149,10 @@ export async function runCodexTask(task: ExecutorTask, options: CodexLaunchOptio
     if (method === 'turn/completed') {
       const turn = object(params.turn);
       observedTurnId = string(turn.id);
-      if (turnId && observedTurnId !== turnId) return;
+      if (turnId && observedTurnId !== turnId) {
+        rejectTurn(new Error('Codex turn identity mismatch; result discarded'));
+        return;
+      }
       if (turn.status === 'completed') resolveTurn();
       else rejectTurn(new Error('Codex turn ' + (string(turn.status) || 'unknown') + ': ' +
         (string(object(turn.error).message) || 'no completed result')));
