@@ -339,7 +339,7 @@ export function Workspace() {
                 <section className="timeline material-overview">
                   <div className="panel-header"><div><span className="eyebrow">MATERIAL REQUIREMENTS</span><h2>资料需求与产生时机</h2><p>未激活的是未来可能需要的资料，不属于当前用户待办；已收到也不代表专业验证通过。</p></div></div>
                   <div className="material-grid">{project.materials.map(m => <div className="material-item" key={m.id}>
-                    <strong>{m.title}</strong><span className={'badge ' + m.status}>{m.status === 'needed' ? '当前需提供' : m.status === 'received' ? '已收到·待核验' : m.status === 'not_applicable' ? '本分支不适用' : '未来阶段'}</span>
+                    <strong>{m.title}</strong><span className={'badge ' + m.status}>{m.status === 'needed' ? '当前需提供' : m.status === 'received' ? '已收到·待核验' : m.status === 'not_applicable' ? '本分支不适用' : m.status === 'skipped' ? '可选资料已跳过' : '未来阶段'}</span>
                     <small>{m.producer === 'external_institution' ? '来源：外部专业机构' : '来源：用户'}{m.note ? ' · ' + m.note : ''}</small>
                   </div>)}</div>
                 </section>
