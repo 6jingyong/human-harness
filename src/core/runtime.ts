@@ -114,7 +114,7 @@ export function applyHumanStep(project: ProjectState, stepId: string, value: str
     project.decisions[stepId] = note;
     recordEvent(project, 'decision.approved', stepId, note);
   } else {
-    recordEvent(project, def.kind === 'external_milestone' ? 'external.confirmed' : 'human.completed', stepId, note.slice(0, 500));
+    recordEvent(project, def.kind === 'external_milestone' ? 'external.confirmed' : 'human.completed', stepId, note.slice(0, 8000));
   }
   item.state = 'done';
   reconcile(project);
