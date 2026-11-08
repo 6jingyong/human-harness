@@ -30,3 +30,9 @@ h1,h2,h3,p{margin-top:0}h1{font-size:clamp(22px,2.5vw,30px)}h2{font-size:19px;ma
 .empty{padding:80px 35px;max-width:760px}.empty h1{font-size:clamp(28px,4vw,48px);line-height:1.25;margin-top:18px}.empty p{font-size:16px}.empty-flow{border:1px solid var(--line);padding:18px;border-radius:12px;margin-top:30px;color:var(--accent);background:var(--panel)}
 @media(max-width:1130px){.columns{grid-template-columns:1fr}.project-header{align-items:start;flex-direction:column}.stats div{align-items:start}}
 @media(max-width:720px){.topbar{padding:0 15px}.head-info .tiny-label{display:none}.shell{grid-template-columns:1fr}.sidebar{border-right:0;border-bottom:1px solid var(--line)}.sidebar-foot{display:none}.main{padding:22px 14px 40px}.event{grid-template-columns:1fr;gap:2px}.run-header{align-items:start;flex-direction:column}}
+
+.package-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:20px}
+.package-summary div{background:var(--panel);border:1px solid var(--line);padding:15px;border-radius:12px;min-width:0}
+.package-summary strong{font-size:12px;color:var(--accent)}
+.package-summary p{font-size:12px;margin:8px 0 0;overflow-wrap:anywhere}
+@media(max-width:900px){.package-summary{grid-template-columns:1fr}}
