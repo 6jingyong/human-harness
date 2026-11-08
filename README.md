@@ -156,6 +156,14 @@ This demonstrates how templates could specify recognition â†’ field extraction â
 - [Measured results and limitations](docs/document-methods-experiment.md)
 - [Demo Skill](.agents/skills/document-evidence-demo/SKILL.md)
 
+## Native Codex Plugins first
+
+**The next integration milestone is to consume existing native Codex plugins**, not to build our own PDF/DOCX reader. Human Harness will provide a scoped task and its expected outputs; Codex will discover and use installed Skills/MCP tools. The template retains only the *business requirement* (which fields, which checks, what to do if unresolved). If a compatible plugin is missing, the user can install/connect it through the normal Codex flow.
+
+Codex's app-server exposes plugin inventory and skill/MCP readiness APIs. A separate native Plugin package for Human Harness itself is an **optional later distribution mode**, not the prerequisite for using other plugins. No Codex plugin adapter is implemented here yet.
+
+Read the [native Codex plugin strategy](docs/codex-native-plugins.md) for the actual interfaces, current limitations, and the one-call smoke test. The existing PDF/DOCX extraction experiment is preserved only as a **historical method-contract test**, not the next product implementation.
+
 ## Plugin and platform direction
 
 We want **capabilities to travel across mainstream agent environments**, not to tie PDF/DOCX readers or other tools to one chat product.
