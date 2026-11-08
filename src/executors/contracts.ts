@@ -30,7 +30,8 @@ export const executorOutputSchema = z.strictObject({
 export type ExecutorOutput = z.infer<typeof executorOutputSchema>;
 
 export type ExecutorRunEvent =
-  | { kind: 'thread' | 'turn'; id: string }
+  | { kind: 'thread'; id: string }
+  | { kind: 'turn'; id: string }
   | { kind: 'progress'; message: string };
 
 export interface TaskExecutor {
