@@ -119,3 +119,23 @@ test('Agent lanes are planned by template; states remain foldable without creati
   assert.match(html, /agent-folder/);
   assert.match(html, /agent-state-folder/);
 });
+
+
+test('Agent missing-information proposal appears in Human Todo without a separate approval center', () => {
+  const p = fresh();
+  p.steps.extract.state = 'waiting_input';
+  p.humanRequests = [{
+    id: 'request-1', stepId: 'extract', runId: 'run-1',
+    materialId: 'source-a', reason: '请说明文档中的项目编号是否已更正。',
+    status: 'pending', createdAt: '2026-11-09T00:00:00Z'
+  }];
+  const queues = deriveWorkbenchQueues(p);
+  assert.equal(queues.human.some(item => item.key === 'request:request-1'), true);
+  assert.equal(queues.agent.find(item => item.id === 'extract')?.state, 'waiting_input');
+  const html = markup(p, 'request:request-1');
+  assert.match(html, /Agent 请求补充信息/);
+  assert.match(html, /项目编号是否已更正/);
+  assert.match(html, /提交回复并继续 Agent/);
+  assert.match(html, /等待人工答复/);
+  assert.doesNotMatch(html, /确认接受材料/);
+});
