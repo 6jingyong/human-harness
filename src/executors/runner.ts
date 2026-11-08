@@ -56,7 +56,17 @@ function prepareTask(projectId: string, stepId: string, runId: string): Executor
     .filter(event => event.type === 'work.rejected' && event.subject === stepId)
     .slice(-3)
     .map(event => event.detail);
-  return { packet, stepTitle: step.title, evidence, reviewFeedback };
+  const humanHandoffs = step.dependsOn.flatMap(id => {
+    const upstream = project.package.steps.find(s => s.id === id);
+    if (!upstream || !['human_action', 'human_decision', 'external_milestone'].includes(upstream.kind) ||
+        project.steps[id]?.state !== 'done') return [];
+    const recent = project.events.filter(event =>
+      event.subject === id &&
+      ['human.completed', 'decision.approved', 'external.confirmed'].includes(event.type)
+    ).at(-1);
+    return recent ? [{ stepId: id, kind: upstream.kind, value: recent.detail }] : [];
+  });
+  return { packet, stepTitle: step.title, evidence, reviewFeedback, humanHandoffs };
 }
 
 /** Shared authoritative run lifecycle. Backends return proposals and cannot commit state. */
