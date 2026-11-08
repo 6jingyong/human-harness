@@ -5,13 +5,13 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { packageSchema } from '../src/protocol/v1';
 import { manualProjectPackage } from '../src/protocol/manual';
+import type { TaskExecutor } from '../src/executors/contracts';
 
 const temp = mkdtempSync(join(tmpdir(), 'hh-v1-runtime-'));
 process.env.HH_DATA_DIR = temp;
 process.env.HH_EXECUTOR = 'demo';
 const store = await import('../src/core/store');
 const { executeOneAgentTask, configuredExecutorMode } = await import('../src/executors/runner');
-import type { TaskExecutor } from '../src/executors/contracts';
 
 after(() => {
   try { rmSync(temp, { recursive: true, force: true }); } catch { /* db handle on Windows */ }
@@ -193,4 +193,75 @@ test('rejected material revisions never enter the Agent evidence packet', () => 
   assert.equal(refs.includes(latestId!), true);
   assert.equal(refs.length, 3);
   store.markAgentFailed(p.id, 'inventory', reserved.runId, 'Test cleanup');
+});
+
+
+test('P0: executors receive only authorized evidence and do not own project state', async () => {
+  const p = store.createProject('land-investigation', 'Executor scope example');
+  provideInput(p.id);
+  let calls = 0;
+  const injected: TaskExecutor = {
+    id: 'test-no-model',
+    async execute(task) {
+      calls++;
+      assert.equal(task.packet.workItemId, 'inventory');
+      assert.equal(task.packet.projectId, p.id);
+      assert.equal(task.evidence.length, 3);
+      assert.deepEqual(task.evidence.map(e => e.artifactId),
+        task.packet.readableInputs.map(ref => ref.artifactId));
+      assert.equal(task.evidence.some(e => 'filePath' in e), false);
+      assert.equal('project' in task, false);
+      assert.equal('decisions' in task, false);
+      assert.equal(task.evidence.find(e => e.name === 'site.kml')?.content, '<kml xmlns="http://www.opengis.net/kml/2.2"/>');
+      assert.equal(task.packet.toolsAllowed.length, 0);
+      return { body: '模拟适配器产生的受限候选成果', limitations: [], materialRequests: [] };
+    }
+  };
+  const run = await executeOneAgentTask(p.id, 'inventory', injected);
+  assert.equal(calls, 1);
+  assert.equal(run.project.steps.inventory.state, 'review');
+  assert.equal(store.getProject(p.id).steps.inventory.state, 'review');
+  assert.equal(store.latestOutput(store.getProject(p.id), 'inventory')?.content, '模拟适配器产生的受限候选成果');
+  store.reviewAgentOutput(p.id, 'inventory', true, 'Human Todo accepts candidate');
+  assert.equal(stepState(p.id, 'stage1-route'), 'ready');
+});
+
+test('P0: invalid executor output fails the run without committing an artifact', async () => {
+  const p = store.createProject('land-investigation', 'Malformed adapter output');
+  provideInput(p.id);
+  const invalid: TaskExecutor = {
+    id: 'test-invalid',
+    async execute() {
+      return {
+        body: 'Looks successful',
+        limitations: [],
+        materialRequests: [],
+        // Runtime rejects undeclared mutations, even if returned by an otherwise trusted adapter.
+        changeProjectState: 'done'
+      } as unknown as Awaited<ReturnType<TaskExecutor['execute']>>;
+    }
+  };
+  const count = store.getProject(p.id).artifacts.length;
+  await assert.rejects(() => executeOneAgentTask(p.id, 'inventory', invalid), /Unrecognized key/);
+  assert.equal(store.getProject(p.id).artifacts.length, count);
+  assert.equal(stepState(p.id, 'inventory'), 'failed');
+  assert.equal(store.getProject(p.id).runs.at(-1)?.status, 'failed');
+});
+
+test('P0: an unconfigured executor fails before reserving a task', async () => {
+  const p = store.createProject('land-investigation', 'No Codex fallback');
+  provideInput(p.id);
+  const before = store.getProject(p.id).runs.length;
+  assert.equal(configuredExecutorMode('demo'), 'demo');
+  assert.equal(configuredExecutorMode('mastra'), 'mastra');
+  assert.throws(() => configuredExecutorMode('codex'), /Codex is not integrated yet/);
+  const original = process.env.HH_EXECUTOR;
+  try {
+    process.env.HH_EXECUTOR = 'codex';
+    await assert.rejects(() => executeOneAgentTask(p.id, 'inventory'), /Codex is not integrated yet/);
+  } finally {
+    process.env.HH_EXECUTOR = original;
+  }
+  assert.equal(store.getProject(p.id).runs.length, before);
+  assert.equal(stepState(p.id, 'inventory'), 'ready');
 });
