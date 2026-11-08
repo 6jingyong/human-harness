@@ -1,8 +1,8 @@
 # Human Harness Protocol 1.0 — Canonical Architecture Decision
 
-Status: **proposed canonical protocol / design contract** (not currently implemented by the v0.x runtime).
-Decision: **no backward compatibility with experimental v0.x schemaVersion 2 or 3**.
-Existing Mastra integration, local DB adapter, UI and tests are prototypes; migrate/rewrite them to this protocol rather than adding adapter stacks.
+Status: **Protocol 1.0 runtime implemented as a local development foundation.** The TypeScript validators, SQLite project state, event-driven task/material activation, human decisions, Mastra TaskPacket adapter, typed TaskResult, basic manual package creation, review UI and Markdown/JSON export are integrated and tested.
+Decision: **no backward compatibility with experimental v0.x schemaVersion 2 or 3**. Their source routes and schema validators have been removed; the old `projects.sqlite` database is not migrated.
+**Not yet implemented:** package ZIP import or bundled assets, executable script/skill installation under the new protocol, reliable automatic workers, full material provenance/content verification, dependency invalidation after revisions, GIS/CAD/PDF reading, professional quality control and real DOCX/PDF reports. These sections remain design targets, not claims about the current application.
 
 ## 0. Scope and principles
 
@@ -22,7 +22,7 @@ Human Harness is an **operator for real-world projects**, not a chat service and
 
 ### A. ProjectPackage (definition plane, immutable by version)
 
-A package is a directory (eventually importable as a validated archive). Authoring does NOT require search.
+In the current runtime, a package is **one canonical JSON manifest**. The following directory/archive structure is a future package authoring target and **is not importable yet**. Authoring does NOT require search.
 
     land-pollution/
       manifest.json        # ID, semver, title, scope, declared required capabilities
