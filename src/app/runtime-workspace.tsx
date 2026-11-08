@@ -113,7 +113,7 @@ export function RuntimeWorkspace() {
         version: builtin ? '1.0.0' : nextVersion
       };
       setEditor(JSON.stringify(copy, null, 2));
-      setMode('editor');
+      setMode('editor'); setMenuOpen(false);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
@@ -275,7 +275,7 @@ export function RuntimeWorkspace() {
 
         {mode === 'library' && project ? <ProjectMaterialLibrary
           project={project} onBack={() => setMode('project')} /> :
-        {mode === 'editor' ? <section className="editor-screen">
+        mode === 'editor' ? <section className="editor-screen">
           <span className="eyebrow">MANUAL PACKAGE AUTHORING</span>
           <h1>手动创建项目模板</h1>
           <p>简单项目可由表单生成 Protocol 1.0 模板；复杂阶段、专业决策、未来资料和脚本引用使用下方 JSON 完整声明。</p>
