@@ -256,3 +256,39 @@ test('HTTP replacement review reports 409 while a dependent Agent run is active'
   await action(p.id, 'accept_material', { materialId: 'source-a' });
   assert.equal(store.getProject(p.id).steps.extract.state, 'ready');
 });
+
+
+test('HTTP request attachment rejection uses material feedback and reopens original Human Todo', async () => {
+  const { executeOneAgentTask } = await import('../src/executors/runner');
+  const p = store.createProject('document-handoff', 'HTTP rejected question file');
+  store.setExecutionPolicy(p.id, false, 1);
+  for (const [materialId, name] of [['source-a', 'a.pdf'], ['source-b', 'b.docx']]) {
+    store.submitMaterial(p.id, materialId, '', { name, buffer: Buffer.from('v1 accepted') });
+    store.reviewReceivedMaterial(p.id, materialId, true, '');
+  }
+  await executeOneAgentTask(p.id, 'extract', {
+    id: 'attachment-review-rejected',
+    async execute() {
+      return { body: 'Require revised PDF', limitations: [], materialRequests: [
+        { materialId: 'source-a', reason: '请提供更新版 PDF。' }
+      ] };
+    }
+  });
+  const requestId = store.getProject(p.id).humanRequests![0].id;
+  const form = new FormData();
+  form.append('action', 'answer_human_request');
+  form.append('requestId', requestId);
+  form.append('file', new File([Buffer.from('incomplete v2')], 'v2.pdf', { type: 'application/pdf' }));
+  const uploadResponse = await actionAPI.POST(
+    new Request('http://localhost/api/v1/projects/' + p.id + '/actions', { method: 'POST', body: form }),
+    { params: Promise.resolve({ id: p.id }) }
+  );
+  assert.equal(uploadResponse.status, 200);
+  const rejected = await action(p.id, 'reject_material', {
+    materialId: 'source-a', feedback: '原件缺页，请补充完整正式版。'
+  });
+  assert.equal(rejected.project.humanRequests[0].status, 'pending');
+  assert.equal(rejected.project.steps.extract.state, 'waiting_input');
+  assert.equal(rejected.project.materials['source-a'].state, 'rejected');
+  assert.equal(rejected.project.events.at(-1).type, 'material.rejected');
+});
