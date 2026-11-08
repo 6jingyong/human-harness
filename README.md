@@ -113,7 +113,9 @@ The canonical internal protocol uses:
 
 A **MaterialRequirement** expresses *what must eventually exist*. A **WorkItem** expresses *who can do what now*. A **MaterialArtifact** expresses *what actually arrived*. These must remain separate.
 
-The project runtime is responsible for state transitions. Mastra is an adapter for executing a job, not the source of truth.
+The project runtime is responsible for state transitions. **The shared runner** (`src/executors/runner.ts`) reserves tasks, selects the authorized evidence references, validates the candidate result and commits the next review state. The replaceable adapter (`src/executors/contracts.ts`) receives only the scoped task/evidence/feedback and returns a typed candidate; it never receives the full project snapshot or the private upload path.
+
+The existing `demo` and `mastra` adapters use this boundary. **Codex is the next integration target and is not wired yet**: setting `HH_EXECUTOR=codex` currently fails clearly rather than silently switching to demo. [P0–P5 milestone plan](docs/roadmap-codex-v1.md).
 
 ### Materials are processed according to the template
 
