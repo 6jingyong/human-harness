@@ -165,7 +165,7 @@ export function submitHuman(projectId: string, taskId: string, rawText: string, 
       db.prepare('INSERT INTO artifacts VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(fileId, projectId, taskId, 'file', safeName, readable, filePath, now());
     }
     db.prepare("UPDATE tasks SET status = 'completed' WHERE project_id = ? AND task_id = ?").run(projectId, taskId);
-    record(projectId, taskId, 'human.submitted', text ? text.slice(0, 240) : safeName);
+    record(projectId, taskId, 'human.submitted', (text ? 'Text (' + text.length + ' chars)' : '') + (uploaded ? ' / File uploaded' : ''));
   })();
   return getProjectOrThrow(projectId);
 }
