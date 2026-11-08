@@ -161,3 +161,42 @@ test('multiple pending Human questions must all be answered before Agent becomes
   store.answerRequestedInput(p.id, requests[1].id, 'B 来自资料提供单位');
   assert.equal(store.getProject(p.id).steps.extract.state, 'ready');
 });
+
+
+test('template can authorize an extra clarification category without making it a required source file', async () => {
+  const basic = manualProjectPackage({
+    id: 'extra-requestable-input', title: 'Optional extra question',
+    description: 'Template-controlled optional human questions',
+    inputs: 'Primary material\nOptional background material',
+    objective: 'Ask about additional context when needed'
+  });
+  const original = basic.steps[0];
+  const pkg = packageSchema.parse({
+    ...basic,
+    steps: [{
+      ...original, needsMaterials: ['input-01'],
+      requestableMaterialIds: ['input-02']
+    }]
+  });
+  store.importPackage(pkg);
+  const p = store.createProject(pkg.id, 'Optional question');
+  store.submitMaterial(p.id, 'input-01', 'Primary evidence');
+  store.reviewReceivedMaterial(p.id, 'input-01', true, '');
+  assert.equal(store.getProject(p.id).steps.draft.state, 'ready');
+  await executeOneAgentTask(p.id, 'draft', {
+    id: 'template-scoped-extra',
+    async execute(task) {
+      assert.deepEqual(task.requestableMaterials?.map(m => m.id), ['input-01', 'input-02']);
+      assert.equal(task.packet.readableInputs.length, 1);
+      return { body: 'Ask about optional background', limitations: [], materialRequests: [
+        { materialId: 'input-02', reason: '请说明背景资料是否存在。' }
+      ] };
+    }
+  });
+  assert.equal(store.getProject(p.id).steps.draft.state, 'waiting_input');
+  const request = store.getProject(p.id).humanRequests![0];
+  store.answerRequestedInput(p.id, request.id, '暂时未提供背景资料，请按不确定处理。');
+  assert.equal(store.getProject(p.id).steps.draft.state, 'ready');
+  assert.equal(store.getProject(p.id).materials['input-02'].state, 'requested');
+  assert.equal(store.getProject(p.id).materials['input-02'].artifactIds.length, 0);
+});
