@@ -68,7 +68,7 @@ function prepareTask(projectId: string, stepId: string, runId: string): Executor
     return recent ? [{ stepId: id, kind: upstream.kind, value: recent.detail }] : [];
   });
   const requestedAnswers = (project.humanRequests ?? [])
-    .filter(request => request.stepId === stepId && request.status === 'answered' && request.answer)
+    .filter(request => request.stepId === stepId && !request.invalidatedAt && request.status === 'answered' && request.answer)
     .map(request => ({
       stepId,
       kind: 'agent_requested_input',
