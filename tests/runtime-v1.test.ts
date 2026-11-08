@@ -25,7 +25,11 @@ function provideInput(projectId: string) {
     ['boundary', '原始红线暂以文字说明代替，仅为开发测试'],
     ['land-use', '规划用途依据：内部测试资料']
   ]) {
-    store.submitMaterial(projectId, materialId, content);
+    if (materialId === 'boundary') {
+      store.submitMaterial(projectId, materialId, '', { name: 'site.kml', buffer: Buffer.from('<kml xmlns="http://www.opengis.net/kml/2.2"/>') });
+    } else {
+      store.submitMaterial(projectId, materialId, content);
+    }
     assert.equal(matState(projectId, materialId), 'received');
     assert.equal(stepState(projectId, 'inventory'), 'blocked');
     store.reviewReceivedMaterial(projectId, materialId, true, 'Test acceptance');
@@ -48,6 +52,7 @@ test('canonical v1 keeps future QC off the current TodoList and exits at stage o
   assert.equal(p.package.protocol, 'hh.package/1');
   assert.match(p.packageDigest, /^sha256:[0-9a-f]{64}$/);
   assert.equal(matState(p.id, 'qc-evidence'), 'dormant');
+  assert.throws(() => store.submitMaterial(p.id, 'boundary', '只有描述，没有原始文件'), /original file/);
   assert.equal(stepState(p.id, 'sampling-plan'), 'dormant');
   provideInput(p.id);
   await approveInventory(p.id);
@@ -106,7 +111,7 @@ test('manual package creation is strict, executable and keeps snapshots intact',
   assert.equal(stepState(p.id, 'draft'), 'blocked');
   store.submitMaterial(p.id, 'input-01', '项目目标是演示');
   store.reviewReceivedMaterial(p.id, 'input-01', true, '');
-  store.submitMaterial(p.id, 'input-02', '某份原始资料');
+  store.submitMaterial(p.id, 'input-02', '', { name: 'source.txt', buffer: Buffer.from('某份原始资料') });
   store.reviewReceivedMaterial(p.id, 'input-02', true, '');
   assert.equal(stepState(p.id, 'draft'), 'ready');
   await executeOneAgentTask(p.id, 'draft');
