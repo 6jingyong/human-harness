@@ -70,19 +70,63 @@ test('imported JSON templates are validated, versioned and instantiated', () => 
   const raw = JSON.parse(readFileSync(join(process.cwd(), 'examples/template.document-review.json'), 'utf8'));
   const imported = store.addTemplate(raw);
   assert.equal(imported.id, 'document-review');
-  assert.equal(imported.version, 1);
-  assert.equal(store.listTemplateSummaries().find(t => t.id === 'document-review')?.version, 1);
-  const first = store.createProject('document-review', 'Document review v1');
-  assert.equal(first.templateVersion, 1);
+  assert.equal(imported.version, 2);
+  assert.equal(store.listTemplateSummaries().find(t => t.id === 'document-review')?.version, 2);
+  const first = store.createProject('document-review', 'Document review v2');
+  assert.equal(first.templateVersion, 2);
+  assert.equal(first.template?.workflow?.stages.length, 3);
+  assert.equal(first.template?.resources?.length, 3);
+  assert.equal(first.template?.deliverables?.[0].fileName, 'document-review.md');
   assert.equal(first.tasks.find(t => t.id === 'source-document')?.inputKind, 'file');
   assert.throws(() => store.addTemplate(raw), /version must be greater/);
-  const newer = { ...raw, version: 2, tasks: raw.tasks.map((t: { id: string }) =>
+  const newer = { ...raw, version: 3, tasks: raw.tasks.map((t: { id: string }) =>
     t.id === 'objective' ? { ...t, description: 'Revised instructions' } : t) };
   store.addTemplate(newer);
-  assert.equal(store.listTemplateSummaries().find(t => t.id === 'document-review')?.version, 2);
-  assert.equal(store.createProject('document-review', 'Document review v2').templateVersion, 2);
-  assert.equal(store.getProject(first.id)?.templateVersion, 1); // existing projects are snapshots
+  assert.equal(store.listTemplateSummaries().find(t => t.id === 'document-review')?.version, 3);
+  assert.equal(store.createProject('document-review', 'Document review v3').templateVersion, 3);
+  assert.equal(store.getProject(first.id)?.templateVersion, 2); // existing projects are snapshots
   assert.throws(() => store.addTemplate({ ...raw, id: 'unsafe', tasks: [{ ...raw.tasks[0], owner: 'root' }] }));
   assert.throws(() => store.addTemplate({ ...raw, id: 'cycle', tasks: raw.tasks.map((t: { id: string }) =>
     t.id === 'objective' ? { ...t, dependsOn: ['revision-suggestions'] } : t) }), /Cycle/);
+});
+
+
+test('v2 package executes trusted script and enforces delivery output contract', async () => {
+  const { executeRegisteredScript } = await import('../src/lib/scripts');
+  const project = store.createProject('document-review', 'Document review executable package');
+  store.submitHuman(project.id, 'objective', 'Identify unclear claims and trace evidence');
+  store.submitHuman(project.id, 'source-document', '', {
+    name: 'input.md', bytes: Buffer.from('# Source\n\nThe document asserts a claim with no citation.')
+  });
+  const findings = store.reserveAgentTask(project.id);
+  assert.equal(findings?.id, 'review-findings');
+  store.finishAgent(project.id, findings!.id, 'Missing citations and context', true);
+  store.reviewAgent(project.id, findings!.id, true, '');
+
+  const revision = store.reserveAgentTask(project.id);
+  assert.equal(revision?.id, 'revision-suggestions');
+  store.finishAgent(project.id, revision!.id, 'Insert references and clarify scope', true);
+  store.reviewAgent(project.id, revision!.id, true, '');
+
+  const compile = store.reserveAgentTask(project.id);
+  assert.equal(compile?.id, 'compile-deliverable');
+  assert.equal(compile?.execution?.mode, 'script');
+  const assembled = executeRegisteredScript(compile!.execution!.scriptId!, store.getProject(project.id)!, compile!);
+  assert.match(assembled, /## 输入材料/);
+  assert.match(assembled, /## 审核成果/);
+  assert.match(assembled, /Missing citations/);
+  assert.throws(() => store.finishAgent(project.id, compile!.id, '# Short', true), /shorter than/);
+  const finished = store.finishAgent(project.id, compile!.id, assembled, true);
+  assert.equal(finished.artifacts.at(-1)?.name, 'document-review.md');
+  assert.equal(finished.tasks.find(t => t.id === compile!.id)?.status, 'review');
+  store.reviewAgent(project.id, compile!.id, true, '');
+});
+
+test('v2 package rejects arbitrary code and invalid references', () => {
+  const raw = JSON.parse(readFileSync(join(process.cwd(), 'examples/template.document-review.json'), 'utf8'));
+  assert.throws(() => store.addTemplate({ ...raw, id: 'bad-script', resources: raw.resources.map((r: { id: string }) =>
+    r.id === 'md-compiler' ? { ...r, scriptId: 'run-arbitrary-shell' } : r) }), /Unknown automation script/);
+  assert.throws(() => store.addTemplate({ ...raw, id: 'bad-resource', tasks: raw.tasks.map((t: { id: string }) =>
+    t.id === 'compile-deliverable' ? { ...t, resourceRefs: ['not-in-template'] } : t) }), /Unknown task resource/);
+  assert.throws(() => store.addTemplate({ ...raw, id: 'bad-output', deliverables: [{ ...raw.deliverables[0], fileName: '../escape.md' }] }), /safe basename/);
 });
