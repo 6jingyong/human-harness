@@ -7,6 +7,7 @@ export type WorkbenchItem = {
   title: string;
   state: string;
   owner: 'human' | 'agent' | 'history';
+  agentId?: string;
 };
 
 export type WorkbenchQueues = {
@@ -47,7 +48,8 @@ export function deriveWorkbenchQueues(project: ProjectState): WorkbenchQueues {
     const kind = humanKinds.has(step.kind) ? 'human' : 'agent';
     const entry: WorkbenchItem = {
       key: 'step:' + step.id, id: step.id, kind,
-      title: step.title, state, owner: kind === 'human' ? 'human' : 'agent'
+      title: step.title, state, owner: kind === 'human' ? 'human' : 'agent',
+      ...(kind === 'agent' && step.agentId ? { agentId: step.agentId } : {})
     };
     if (state === 'done') history.push({ ...entry, owner: 'history' });
     else if (kind === 'human' && state === 'ready') human.push(entry);
@@ -68,4 +70,41 @@ export function currentWorkbenchItem(
   return active.find(item => item.key === selectedKey) ??
     queues.history.find(item => item.key === selectedKey) ??
     active[0] ?? queues.history[0];
+}
+
+
+export type AgentTaskGroup = {
+  id: string;
+  title: string;
+  description: string;
+  tasks: WorkbenchItem[];
+  counts: { running: number; ready: number; failed: number; blocked: number };
+};
+
+/** Template assignments are presentation ownership, not extra model credentials.
+ * The scheduler still uses the one authoritative project task graph.
+ */
+export function groupAgentTasks(project: ProjectState, queue: WorkbenchItem[]): AgentTaskGroup[] {
+  const declared = project.package.agents ?? [];
+  const ids = new Set(queue.map(item => item.agentId ?? 'default-agent'));
+  const groups = [
+    ...declared.filter(group => ids.has(group.id)).map(group => ({
+      id: group.id, title: group.title, description: group.description
+    })),
+    ...(!declared.some(group => group.id === 'default-agent') && ids.has('default-agent')
+      ? [{ id: 'default-agent', title: 'Agent（默认）', description: '模板未指定独立 Agent 任务组' }]
+      : [])
+  ];
+  return groups.map(group => {
+    const tasks = queue.filter(item => (item.agentId ?? 'default-agent') === group.id);
+    return {
+      ...group, tasks,
+      counts: {
+        running: tasks.filter(item => item.state === 'running').length,
+        ready: tasks.filter(item => item.state === 'ready').length,
+        failed: tasks.filter(item => item.state === 'failed').length,
+        blocked: tasks.filter(item => item.state === 'blocked').length
+      }
+    };
+  });
 }
