@@ -64,26 +64,55 @@ h1,h2,h3,p{margin-top:0}h1{font-size:clamp(22px,2.5vw,30px)}h2{font-size:19px;ma
 .advanced-editor summary{color:var(--accent);cursor:pointer;font-size:13px}
 @media(max-width:720px){.author-grid{grid-template-columns:1fr}.author-grid .wide{grid-column:auto}}
 
-/* Human Harness handoff navigator: two executor lanes, one shared task graph. */
-.handoff-board{margin:0 0 20px;background:var(--panel);border:1px solid var(--line);border-radius:15px;overflow:hidden}
-.handoff-header{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:21px 22px;border-bottom:1px solid var(--line)}
-.handoff-header h2{margin:4px 0 2px}.handoff-header p{font-size:12px;margin:0}
-.handoff-header button{white-space:nowrap;font-size:12px}
-.handoff-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(270px,1.35fr)}
-.handoff-lane,.handoff-detail{padding:18px;min-width:0}.handoff-lane{border-right:1px solid var(--line);max-height:340px;overflow:auto}
-.handoff-lane h3{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
-.handoff-lane h3 span{font-size:12px;border:1px solid var(--line);padding:1px 7px;border-radius:20px;color:var(--accent)}
-.handoff-link{display:flex;gap:9px;justify-content:space-between;align-items:center;text-align:left;width:100%;margin-bottom:8px;padding:11px 12px;border-radius:10px;background:#19273a}
-.handoff-link strong{font-size:12px;font-weight:600;overflow-wrap:anywhere}.handoff-link small{font-size:11px;color:#b9d0e7;white-space:nowrap}
-.handoff-link.selected{background:#28425e;border-color:#8cb4dc}
-.handoff-detail{background:#172235}.handoff-detail h3{font-size:17px;margin-top:9px}
-.handoff-detail p{font-size:12px;line-height:1.65}
-.detail-row{padding:8px 0;border-top:1px solid #324159;display:grid;grid-template-columns:83px 1fr;gap:10px;font-size:12px}
-.detail-row strong{color:#93b8e1;font-weight:600}.detail-row span{overflow-wrap:anywhere}
-.handoff-jump{margin-top:15px;width:100%;background:#253c55;border-color:#5d83a5;font-size:12px}
-.handoff-warning{margin:0;border-top:1px solid var(--line);padding:11px 21px;font-size:11px;color:#e5cda6;background:#292519}
-@media(max-width:1260px){.handoff-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.handoff-detail{grid-column:1/-1;border-top:1px solid var(--line)}.handoff-lane:nth-child(2){border-right:0}}
-@media(max-width:720px){.handoff-grid{grid-template-columns:1fr}.handoff-lane{max-height:210px;border-right:0;border-bottom:1px solid var(--line)}.handoff-detail{grid-column:auto}.handoff-header{align-items:flex-start;flex-direction:column}}
+/* Task-centric Human Harness GUI: two queues, one task operation panel. */
+.workbench-shell{margin:0 0 20px;background:var(--panel);border:1px solid var(--line);border-radius:15px;overflow:hidden}
+.workbench-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:21px 23px;border-bottom:1px solid var(--line)}
+.workbench-heading h2{margin:5px 0 2px;font-size:21px}.workbench-heading p{font-size:12px;margin:0}.workbench-heading button{white-space:nowrap}
+.workbench-main{display:grid;grid-template-columns:minmax(330px, .9fr) minmax(0,1.25fr);min-height:490px}
+.workbench-navigation{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:0;border-right:1px solid var(--line);background:#111c2d}
+.workbench-lane{padding:17px 12px 20px;min-width:0;max-height:520px;overflow-y:auto}
+.workbench-lane:first-child{border-right:1px solid var(--line)}
+.workbench-lane h3{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;line-height:1.5;margin:0 0 13px}
+.workbench-lane h3 span{font-size:11px;color:var(--accent);border:1px solid var(--line);border-radius:99px;padding:1px 7px}
+.workbench-item{display:flex;align-items:flex-start;flex-direction:column;gap:7px;width:100%;text-align:left;background:#1c2a3e;padding:12px;margin-bottom:8px;border-radius:9px}
+.workbench-item:hover:not(:disabled){background:#2b3f58}
+.workbench-item.selected{background:#2a4663;border-color:#9bbddd;box-shadow:inset 3px 0 0 var(--accent)}
+.workbench-item-label{font-size:12px;font-weight:650;line-height:1.5;overflow-wrap:anywhere}
+.task-state{white-space:nowrap;color:#bed4ea;background:#23354d;border-radius:20px;border:1px solid #52667e;padding:2px 8px;font-size:11px}
+.task-state.ready,.task-state.requested{border-color:#5b8879;color:#b8e6cd}
+.task-state.review,.task-state.received{border-color:#9b804e;color:#ffe0ad}
+.task-state.running{border-color:#6b95c2;color:#bfdfff}
+.task-state.done,.task-state.accepted{border-color:#4c806d;color:#abe3c4}
+.task-state.failed,.task-state.rejected{border-color:#ac6073;color:#ffc0ca}
+.task-state.blocked{opacity:.8}
+.workbench-archive{border-top:1px solid var(--line);grid-column:1/-1;padding:10px 14px 16px}
+.workbench-archive summary{cursor:pointer;color:#aac6e6;font-size:12px;padding:7px 1px 11px}
+.workbench-archive .workbench-item{display:inline-flex;width:calc(50% - 5px);margin:0 7px 8px 0;vertical-align:top}
+.workbench-inspector{background:#172337;min-width:0;padding:23px clamp(18px,2vw,34px);min-height:480px}
+.workbench-inspector-header{display:flex;gap:10px;align-items:center;justify-content:space-between}
+.workbench-inspector h2{font-size:22px;line-height:1.35;margin:12px 0 10px;overflow-wrap:anywhere}
+.task-instructions{font-size:13px;line-height:1.75;white-space:pre-wrap}
+.task-context-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:16px 0 22px}
+.task-context-grid>div{display:grid;gap:4px;border:1px solid var(--line);border-radius:9px;padding:9px 11px;background:#1d2c40;min-width:0}
+.task-context-grid strong{font-size:11px;color:var(--muted)}.task-context-grid span{font-size:12px;overflow-wrap:anywhere}
+.inspector-section{border-top:1px solid var(--line);padding:20px 0 10px}
+.inspector-section h3{font-size:14px;margin-bottom:10px}
+.inspector-section p,.inspector-section li{font-size:12px;line-height:1.75}
+.inspector-section ul{padding-left:20px;color:#c9d6e6;margin:10px 0}
+.inspector-section label{display:block;font-size:12px;color:#a9c4dd;margin:13px 0 6px}
+.inspector-section select,.inspector-section input[type=file],.inspector-section textarea{margin-bottom:12px}
+.inspector-section button.primary{margin-top:3px}
+.inspector-section .actions{margin:9px 0 0}
+.inspector-section .result{max-height:390px}
+.inspector-section .output{margin-bottom:10px}
+.source-revision{font-size:12px;color:#a9c8df;background:#21364d;border-radius:8px;padding:8px 10px}
+.requirement-line{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid #2c4057;font-size:12px}
+.requirement-line span:last-child{white-space:nowrap;color:#a8c9e7}
+.approval-section{border-top:2px solid #6c91b8;background:#1e3045;border-radius:9px;padding:17px;margin-top:10px}
+.inspector-success{color:#abebc8!important;background:#1e3b34;padding:10px 12px;border-radius:9px}
+.workbench-empty{margin:40px 0}
+@media(max-width:1450px){.workbench-main{grid-template-columns:1fr}.workbench-navigation{border-right:0;border-bottom:1px solid var(--line)}.workbench-lane{max-height:290px}.workbench-inspector{min-height:300px}}
+@media(max-width:700px){.workbench-heading{align-items:flex-start;flex-direction:column}.workbench-lane{padding:13px 8px;max-height:240px}.workbench-item{padding:9px}.workbench-inspector{padding:18px 14px}.task-context-grid{grid-template-columns:1fr}}
 
 /* Independent project scheduler: project-level controls stay visible above task lanes. */
 .execution-toolbar{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:18px 21px;margin:0 0 18px;background:var(--panel);border:1px solid var(--line);border-radius:14px}
