@@ -198,6 +198,31 @@ export function getTaskPacket(id: string, stepId: string, runId: string) {
   return taskPacketSchema.parse(createTaskPacket(loadProject(id), stepId, runId));
 }
 
+/** Store only Codex runtime identities/brief event types, never model-controlled project mutations. */
+export function recordExecutorEvent(id: string, stepId: string, runId: string,
+  event: { kind: 'thread' | 'turn'; id: string } | { kind: 'progress'; message: string }) {
+  return mutate(id, p => {
+    const run = p.runs.find(r => r.id === runId && r.stepId === stepId);
+    if (!run || run.status !== 'running' || p.steps[stepId]?.runId !== runId ||
+        p.steps[stepId]?.state !== 'running') {
+      throw new RuntimeError('Stale or unknown Codex run event');
+    }
+    if (event.kind === 'thread') {
+      if (run.codexThreadId && run.codexThreadId !== event.id) throw new RuntimeError('Codex thread identity changed');
+      run.codexThreadId = event.id;
+      recordEvent(p, 'executor.thread', stepId, event.id);
+    } else if (event.kind === 'turn') {
+      if (!run.codexThreadId) throw new RuntimeError('Codex turn arrived before thread');
+      if (run.codexTurnId && run.codexTurnId !== event.id) throw new RuntimeError('Codex turn identity changed');
+      run.codexTurnId = event.id;
+      recordEvent(p, 'executor.turn', stepId, event.id);
+    } else {
+      run.lastExecutorEvent = event.message.slice(0, 150);
+      // Progress is a status snapshot. Avoid a large SQLite event ledger for every token.
+    }
+  }).project;
+}
+
 export function succeedAgent(id: string, stepId: string, runId: string, rawResult: unknown, output: string) {
   const result = taskResultSchema.parse(rawResult);
   if (!output.trim() || output.length > 120000) throw new RuntimeError('Agent returned empty or oversized output');
