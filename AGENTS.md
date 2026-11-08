@@ -41,12 +41,13 @@ Read only the material relevant to the current task. Keep changes focused; avoid
 - Human TodoList must stay actionable while Agent tasks run. Never implement a project-global `busy` as the final interface behavior.
 - Independent WorkItems need independent run IDs / Codex thread-turn mappings, durable progress, input version tracking, and separate success/failure.
 - Same WorkItem must not run duplicate attempts concurrently. Avoid shared writable workspace collisions and late-result overwrites.
-- Local `src/executors/scheduler.ts` now auto-dispatches authorized ready Agent tasks after project API requests; the GUI uses independent Human Todo actions and polling. This is a single-process MVP: do not claim standalone durable workers, live Codex multi-run validation or multi-host scheduling.
+- Local `src/executors/scheduler.ts` now auto-dispatches authorized ready Agent tasks after project API requests; `src/app/task-workbench.tsx` provides a single task operation panel backed by Human/Agent/history projections, with independent Human Todo actions and polling. This is a single-process MVP: do not claim standalone durable workers, live Codex multi-run validation or multi-host scheduling.
 - Codex internal `spawn_agent` multitasking is **not a replacement** for Human Harness project-level parallelism.
 - See `docs/parallel-first.md`.
 
 ## Working safely
 
+- The Demo GUI end-to-end test runs in Playwright Chromium against a production Next.js server; it verifies the human-agent review loop, not real Codex. Run `npm run test:browser` after installing Chromium, or consult `.github/workflows/gui-smoke.yml`.
 - The app is a **local development prototype**. No authentication, reliable sandbox for untrusted documents, or production-ready external integrations.
 - PDF/DOCX/CAD extraction, actual site investigation, laboratory verification and professional report signing are **not implemented**.
 - When changing workflow conditions or evidence acceptance, check that stage-one exit still makes sampling/QC materials non-applicable and that commissioning precedes requests for actual institution reports.
