@@ -200,3 +200,30 @@ test('AbortSignal interrupts a still-running local Codex child without accepting
     /cancelled/
   );
 });
+
+
+test('Codex adapter passes through template-scoped Human questions (runner remains authority)', async () => {
+  const result = await runCodexTask({
+    ...task, requestableMaterials: [{
+      id: 'input-01', title: '授权原件', description: '需要确认版次'
+    }]
+  }, { startProcess: start('human-request'), timeoutMs: 3000 });
+  assert.deepEqual(result.materialRequests, [
+    { materialId: 'input-01', reason: '请确认资料版次' }
+  ]);
+});
+
+test('Codex adapter can return explicit unverified method checks without pretending a pass', async () => {
+  const methodTask: ExecutorTask = {
+    ...task, workMethod: {
+      procedure: ['Read authorized input only'],
+      checks: [{ id: 'source-trace', criterion: 'Source is traceable' }],
+      onMissing: 'request_human'
+    }
+  };
+  const result = await runCodexTask(methodTask, {
+    startProcess: start('method-checks'), timeoutMs: 3000
+  });
+  assert.equal(result.methodChecks?.[0]?.checkId, 'source-trace');
+  assert.equal(result.methodChecks?.[0]?.status, 'unverified');
+});
