@@ -40,6 +40,8 @@ Read only the material relevant to the current task. Keep changes focused; avoid
 - For code changes, run `npm run typecheck` and relevant tests; run the production build when Next.js routes or build behavior change.
 - Never claim cross-platform compatibility solely because a standard like MCP or Agent Skills is mentioned. Require a recorded real host integration test.
 
+- **Current milestone contract:** `docs/roadmap-codex-v1.md` (P0–P5). Prioritize P1.1 local Codex app-server integration; do not divert into Octop or new PDF/DOCX parsers.
+
 ## Ecosystem architecture
 
 - The shared HH project/package/material/Todo runtime must **not depend on Codex Cloud or a particular provider's hosted services**.
