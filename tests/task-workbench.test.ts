@@ -133,6 +133,8 @@ test('Agent missing-information proposal appears in Human Todo without a separat
   }];
   const queues = deriveWorkbenchQueues(p);
   assert.equal(queues.human.some(item => item.key === 'request:request-1'), true);
+  assert.equal(queues.human.some(item => item.key === 'material:source-a'), false,
+    'clarification and source upload share one Human Todo rather than duplicates');
   assert.equal(queues.agent.find(item => item.id === 'extract')?.state, 'waiting_input');
   const html = markup(p, 'request:request-1');
   assert.match(html, /Agent 请求补充信息/);
