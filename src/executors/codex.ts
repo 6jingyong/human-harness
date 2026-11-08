@@ -110,7 +110,7 @@ class AppServerClient {
 
 export type CodexLaunchOptions = {
   /** Inject an actual stdio process for protocol tests; never used to simulate a model result in production. */
-  startProcess?: () => ChildProcessWithoutNullStreams;
+  startProcess?: (workspace: string) => ChildProcessWithoutNullStreams;
   timeoutMs?: number;
   onEvent?: (event: ExecutorRunEvent) => void;
 };
@@ -142,7 +142,7 @@ export async function runCodexTask(task: ExecutorTask, options: CodexLaunchOptio
     spawn(process.env.HH_CODEX_COMMAND || 'codex', ['app-server'], {
       cwd: workspace, stdio: 'pipe', shell: false, windowsHide: true,
       env: codexEnvironment()
-    })))();
+    })))(workspace);
   const client = new AppServerClient(child);
   const requestedTimeout = options.timeoutMs ?? Number(process.env.HH_CODEX_TIMEOUT_MS || 600000);
   const timeoutMs = Number.isFinite(requestedTimeout) ? Math.min(1800000, Math.max(3000, requestedTimeout)) : 600000;
