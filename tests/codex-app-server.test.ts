@@ -185,3 +185,18 @@ test('runner transports only currently accepted original bytes, not storage path
   const run = await executeOneAgentTask(project.id, 'draft', adapter);
   assert.equal(run.project.steps.draft.state, 'review');
 });
+
+
+test('AbortSignal interrupts a still-running local Codex child without accepting a candidate', async () => {
+  const controller = new AbortController();
+  await assert.rejects(
+    () => runCodexTask(task, {
+      startProcess: start('stalled'), timeoutMs: 6000,
+      signal: controller.signal,
+      onEvent: event => {
+        if (event.kind === 'turn') controller.abort();
+      }
+    }),
+    /cancelled/
+  );
+});
