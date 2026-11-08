@@ -185,6 +185,21 @@ export function failAgent(project: ProjectState, stepId: string, runId: string, 
   recordEvent(project, 'run.failed', stepId, run.error);
 }
 
+/** Explicit crash recovery. Never silently duplicate a still-running model call. */
+export function expireAbandonedRun(project: ProjectState, stepId: string, currentTime = Date.now()): void {
+  const state = project.steps[stepId];
+  if (state?.state !== 'running' || !state.runId || !state.startedAt) {
+    throw new Error('No active run to recover');
+  }
+  const elapsed = currentTime - Date.parse(state.startedAt);
+  if (!Number.isFinite(elapsed) || elapsed < 15 * 60 * 1000) {
+    throw new Error('Running task has not exceeded the 15-minute recovery threshold');
+  }
+  const runId = state.runId;
+  failAgent(project, stepId, runId, 'Run exceeded the 15-minute lease; human-authorized recovery required');
+  recordEvent(project, 'run.timeout_recovered', stepId, runId);
+}
+
 export function retryAgent(project: ProjectState, stepId: string): void {
   const state = project.steps[stepId];
   const def = project.package.steps.find(s => s.id === stepId);
