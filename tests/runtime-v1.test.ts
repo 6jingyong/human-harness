@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { packageSchema, taskPacketSchema } from '../src/protocol/v1';
+import { packageSchema } from '../src/protocol/v1';
 import { manualProjectPackage } from '../src/protocol/manual';
 
 const temp = mkdtempSync(join(tmpdir(), 'hh-v1-runtime-'));
@@ -90,7 +90,7 @@ test('canonical v1 only requests QC evidence after real institution milestone is
   }
   assert.equal(stepState(p.id, 'qc-review'), 'ready');
   const run = await executeOneAgentTask(p.id, 'qc-review');
-  assert.equal(taskPacketSchema.parse(store.getTaskPacket(p.id, 'qc-review', run.runId)).protocol, 'hh.task/1');
+  assert.equal(store.getProject(p.id).runs.find(r => r.id === run.runId)?.status, 'review');
 });
 
 test('manual package creation is strict, executable and keeps snapshots intact', async () => {
