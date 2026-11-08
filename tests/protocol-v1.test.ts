@@ -120,3 +120,19 @@ test('template-defined Agent lanes validate unique owners and cannot assign huma
   // Backwards-compatible packages without named Agent lanes keep a default owner.
   assert.equal(packageSchema.safeParse(base).success, true);
 });
+
+
+test('requestableMaterialIds must be declared and belong to Agent work, not human tasks', () => {
+  const allowed = structuredClone(base);
+  allowed.steps[0].requestableMaterialIds = ['qc-evidence'];
+  assert.equal(packageSchema.safeParse(allowed).success, true);
+  const wrong = structuredClone(allowed);
+  wrong.steps[0].requestableMaterialIds = ['not-a-material'];
+  assert.equal(packageSchema.safeParse(wrong).success, false);
+  const duplicate = structuredClone(allowed);
+  duplicate.steps[0].requestableMaterialIds = ['qc-evidence', 'qc-evidence'];
+  assert.equal(packageSchema.safeParse(duplicate).success, false);
+  const human = structuredClone(allowed);
+  human.steps[2].requestableMaterialIds = ['boundary'];
+  assert.equal(packageSchema.safeParse(human).success, false);
+});
