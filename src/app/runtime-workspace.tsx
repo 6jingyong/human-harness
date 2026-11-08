@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ProjectState } from '@/core/runtime';
 import { deriveWorkbenchQueues } from './workbench-queue';
 import { TaskWorkbench } from './task-workbench';
+import { ProjectMaterialLibrary } from './project-material-library';
 import type { HumanHarnessPackage } from '@/protocol/v1';
 import { manualProjectPackage } from '@/protocol/manual';
 
@@ -34,7 +35,8 @@ export function RuntimeWorkspace() {
   const [project, setProject] = useState<ProjectState | null>(null);
   const [packageId, setPackageId] = useState('document-handoff');
   const [name, setName] = useState('');
-  const [mode, setMode] = useState<'project' | 'editor'>('project');
+  const [mode, setMode] = useState<'project' | 'editor' | 'library'>('project');
+  const [menuOpen, setMenuOpen] = useState(false);
   const [executor, setExecutor] = useState('demo');
   const [editor, setEditor] = useState('');
   const [form, setForm] = useState({
@@ -63,7 +65,7 @@ export function RuntimeWorkspace() {
     const data = await parseResponse(await fetch('/api/v1/projects/' + encodeURIComponent(id), { cache: 'no-store' }));
     if (request !== projectRequestSequence.current) return;
     setProject(withoutPaths(data.project));
-    if (!silent) { setMode('project'); setFocusedHandoff(''); }
+    if (!silent) { setMode('project'); setFocusedHandoff(''); setMenuOpen(false); }
   }
   useEffect(() => { refreshIndex().catch(e => setError(e.message)); }, []);
   // Server owns active Codex turns. Refreshing the page does not interrupt them.
@@ -88,7 +90,7 @@ export function RuntimeWorkspace() {
         body: JSON.stringify({ packageId, title: name })
       }));
       projectRequestSequence.current++;
-      setProject(withoutPaths(data.project)); setFocusedHandoff(''); setMode('project'); setName('');
+      setProject(withoutPaths(data.project)); setFocusedHandoff(''); setMode('project'); setMenuOpen(false); setName('');
       await refreshIndex();
       setNotice('项目已创建。请先完成当前显示的用户资料任务。');
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
@@ -200,22 +202,31 @@ export function RuntimeWorkspace() {
 
   const queues = project ? deriveWorkbenchQueues(project) : null;
   const humanCount = queues?.human.length ?? 0;
-  const agentReady = project?.package.steps.filter(s =>
-    ['agent', 'script'].includes(s.kind) && project.steps[s.id].state === 'ready') ?? [];
-  const agentRunning = project?.package.steps.filter(s =>
-    ['agent', 'script'].includes(s.kind) && project.steps[s.id].state === 'running').length ?? 0;
-  const futureMaterials = project?.package.materials.filter(m =>
-    ['dormant', 'expected', 'not_applicable'].includes(project.materials[m.id].state)) ?? [];
+  const agentRunning = project?.package.steps.filter(step =>
+    ['agent', 'script'].includes(step.kind) && project.steps[step.id].state === 'running').length ?? 0;
   const policy = project?.execution ?? { autoDispatch: false, maxParallel: 2 };
   const isPending = (key: string) => busy || Boolean(pendingActions[(project?.id ?? '') + ':' + key]);
 
   return <div className="app">
     <header className="topbar">
+      <button type="button" className="hamburger" aria-label={menuOpen ? '关闭菜单' : '打开菜单'}
+        aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>☰</button>
       <div className="brand"><span className="brand-mark">H/H</span><span>Human Harness<small>项目运行 · Protocol 1.0</small></span></div>
       <div className="head-info"><span className="tiny-label">Executor</span><b>{executor === 'demo' ? 'Demo（不调用模型）' : executor === 'codex' ? 'Codex（本机 app-server）' : 'Mastra（真实模型）'}</b></div>
     </header>
     <div className="shell">
-      <aside className="sidebar">
+      {menuOpen && <button type="button" className="menu-backdrop" aria-label="收起侧边栏"
+          onClick={() => setMenuOpen(false)} />}
+       <aside className={'sidebar navigation-drawer' + (menuOpen ? ' open' : '')} aria-label="项目与设置菜单">
+         <div className="drawer-heading"><strong>项目与设置</strong>
+           <button type="button" onClick={() => setMenuOpen(false)}>×</button></div>
+         <div className="drawer-navigation">
+           <button type="button" onClick={() => { setMode('project'); setMenuOpen(false); }}>任务主页</button>
+           <button type="button" disabled={!project} onClick={() => { setMode('library'); setMenuOpen(false); }}>
+             项目资料管理
+           </button>
+         </div>
+
         <div className="section-label">项目模板（手动）</div>
         <h2>创建项目</h2>
         <form className="create-form" onSubmit={create}>
@@ -227,8 +238,25 @@ export function RuntimeWorkspace() {
           <input id="new-project-name" maxLength={150} value={name} onChange={e => setName(e.target.value)} placeholder="例如：市场资料核对项目" />
           <button className="primary" type="submit" disabled={!name.trim() || busy}>＋ 创建项目</button>
         </form>
+        {project && <div className="drawer-execution">
+          <div className="section-label with-gap">Agent 自动派发</div>
+          <p>{policy.autoDispatch ? '正在自动执行' : '已暂停新任务'}</p>
+          <label>项目并发数
+            <select aria-label="项目 Agent 最大并发数" value={policy.maxParallel}
+              disabled={isPending('execution-policy')}
+              onChange={e => action('set_execution_policy', {
+                autoDispatch: policy.autoDispatch, maxParallel: Number(e.target.value)
+              })}>
+              {[1, 2, 3, 4].map(n => <option value={n} key={n}>{n}</option>)}
+            </select>
+          </label>
+          <button type="button" disabled={isPending('execution-policy')}
+            onClick={() => action('set_execution_policy', {
+              autoDispatch: !policy.autoDispatch, maxParallel: policy.maxParallel
+            })}>{policy.autoDispatch ? '暂停自动派发' : '恢复自动派发'}</button>
+        </div>}
         <div className="section-label with-gap">模板管理</div>
-        <button onClick={() => { setEditor(''); setMode('editor'); }} disabled={busy}>＋ 新建模板</button>
+        <button onClick={() => { setEditor(''); setMode('editor'); setMenuOpen(false); }} disabled={busy}>＋ 新建模板</button>
         <button onClick={openTemplateEditor} disabled={busy}>复制所选模板</button>
         <label className="upload-label">导入本地 JSON 模板<input type="file" accept=".json,application/json" onChange={importFile} disabled={busy} /></label>
         <div className="section-label with-gap">已有项目</div>
@@ -245,6 +273,8 @@ export function RuntimeWorkspace() {
         {error && <div className="alert error" role="alert">{error}</div>}
         {notice && <div className="alert info" role="status">{notice}</div>}
 
+        {mode === 'library' && project ? <ProjectMaterialLibrary
+          project={project} onBack={() => setMode('project')} /> :
         {mode === 'editor' ? <section className="editor-screen">
           <span className="eyebrow">MANUAL PACKAGE AUTHORING</span>
           <h1>手动创建项目模板</h1>
@@ -266,45 +296,18 @@ export function RuntimeWorkspace() {
             <button type="button" onClick={() => setMode('project')} disabled={busy}>返回项目</button></div>
           <p className="muted">每次更新模板请修改 version。已有项目继续使用创建时冻结的版本。只有已安装执行能力的模板可以运行。</p>
         </section> : !project ? <div className="empty">
-          <span className="eyebrow">HUMAN HARNESS / PROJECT OPERATOR</span>
-          <h1>从项目模板开始，而不是从聊天开始。</h1>
-          <p>手动选择、创建或导入模板；系统按资料需求与任务依赖推进。专业机构的结果必须由真实的人类或机构提供。</p>
-          <div className="empty-flow">模板 → 项目实例 → 当前人工待办 / Agent 执行 → 人工审核 → 交付</div>
+           <span className="eyebrow">HUMAN HARNESS</span>
+           <h1>Human Todo + Agent Todo</h1>
+           <p>用项目模板安排双方的工作。打开左上角 ☰ 菜单创建项目。</p>
+           <button type="button" className="primary" onClick={() => setMenuOpen(true)}>☰ 新建或选择项目</button>
         </div> : <>
-          <div className="project-header">
-            <div><span className="eyebrow">{project.templateId} / {project.templateVersion}</span><h1>{project.title}</h1></div>
-            <div className="stats"><div><b>{humanCount}</b><span>当前用户任务</span></div>
-              <div><b>{agentRunning}</b><span>Agent 执行中</span></div>
-              <div><b>{agentReady.length}</b><span>Agent 等待派发</span></div>
-              <div><b>{project.artifacts.length}</b><span>已归档成果</span></div></div>
+          <div className="simple-project-title">
+            <div><span className="eyebrow">{project.package.title}</span><h1>{project.title}</h1></div>
+            <div className="simple-project-actions">
+              <span>{humanCount} 项待你处理 · {agentRunning} 项 Agent 运行中</span>
+              <button type="button" onClick={() => setMode('library')}>查看项目资料</button>
+            </div>
           </div>
-          <section className="package-summary">
-            <div><strong>执行阶段</strong><p>{project.package.stages.map(s => s.title).join(' → ')}</p></div>
-            <div><strong>模板版本</strong><p>{project.templateVersion} · {project.packageDigest.slice(0, 20)}…</p></div>
-            <div><strong>最终交付（按分支）</strong><p>{project.package.outputs.map(o => o.fileName).join(' · ')}</p></div>
-          </section>
-          <section className="execution-toolbar" aria-label="Agent 自动派发设置">
-            <div><span className="eyebrow">PROJECT DISPATCH</span>
-              <strong>{policy.autoDispatch ? '自动派发已开启' : '自动派发已暂停'}</strong>
-              <p>按照任务依赖独立执行。暂停只阻止新任务，运行中的任务继续，人工 Todo 始终可用。</p>
-            </div>
-            <div className="execution-controls">
-              <label>项目并发数
-                <select aria-label="项目 Agent 最大并发数" value={policy.maxParallel}
-                  disabled={isPending('execution-policy')}
-                  onChange={e => action('set_execution_policy', {
-                    autoDispatch: policy.autoDispatch, maxParallel: Number(e.target.value)
-                  })}>
-                  {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </label>
-              <button type="button" className={policy.autoDispatch ? '' : 'primary'}
-                disabled={isPending('execution-policy')}
-                onClick={() => action('set_execution_policy', {
-                  autoDispatch: !policy.autoDispatch, maxParallel: policy.maxParallel
-                })}>{policy.autoDispatch ? '暂停自动派发' : '恢复自动派发'}</button>
-            </div>
-          </section>
           <TaskWorkbench project={project} executor={executor}
             selectedKey={focusedHandoff} onSelect={setFocusedHandoff}
             onRefresh={() => openProject(project.id).catch(e => setError(e.message))}
@@ -314,25 +317,6 @@ export function RuntimeWorkspace() {
             onFile={(key, file) => setFiles(old => ({ ...old, [key]: file }))}
             isPending={isPending}
           />
-          <section className="timeline material-overview">
-            <div className="panel-header"><span className="eyebrow">MATERIAL ROADMAP</span><h2>未来资料需求</h2>
-              <p>模板预先知道资料的存在，但只有条件满足后才会进入上面的用户 TodoList。</p></div>
-            <div className="material-grid">{futureMaterials.map(m => {
-              const state = project.materials[m.id];
-              return <div className="material-item" key={m.id}>
-                <strong>{m.title}</strong><span className={'badge ' + state.state}>{materialLabels[state.state]}</span>
-                <small>{m.description}</small>
-              </div>;
-            })}
-              {!futureMaterials.length && <p className="muted">所有资料需求已处理或当前需要处理。</p>}
-            </div>
-          </section>
-          <section className="timeline">
-            <div className="panel-header"><span className="eyebrow">PROJECT AUDIT</span><h2>事件与历史</h2></div>
-            <div className="events">{[...project.events].reverse().slice(0, 18).map(e => <div className="event" key={e.id}>
-              <time>{e.createdAt.slice(0, 19).replace('T', ' ')}</time><strong>{e.type}</strong><span>{e.subject} {e.detail}</span>
-            </div>)}</div>
-          </section>
         </>}
       </main>
     </div>
