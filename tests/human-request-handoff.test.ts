@@ -132,3 +132,32 @@ test('Human question never changes the accepted original material into a fictiti
   assert.deepEqual(later.materials['input-01'].artifactIds, [originalId]);
   assert.equal(later.artifacts.filter(a => a.kind === 'material').length, 1);
 });
+
+
+test('multiple pending Human questions must all be answered before Agent becomes runnable', async () => {
+  const p = store.createProject('document-handoff', 'Two missing-input questions');
+  store.submitMaterial(p.id, 'source-a', '', {
+    name: 'a.pdf', buffer: Buffer.from('fixture-a')
+  });
+  store.reviewReceivedMaterial(p.id, 'source-a', true, '');
+  store.submitMaterial(p.id, 'source-b', '', {
+    name: 'b.docx', buffer: Buffer.from('fixture-b')
+  });
+  store.reviewReceivedMaterial(p.id, 'source-b', true, '');
+  await executeOneAgentTask(p.id, 'extract', {
+    id: 'two-questions',
+    async execute() {
+      return { body: 'Missing two details', limitations: [], materialRequests: [
+        { materialId: 'source-a', reason: '请确认 A 的版本。' },
+        { materialId: 'source-b', reason: '请确认 B 的来源。' }
+      ] };
+    }
+  });
+  const requests = store.getProject(p.id).humanRequests ?? [];
+  assert.equal(requests.length, 2);
+  store.answerRequestedInput(p.id, requests[0].id, 'A 为当前正式版');
+  assert.equal(store.getProject(p.id).steps.extract.state, 'waiting_input');
+  assert.equal(deriveWorkbenchQueues(store.getProject(p.id)).human.filter(x => x.kind === 'request').length, 1);
+  store.answerRequestedInput(p.id, requests[1].id, 'B 来自资料提供单位');
+  assert.equal(store.getProject(p.id).steps.extract.state, 'ready');
+});
