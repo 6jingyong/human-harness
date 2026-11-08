@@ -123,7 +123,7 @@ test('template-defined Agent lanes validate unique owners and cannot assign huma
 
 
 test('requestableMaterialIds must be declared and belong to Agent work, not human tasks', () => {
-  const allowed = structuredClone(base);
+  const allowed: any = structuredClone(base);
   allowed.steps[0].requestableMaterialIds = ['qc-evidence'];
   assert.equal(packageSchema.safeParse(allowed).success, true);
   const wrong = structuredClone(allowed);
