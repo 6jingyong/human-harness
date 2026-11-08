@@ -79,7 +79,14 @@ function prepareTask(projectId: string, stepId: string, runId: string): Executor
   const requestableMaterials = project.package.materials
     .filter(m => allowedMaterialIds.has(m.id))
     .map(m => ({ id: m.id, title: m.title, description: m.description }));
+  const materialMethods = project.package.materials.filter(m =>
+    allowedMaterialIds.has(m.id) && m.method).map(m => ({
+      materialId: m.id, title: m.title, method: m.method!
+    }));
+  const outputAcceptance = project.package.outputs.find(o =>
+    o.id === step.outputContractId)?.acceptance;
   return { packet, stepTitle: step.title, evidence, reviewFeedback,
+    workMethod: step.method, materialMethods, outputAcceptance,
     requestableMaterials,
     humanHandoffs: [...humanHandoffs, ...requestedAnswers],
     approvedSemanticNotes: approvedSemanticNotes(project, step.needsMaterials) };
@@ -126,6 +133,25 @@ export async function executeOneAgentTask(projectId: string, requestedStepId?: s
       }
     }
     const evidenceRefs = task.packet.readableInputs.map(a => a.artifactId);
+    // A needs-input response pauses the WorkItem. It is not a completed candidate,
+    // so the model need not manufacture completed check results.
+    if (!response.materialRequests.length) {
+      const expected = task.workMethod?.checks.map(check => check.id) ?? [];
+      const checks = response.methodChecks ?? [];
+      if (checks.length !== expected.length ||
+          new Set(checks.map(check => check.checkId)).size !== checks.length ||
+          checks.some(check => !expected.includes(check.checkId))) {
+        throw new Error('Agent method checks must match the pinned template criteria exactly');
+      }
+      for (const check of checks) {
+        if (check.evidenceRefs.some(ref => !evidenceRefs.includes(ref))) {
+          throw new Error('Agent method check cites an unauthorized source');
+        }
+        if (check.status === 'passed' && evidenceRefs.length && !check.evidenceRefs.length) {
+          throw new Error('A passed method check requires an authorized evidence reference');
+        }
+      }
+    }
     if (response.materialRequests.length) {
       const distinct = new Set<string>();
       for (const request of response.materialRequests) {
@@ -170,7 +196,7 @@ export async function executeOneAgentTask(projectId: string, requestedStepId?: s
       limitations: response.limitations
     });
     const projectAfter = succeedAgent(projectId, started.stepId, started.runId, result, response.body,
-      response.semanticNotes ?? []);
+      response.semanticNotes ?? [], response.methodChecks ?? []);
     return { project: projectAfter, executedStepId: started.stepId, runId: started.runId };
   } catch (error) {
     markAgentFailed(
