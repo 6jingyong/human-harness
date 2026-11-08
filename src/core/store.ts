@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import builtin from '../../examples/land-investigation.hh.json';
 import { packageSchema, taskPacketSchema, taskResultSchema, type HumanHarnessPackage, type HumanHarnessTaskResult } from '../protocol/v1';
 import {
-  applyHumanStep, createTaskPacket, failAgent, finishAgent, freshId, newProject, now, receiveMaterial,
+  applyHumanStep, createTaskPacket, expireAbandonedRun, failAgent, finishAgent, freshId, newProject, now, receiveMaterial,
   reconcile, recordEvent, reserveAgent, retryAgent, reviewAgent, reviewMaterial,
   type ProjectState, type RuntimeArtifact
 } from './runtime';
@@ -227,6 +227,8 @@ export const markAgentFailed = (id: string, stepId: string, runId: string, error
   mutate(id, p => failAgent(p, stepId, runId, error)).project;
 export const retryFailedAgent = (id: string, stepId: string) =>
   mutate(id, p => retryAgent(p, stepId)).project;
+export const recoverAbandonedAgent = (id: string, stepId: string) =>
+  mutate(id, p => expireAbandonedRun(p, stepId)).project;
 
 export function latestOutput(project: ProjectState, stepId: string) {
   return project.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === stepId).at(-1);
