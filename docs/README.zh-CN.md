@@ -122,6 +122,12 @@ tests/               流程与结构化协议回归测试
 
 目前本地状态保存在 `.human-harness/protocol-v1.sqlite`，上传文件在 `.human-harness/uploads/`。这些文件不提交 Git。旧版测试使用的 `projects.sqlite` 未迁移，也不会由新内核自动读取；删除本地旧目录前需先备份。
 
+## P0 已完成：把执行器与项目状态分开
+
+当前已实现一层精简的可替换执行器：`src/executors/runner.ts` 统一负责任务预约、限制可见素材、验证候选成果和更新项目状态；`demo` / `mastra` 执行器只接受任务包与授权证据，不拥有整个项目数据库。测试覆盖数据作用域、非法输出以及未知执行器配置不回退演示模式。
+
+**下一步 P1 才是真实接入本地 Codex app-server**；目前仍不能设置 `HH_EXECUTOR=codex` 来执行真实模型。详见 [开发阶段与验收标准](roadmap-codex-v1.md)。
+
 ## 优先参考 Codex 的成熟 Harness
 
 **今后的主要技术参考统一为 [Codex 开源架构](codex-reference.md)。** 不再默认平行研究一长串 Agent 框架。
