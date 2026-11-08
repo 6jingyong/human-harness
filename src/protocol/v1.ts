@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
 /** Canonical Human Harness Protocol v1 — no legacy schemaVersion adapters. */
-const id = z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,63}$/);
+const id = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/);
+const capabilityId = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/);
 const digest = z.string().regex(/^sha256:[0-9a-f]{64}$/);
 const description = z.string().min(1).max(4000);
 
@@ -18,7 +19,7 @@ const condition: z.ZodType<Condition> = z.lazy(() => z.discriminatedUnion('type'
 ]));
 
 const stage = z.strictObject({ id, title: description, description });
-const capability = z.strictObject({ id, kind: z.enum(['agent', 'script', 'parser', 'renderer']), description });
+const capability = z.strictObject({ id: capabilityId, kind: z.enum(['agent', 'script', 'parser', 'renderer']), description });
 const asset = z.strictObject({ id, kind: z.enum(['reference', 'document_master', 'form']), path: z.string().min(1).max(500), sha256: digest, title: description });
 const material = z.strictObject({
   id, title: description, producer: z.enum(['human', 'agent', 'external_institution']),
@@ -31,7 +32,7 @@ const step = z.strictObject({
   kind: z.enum(['agent', 'script', 'human_action', 'human_decision', 'external_milestone']),
   title: description, instructions: description,
   dependsOn: z.array(id).max(50), needsMaterials: z.array(id).max(50),
-  when: condition.optional(), capabilityId: id.optional(),
+  when: condition.optional(), capabilityId: capabilityId.optional(),
   options: z.array(z.strictObject({ id, label: description })).min(2).max(20).optional(),
   requiresReview: z.boolean().optional(), outputContractId: id.optional(),
   resourceIds: z.array(id).max(30).optional()
@@ -39,7 +40,7 @@ const step = z.strictObject({
 const output = z.strictObject({
   id, title: description, audience: z.enum(['internal', 'external']),
   fileName: z.string().min(1).max(160), format: z.enum(['markdown', 'json', 'docx', 'pdf']),
-  producingStepId: id, rendererCapabilityId: id.optional(),
+  producingStepId: id, rendererCapabilityId: capabilityId.optional(),
   acceptance: z.array(description).min(1).max(30), humanSignoff: z.boolean()
 });
 
@@ -143,7 +144,7 @@ export const taskPacketSchema = z.strictObject({
   runId: id, projectId: id, workItemId: id, objective: description,
   readableInputs: z.array(artifactPointer).max(100),
   templateResources: z.array(z.strictObject({ resourceId: id, revision: z.number().int().positive(), role: z.literal('reference') })).max(100),
-  toolsAllowed: z.array(id).max(100),
+  toolsAllowed: z.array(capabilityId).max(100),
   outputContractId: id.optional(),
   reviewPolicy: z.enum(['human_required', 'automated_validation'])
 });
