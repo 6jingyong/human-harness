@@ -45,6 +45,7 @@ export function RuntimeWorkspace() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [focusedHandoff, setFocusedHandoff] = useState('');
 
   async function refreshIndex() {
     const data = await parseResponse(await fetch('/api/v1/projects', { cache: 'no-store' }));
@@ -165,6 +166,41 @@ export function RuntimeWorkspace() {
   const agentReady = agentSteps.filter(s => project?.steps[s.id].state === 'ready');
   const outputFor = (stepId: string) => project?.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === stepId).at(-1);
 
+  type Handoff = {
+    key: string; title: string; status: string; target: string;
+    stepId?: string; materialId?: string;
+  };
+  const humanHandoffs: Handoff[] = [
+    ...readyMaterials.map(m => ({
+      key: 'material-' + m.id, title: m.title,
+      status: materialLabels[project!.materials[m.id].state],
+      target: 'hh-material-' + m.id, materialId: m.id
+    })),
+    ...readyHumanSteps.map(s => ({
+      key: 'human-' + s.id, title: s.title, status: '待执行',
+      target: 'hh-human-' + s.id, stepId: s.id
+    })),
+    ...agentReviews.map(s => ({
+      key: 'review-' + s.id, title: s.title, status: '待审阅',
+      target: 'hh-review-' + s.id, stepId: s.id
+    }))
+  ];
+  const agentHandoffs: Handoff[] = agentSteps
+    .filter(s => ['ready', 'running', 'failed'].includes(project!.steps[s.id].state))
+    .map(s => ({
+      key: 'agent-' + s.id, title: s.title,
+      status: workLabels[project!.steps[s.id].state],
+      target: 'hh-agent-' + s.id, stepId: s.id
+    }));
+  const allHandoffs = [...humanHandoffs, ...agentHandoffs];
+  const currentHandoff = allHandoffs.find(h => h.key === focusedHandoff) ?? allHandoffs[0];
+  const currentStep = currentHandoff?.stepId
+    ? project?.package.steps.find(s => s.id === currentHandoff.stepId) : undefined;
+  const currentMaterial = currentHandoff?.materialId
+    ? project?.package.materials.find(m => m.id === currentHandoff.materialId) : undefined;
+  const currentRun = currentStep
+    ? project?.runs.filter(run => run.stepId === currentStep.id).at(-1) : undefined;
+
   return <div className="app">
     <header className="topbar">
       <div className="brand"><span className="brand-mark">H/H</span><span>Human Harness<small>项目运行 · Protocol 1.0</small></span></div>
@@ -238,6 +274,71 @@ export function RuntimeWorkspace() {
             <div><strong>模板版本</strong><p>{project.templateVersion} · {project.packageDigest.slice(0, 20)}…</p></div>
             <div><strong>最终交付（按分支）</strong><p>{project.package.outputs.map(o => o.fileName).join(' · ')}</p></div>
           </section>
+          <section className="handoff-board" aria-label="人机协作任务交接">
+            <div className="handoff-header">
+              <div><span className="eyebrow">LIVE HANDOFF</span><h2>当前交接工作台</h2>
+                <p>同一项目任务图的两种执行者视图。点击任务查看依赖与验收，再定位到原有 Todo 操作。</p></div>
+              <button type="button" onClick={() => openProject(project.id).catch(e => setError(e.message))}>
+                ↻ 刷新状态
+              </button>
+            </div>
+            <div className="handoff-grid">
+              <div className="handoff-lane">
+                <h3>人类 · 需要你处理 <span>{humanHandoffs.length}</span></h3>
+                {humanHandoffs.length ? humanHandoffs.map(item =>
+                  <button type="button" key={item.key} className={'handoff-link ' + (currentHandoff?.key === item.key ? 'selected' : '')}
+                    aria-pressed={currentHandoff?.key === item.key} onClick={() => setFocusedHandoff(item.key)}>
+                    <strong>{item.title}</strong><small>{item.status}</small>
+                  </button>) : <p className="muted">目前没有需要人工处理的任务。</p>}
+              </div>
+              <div className="handoff-lane">
+                <h3>Agent · 可执行与运行中 <span>{agentHandoffs.length}</span></h3>
+                {agentHandoffs.length ? agentHandoffs.map(item =>
+                  <button type="button" key={item.key} className={'handoff-link ' + (currentHandoff?.key === item.key ? 'selected' : '')}
+                    aria-pressed={currentHandoff?.key === item.key} onClick={() => setFocusedHandoff(item.key)}>
+                    <strong>{item.title}</strong><small>{item.status}</small>
+                  </button>) : <p className="muted">当前 Agent 任务均在等待、审核或已完成。</p>}
+              </div>
+              <div className="handoff-detail" aria-live="polite">
+                <span className="eyebrow">TASK CONTEXT</span>
+                {currentHandoff ? <>
+                  <h3>{currentHandoff.title}</h3>
+                  <p>{currentStep?.instructions ?? currentMaterial?.description}</p>
+                  {currentStep && <>
+                    <div className="detail-row"><strong>前置任务</strong><span>
+                      {currentStep.dependsOn.length
+                        ? currentStep.dependsOn.map(id => id + ' · ' + (project.steps[id]?.state ?? '未知')).join(' / ')
+                        : '无'}
+                    </span></div>
+                    <div className="detail-row"><strong>所需资料</strong><span>
+                      {currentStep.needsMaterials.length
+                        ? currentStep.needsMaterials.map(id =>
+                          (project.package.materials.find(m => m.id === id)?.title ?? id) +
+                          ' · ' + (materialLabels[project.materials[id]?.state] ?? '未知')
+                        ).join(' / ')
+                        : '无'}
+                    </span></div>
+                    {currentRun && <div className="detail-row"><strong>最近一次执行</strong><span>
+                      {currentRun.status} · {currentRun.codexThreadId ? 'Codex thread ' + currentRun.codexThreadId : '未记录 Codex thread'}
+                    </span></div>}
+                  </>}
+                  {currentMaterial && <>
+                    <div className="detail-row"><strong>验收条件</strong><span>{currentMaterial.acceptance.join('；')}</span></div>
+                    <div className="detail-row"><strong>资料版本</strong><span>
+                      {project.materials[currentMaterial.id]?.artifactIds.length ?? 0} 个提交版本
+                    </span></div>
+                  </>}
+                  <button type="button" className="handoff-jump" onClick={() =>
+                    document.getElementById(currentHandoff.target)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  }>定位到任务操作</button>
+                </> : <p>当前没有待交接任务。可从下方查看阶段、材料与已完成成果。</p>}
+              </div>
+            </div>
+            {executor === 'codex' && <p className="handoff-warning">
+              Codex 文档读取为本地实验能力：仅对已接受的 PDF/DOCX 原件启用受控工作目录；需要本机已安装相应 Skill，
+              并设置 HH_CODEX_DOCUMENTS=1。真实模型与技能执行仍需本机验收。
+            </p>}
+          </section>
           <div className="columns">
             <section className="panel">
               <div className="panel-header"><span className="eyebrow">HUMAN</span><h2>当前用户 TodoList</h2><p>只显示此刻可以采取行动的资料、决策及审核；未来资料不提前索取。</p></div>
@@ -246,7 +347,7 @@ export function RuntimeWorkspace() {
                 {readyMaterials.map(m => {
                   const state = project.materials[m.id];
                   const key = m.id;
-                  return <article className="task-card" key={m.id}>
+                  return <article className="task-card" id={"hh-material-" + m.id} key={m.id}>
                     <div className="task-top"><span className="task-id">{m.id} · {m.producer}</span>
                       <span className={'badge ' + state.state}>{materialLabels[state.state]}</span></div>
                     <h3>{m.title}</h3><p>{m.description}</p>
@@ -264,7 +365,7 @@ export function RuntimeWorkspace() {
                     </>}
                   </article>;
                 })}
-                {readyHumanSteps.map(s => <article className="task-card" key={s.id}>
+                {readyHumanSteps.map(s => <article className="task-card" id={"hh-human-" + s.id} key={s.id}>
                   <div className="task-top"><span className="task-id">{s.stageId} / {s.id}</span><span className="badge ready">待人工完成</span></div>
                   <h3>{s.title}</h3><p>{s.instructions}</p>
                   {s.kind === 'human_decision' ? <select aria-label={s.title + '选项'} value={values[s.id] || ''} onChange={e => setValues(v => ({ ...v, [s.id]: e.target.value }))}>
@@ -276,7 +377,7 @@ export function RuntimeWorkspace() {
                 </article>)}
                 {agentReviews.map(s => {
                   const output = outputFor(s.id);
-                  return <article className="task-card" key={s.id}>
+                  return <article className="task-card" id={"hh-review-" + s.id} key={s.id}>
                     <div className="task-top"><span className="task-id">{s.id}</span><span className="badge review">等待人工审核</span></div>
                     <h3>{s.title}</h3>{output && <pre className="result">{output.content}</pre>}
                     <textarea aria-label={s.title + '审核说明'} value={feedback[s.id] || ''}
@@ -288,12 +389,12 @@ export function RuntimeWorkspace() {
               </div>
             </section>
             <section className="panel">
-              <div className="panel-header"><span className="eyebrow">AGENT</span><h2>Agent 执行与候选成果</h2><p>Mastra 负责工作，Human Harness 控制状态、素材范围与审核。</p></div>
+              <div className="panel-header"><span className="eyebrow">AGENT</span><h2>Agent 执行与候选成果</h2><p>现有执行器只完成任务，Human Harness 控制素材范围、项目状态和人工审核。</p></div>
               <div className="cards">
                 {agentSteps.map(s => {
                   const status = project.steps[s.id];
                   const versions = project.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === s.id).reverse();
-                  return <article className="task-card" key={s.id}>
+                  return <article className="task-card" id={"hh-agent-" + s.id} key={s.id}>
                     <div className="task-top"><span className="task-id">{s.stageId} / {s.id}</span>
                       <span className={'badge ' + status.state}>{workLabels[status.state]}</span></div>
                     <h3>{s.title}</h3><p>{s.instructions}</p>
