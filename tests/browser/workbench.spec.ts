@@ -118,6 +118,63 @@ test('Agent-generated Human Todo is visible beside the paused Agent (visual fixt
   await expect(human.getByRole('button', { name: /补充说明：第一份资料/ })).toBeVisible();
   await expect(agent.getByText('等待人工答复')).toBeVisible();
   await human.getByRole('button', { name: /补充说明：第一份资料/ }).click();
-  await expect(page.getByRole('button', { name: '提交回复并继续 Agent' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '提交说明并继续 Agent' })).toBeVisible();
+  await expect(page.locator('#human-request-file-preview-request-1')).toBeVisible();
   await page.screenshot({ path: 'test-results/human-harness-request-preview.png', fullPage: true });
+});
+
+
+test('source replacement stays in the library until Human approves the revision and reopens only affected work', async ({ page }) => {
+  await createProject(page, '原件版本变更浏览器测试');
+  const human = page.getByRole('region', { name: '人类 TodoList' });
+  async function add(title: string, id: string, filename: string, mimeType: string) {
+    await human.getByRole('button', { name: new RegExp(title) }).click();
+    await page.locator('#material-file-' + id).setInputFiles({
+      name: filename, mimeType, buffer: Buffer.from('Fixture original for ' + filename)
+    });
+    await page.getByRole('button', { name: '提交资料，等待人工核验' }).click();
+    await page.getByRole('button', { name: '确认接受材料' }).click();
+  }
+  await add('第一份资料（PDF）', 'source-a', 'source-a.pdf', 'application/pdf');
+  await add('第二份资料（DOCX）', 'source-b', 'source-b.docx',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  await human.getByRole('button', { name: /抽取两份文档中的关键事实/ }).click();
+  await page.getByRole('button', { name: '批准并交接下游' }).click();
+  await human.getByRole('button', { name: /确认缺失信息或冲突的处理意见/ }).click();
+  await page.getByLabel('完成情况、结论或交接给 Agent 的信息').fill('人工已审核提取结果。');
+  await page.getByRole('button', { name: '确认完成并交接' }).click();
+  await human.getByRole('button', { name: /根据资料与人工核对生成成果/ }).click();
+  await page.getByRole('button', { name: '批准并交接下游' }).click();
+  await expect(human.getByRole('button')).toHaveCount(0);
+
+  // Pause only future dispatch, making the invalidation state inspectable.
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await page.getByRole('button', { name: '暂停自动派发' }).click();
+  await page.getByRole('button', { name: '关闭菜单' }).click();
+
+  await page.getByRole('button', { name: '查看项目资料' }).click();
+  const first = page.locator('.library-material').first();
+  await first.locator('.source-replacement summary').click();
+  await first.locator('#replacement-file-source-a').setInputFiles({
+    name: 'source-a-v2.pdf', mimeType: 'application/pdf',
+    buffer: Buffer.from('Revised source PDF with corrected fields')
+  });
+  await first.getByRole('button', { name: '提交新版本，等待审核' }).click();
+  await expect(first.getByText('新资料等待验收。')).toBeVisible();
+  await page.getByRole('button', { name: '← 返回 Todo' }).click();
+  await human.getByRole('button', { name: /第一份资料（PDF）/ }).click();
+  await expect(page.getByRole('button', { name: '确认接受材料' })).toBeVisible();
+  await page.getByRole('button', { name: '确认接受材料' }).click();
+
+  // Extract and its dependent reports are stale; unrelated sources remain accepted.
+  await expect(page.getByRole('region', { name: 'Agent TodoList' })
+    .getByRole('button', { name: /抽取两份文档中的关键事实/ })).toBeVisible();
+  await expect(human.getByRole('button', { name: /根据资料与人工核对生成成果/ })).toHaveCount(0);
+  await page.screenshot({ path: 'test-results/human-harness-source-replacement.png', fullPage: true });
+
+  await page.getByRole('button', { name: '查看项目资料' }).click();
+  const latest = page.locator('.library-material').first();
+  await expect(latest).toContainText('source-a-v2.pdf');
+  await expect(latest).toContainText('当前接受版本');
+  await expect(page.locator('.semantic-result').first()).not.toContainText('已审核');
 });
