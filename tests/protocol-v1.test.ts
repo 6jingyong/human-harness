@@ -84,3 +84,11 @@ test('task results carry proposals but cannot mutate authoritative state', () =>
   assert.equal(taskResultSchema.safeParse(result).success, true);
   assert.equal(taskResultSchema.safeParse({ ...result, setTaskState: 'done' }).success, false);
 });
+
+
+test('rejects material activation deadlocks across future work and evidence', () => {
+  const broken = structuredClone(base);
+  broken.materials[1].requestWhen = { type: 'work_done', stepId: 'qc-review' };
+  // qc-review requires qc-evidence, which cannot be requested until qc-review finishes.
+  assert.equal(packageSchema.safeParse(broken).success, false);
+});
