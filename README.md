@@ -115,6 +115,14 @@ A **MaterialRequirement** expresses *what must eventually exist*. A **WorkItem**
 
 The project runtime is responsible for state transitions. Mastra is an adapter for executing a job, not the source of truth.
 
+### Materials are processed according to the template
+
+A template should eventually define **how to identify a source file, which fields to extract, how to verify those fields, and when to ask a human to resolve an issue**. For example, a laboratory report may require sample IDs, measurements, units, and source-table positions, then a cross-check against sampling records. A PDF upload alone does not establish that any of those checks passed.
+
+**Human TodoList is the single business-review interface**: uploading materials, resolving extraction conflicts, examining outputs, and making professional decisions are all ordinary Human WorkItems. No separate project approval subsystem is planned. Codex's own tool permissions and sandbox controls are unrelated execution-layer protections.
+
+See the [template material-processing design](docs/template-material-processing.md). **These extraction/verification policies are planned, not yet supported by the current JSON schema or parser.**
+
 ### Source layout
 
 ```text
