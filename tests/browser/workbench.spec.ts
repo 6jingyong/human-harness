@@ -195,3 +195,45 @@ test('source replacement stays in the library until Human approves the revision 
   await expect(latest).toContainText('当前接受版本');
   await expect(page.locator('.semantic-result').first()).not.toContainText('已审核');
 });
+
+
+test('template-defined method checks reach the Human reviewer without implying a Demo pass', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await expect(page.locator('#package-select')).toContainText('双来源技术规格核对');
+  await page.locator('#package-select').selectOption('technical-spec-review');
+  await page.getByLabel('本次项目名称').fill('方法模板界面验收 ' + Date.now());
+  await page.getByRole('button', { name: /创建项目/ }).click();
+  const human = page.getByRole('region', { name: '人类 TodoList' });
+  const agents = page.getByRole('region', { name: 'Agent TodoList' });
+  await expect(agents.locator('.agent-folder')).toHaveCount(3);
+  async function submitText(title: RegExp, materialId: string, content: string) {
+    await human.getByRole('button', { name: title }).click();
+    await page.locator('#material-text-' + materialId).fill(content);
+    await page.getByRole('button', { name: '提交资料，等待人工核验' }).click();
+    await page.getByRole('button', { name: '确认接受材料' }).click();
+  }
+  await submitText(/需求方技术要求/, 'purchase-spec',
+    '正式需求：额定电压220 V，功率7.5 kW；2026-10-05发布。');
+  await submitText(/供应商技术规格/, 'supplier-spec',
+    '供方原件：额定电压380 V，功率7.5 kW；未说明版次。');
+
+  await human.getByRole('button', { name: /提取需求方参数/ }).click();
+  await expect(page.getByText('模板检查项（Agent 自检，须人工复核）')).toBeVisible();
+  await expect(page.getByText('Demo 未运行模型、专业 Skill 或实际验证方法', {
+    exact: false
+  }).first()).toBeVisible();
+  const approve = page.getByRole('button', { name: '批准并交接下游' });
+  await expect(approve).toBeDisabled();
+  await page.locator('#agent-review-check-demand').fill(
+    '本次仅验收 UI 提交状态；Demo 未验证源文件，结论仍应在真实任务中重新核对。');
+  await expect(approve).toBeEnabled();
+  await page.screenshot({ path: 'test-results/human-harness-method-checks.png', fullPage: true });
+
+  await page.getByRole('button', { name: '查看项目资料' }).click();
+  const source = page.locator('.library-material').first();
+  await source.getByText('查看模板的资料获取、信息提取与核验方法').click();
+  await expect(source).toContainText('获取：');
+  await expect(source).toContainText('提取：');
+  await page.screenshot({ path: 'test-results/human-harness-template-methods.png', fullPage: true });
+});
