@@ -96,18 +96,14 @@ Windows PowerShell 可使用 `Copy-Item .env.example .env.local`。访问 **http
 测试：
 
 ```bash
-npm test                  # 协议、调度与任务操作静态测试
+npm run typecheck
+npm test
+npm run build             # 浏览器测试需要已构建的 Next.js
 npx playwright install chromium
-npm run test:browser       # 使用本地正式构建的 Demo 浏览器交接测试
+npm run test:browser      # 使用本地正式构建的 Demo 浏览器交接测试
 ```
 
 GitHub Actions 的 `gui-smoke` 使用 Ubuntu 24.04、Playwright Chromium 和正式 Next.js 构建，并保存 GUI 截图。该测试不读取真实 PDF/DOCX 内容。
-
-```bash
-npm run typecheck
-npm test
-npm run build
-```
 
 ## 认识代码结构
 
