@@ -55,7 +55,7 @@ test('Agent request becomes an actionable Human Todo and answer resumes the same
   assert.equal(deriveWorkbenchQueues(paused).agent.find(item => item.id === 'draft')?.state, 'waiting_input');
   assert.equal(paused.humanRequests?.[0]?.runId, firstRun);
   assert.throws(() => store.answerRequestedInput(id, 'unknown', 'answer'), /not pending/);
-  assert.throws(() => store.answerRequestedInput(id, paused.humanRequests![0].id, ''), /must contain/);
+  assert.throws(() => store.answerRequestedInput(id, paused.humanRequests![0].id, ''), /required/);
 
   const requestId = paused.humanRequests![0].id;
   const answered = store.answerRequestedInput(id, requestId, '版本 2026-11，来源为部门出具的已确认记录。');
