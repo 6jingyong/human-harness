@@ -59,7 +59,14 @@ createInterface({ input: process.stdin }).on('line', line => {
       send({ method: 'item/completed', params: {
         threadId: 'thread-fixture', turnId: id,
         item: { type: 'agentMessage', text: mode === 'bad-json' ? 'not json' :
-          JSON.stringify({ body: 'Real protocol fixture answer', limitations: [], materialRequests: [] }) }
+          JSON.stringify(mode === 'human-request'
+            ? { body: 'Original edition not stated', limitations: ['edition unknown'],
+              materialRequests: [{ materialId: 'input-01', reason: '请确认资料版次' }] }
+            : mode === 'method-checks'
+              ? { body: 'Checks returned as candidate', limitations: [], materialRequests: [],
+                methodChecks: [{ checkId: 'source-trace', status: 'unverified',
+                  explanation: 'Fixture cannot verify real source', evidenceRefs: [] }] }
+              : { body: 'Real protocol fixture answer', limitations: [], materialRequests: [] }) }
       } });
     }
     send({ method: 'turn/completed', params: {
