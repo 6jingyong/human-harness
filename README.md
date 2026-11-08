@@ -136,7 +136,7 @@ We are using the **open-source Codex harness as the main architectural reference
 
 **Current code still runs on Mastra. Codex is a research/integration direction, not an installed or tested executor.** Human Harness continues to own project templates, pending human inputs, evidence acceptance and project-level decisions. A Codex thread/turn cannot replace that project ledger.
 
-Read the [Codex-first design note](docs/codex-reference.md), including the mapping from Codex app-server events to Human Harness TaskPacket/TaskResult and the PDF/DOCX plugin plan.
+Read the [Codex-first design note](docs/codex-reference.md) and the more specific [app-server / Skills / permissions study](docs/codex-app-server-study.md). These documents define a proposed execution-adapter boundary; neither a Codex adapter nor any PDF/DOCX plugin is installed yet.
 
 ## Plugin and platform direction
 
