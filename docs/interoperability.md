@@ -3,6 +3,8 @@
 **Status:** research and design roadmap, **not a compatibility claim**. Reviewed on 2026-11-08.  
 **Scope:** How Human Harness can reuse mature agent infrastructure and later ship reusable document/GIS capabilities across mainstream hosts without rewriting the same feature for each one.
 
+> **Updated direction (2026-11-08):** [Native Codex Plugin reuse](codex-native-plugins.md) is the current primary plan. The long-form document parser design below is retained for reference **only if existing plugin capabilities prove insufficient**. Do not expand the standalone PDF/DOCX engine or benchmark matrix as a default prerequisite. Human Harness remains a project-level consumer of plugins, not a competitor to the native Codex plugin system.
+
 ## Primary reference: Codex (decision 2026-11-08)
 
 **Study the open-source Codex harness first.** [Codex-first design](codex-reference.md) maps its SDK, `codex exec`, app-server, tool/security boundaries, Skills and MCP client to Human Harness. This supersedes the idea of continuously comparing every mature Agent framework. We may test other hosts later **only to validate portability**, not to keep re-litigating the primary architecture.
