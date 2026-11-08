@@ -280,6 +280,34 @@ export const retryFailedAgent = (id: string, stepId: string) =>
 export const recoverAbandonedAgent = (id: string, stepId: string) =>
   mutate(id, p => expireAbandonedRun(p, stepId)).project;
 
+/**
+ * Single-process local worker startup only: a prior process cannot still
+ * own this server's child tasks. Do not auto-retry them; require human review.
+ * This is NOT a multi-server lease recovery protocol.
+ */
+export function interruptOrphanedRuns(): number {
+  let interrupted = 0;
+  for (const row of listProjects()) {
+    const project = getProject(row.id);
+    const stale = project.package.steps.filter(step =>
+      (step.kind === 'agent' || step.kind === 'script') &&
+      project.steps[step.id]?.state === 'running'
+    );
+    if (!stale.length) continue;
+    mutate(row.id, p => {
+      for (const step of stale) {
+        const runId = p.steps[step.id]?.runId;
+        if (!runId || p.steps[step.id]?.state !== 'running') continue;
+        failAgent(p, step.id, runId,
+          'Local worker stopped before the result was saved. Inspect the task before allowing a retry.');
+        recordEvent(p, 'run.interrupted', step.id, runId);
+        interrupted++;
+      }
+    });
+  }
+  return interrupted;
+}
+
 export function latestOutput(project: ProjectState, stepId: string) {
   return project.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === stepId).at(-1);
 }
