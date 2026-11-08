@@ -29,9 +29,13 @@ export const executorOutputSchema = z.strictObject({
 });
 export type ExecutorOutput = z.infer<typeof executorOutputSchema>;
 
+export type ExecutorRunEvent =
+  | { kind: 'thread' | 'turn'; id: string }
+  | { kind: 'progress'; message: string };
+
 export interface TaskExecutor {
   readonly id: string;
-  execute(task: ExecutorTask): Promise<ExecutorOutput>;
+  execute(task: ExecutorTask, onEvent?: (event: ExecutorRunEvent) => void): Promise<ExecutorOutput>;
 }
 
 /** Shared text-only presentation for the existing Mastra adapter.
