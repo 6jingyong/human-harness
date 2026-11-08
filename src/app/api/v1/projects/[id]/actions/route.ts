@@ -4,7 +4,7 @@ import {
   completeHuman, recoverAbandonedAgent, retryFailedAgent, reviewAgentOutput, reviewReceivedMaterial,
   RuntimeError, submitMaterial
 } from '@/core/store';
-import { executeOneAgentTask } from '@/executors/mastra';
+import { executeOneAgentTask } from '@/executors/runner';
 
 export const runtime = 'nodejs'; export const dynamic = 'force-dynamic';
 
