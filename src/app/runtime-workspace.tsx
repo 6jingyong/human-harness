@@ -184,10 +184,12 @@ export function RuntimeWorkspace() {
       }
       await openProject(projectId, true);
       setNotice(type === 'run_agent'
-        ? '本次 Agent 任务已执行，候选成果交由 Human Todo 审核。'
+        ? 'Agent 任务已提交后台执行；完成后仍需人工审核。'
         : type === 'set_execution_policy'
           ? '项目自动派发设置已保存。已运行的任务不受暂停影响。'
-          : '任务已保存；符合依赖的其他 Agent 工作可自动开始。');
+          : type === 'replace_material' || (type === 'answer_human_request' && Boolean(files[key]))
+            ? '新原件已提交，必须先在 Human Todo 验收；验收前不会替换现有依据。'
+            : '任务已保存；符合依赖的其他 Agent 工作可自动开始。');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       try { await openProject(projectId, true); } catch { /* preserve original error */ }
