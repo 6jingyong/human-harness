@@ -248,22 +248,32 @@ test('P0: invalid executor output fails the run without committing an artifact',
   assert.equal(store.getProject(p.id).runs.at(-1)?.status, 'failed');
 });
 
-test('P0: an unconfigured executor fails before reserving a task', async () => {
+test('P1.1: Codex mode never falls back to demo when local CLI is missing', async () => {
   const p = store.createProject('land-investigation', 'No Codex fallback');
   provideInput(p.id);
   const before = store.getProject(p.id).runs.length;
   assert.equal(configuredExecutorMode('demo'), 'demo');
   assert.equal(configuredExecutorMode('mastra'), 'mastra');
-  assert.throws(() => configuredExecutorMode('codex'), /Codex is not integrated yet/);
-  const original = process.env.HH_EXECUTOR;
+  assert.equal(configuredExecutorMode('codex'), 'codex');
+  assert.throws(() => configuredExecutorMode('unknown'), /Unsupported HH_EXECUTOR/);
+  const originalMode = process.env.HH_EXECUTOR;
+  const originalCommand = process.env.HH_CODEX_COMMAND;
   try {
     process.env.HH_EXECUTOR = 'codex';
-    await assert.rejects(() => executeOneAgentTask(p.id, 'inventory'), /Codex is not integrated yet/);
+    process.env.HH_CODEX_COMMAND = 'human-harness-codex-not-installed';
+    await assert.rejects(
+      () => executeOneAgentTask(p.id, 'inventory'),
+      /Cannot start local Codex app-server/
+    );
   } finally {
-    process.env.HH_EXECUTOR = original;
+    if (originalMode === undefined) delete process.env.HH_EXECUTOR;
+    else process.env.HH_EXECUTOR = originalMode;
+    if (originalCommand === undefined) delete process.env.HH_CODEX_COMMAND;
+    else process.env.HH_CODEX_COMMAND = originalCommand;
   }
-  assert.equal(store.getProject(p.id).runs.length, before);
-  assert.equal(stepState(p.id, 'inventory'), 'ready');
+  assert.equal(store.getProject(p.id).runs.length, before + 1);
+  assert.equal(stepState(p.id, 'inventory'), 'failed');
+  assert.equal(store.getProject(p.id).artifacts.filter(a => a.ownerId === 'inventory').length, 0);
 });
 
 
