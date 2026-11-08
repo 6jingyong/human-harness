@@ -100,16 +100,27 @@ test('hamburger drawer holds project scheduler settings while Todo remains acces
 
 test('Agent-generated Human Todo is visible beside the paused Agent (visual fixture)', async ({ page }) => {
   await createProject(page, '待补充问题界面预览（模拟状态）');
+  let showAttachmentReview = false;
   await page.route('**/api/v1/projects/*', async route => {
     if (route.request().method() !== 'GET') return route.continue();
     const response = await route.fetch();
     const data = await response.json();
     if (!data.project?.steps?.extract) return route.fulfill({ response });
     data.project.steps.extract.state = 'waiting_input';
+    if (showAttachmentReview) {
+      data.project.materials['source-a'].state = 'received';
+      data.project.materials['source-a'].artifactIds = ['preview-file'];
+      data.project.artifacts.push({
+        id: 'preview-file', kind: 'material', name: '新版本原件.pdf',
+        ownerId: 'source-a', revision: 1, content: null, createdAt: '2026-11-09T00:00:00Z'
+      });
+    }
     data.project.humanRequests = [{
       id: 'preview-request-1', stepId: 'extract', runId: 'preview-run',
       materialId: 'source-a', reason: '请确认原始资料的最新版本和来源。',
-      status: 'pending', createdAt: '2026-11-09T00:00:00Z'
+      status: showAttachmentReview ? 'awaiting_review' : 'pending',
+      ...(showAttachmentReview ? { attachmentArtifactId: 'preview-file' } : {}),
+      createdAt: '2026-11-09T00:00:00Z'
     }];
     await route.fulfill({ response, contentType: 'application/json', body: JSON.stringify(data) });
   });
@@ -121,6 +132,12 @@ test('Agent-generated Human Todo is visible beside the paused Agent (visual fixt
   await expect(page.getByRole('button', { name: '提交说明并继续 Agent' })).toBeVisible();
   await expect(page.locator('#human-request-file-preview-request-1')).toBeVisible();
   await page.screenshot({ path: 'test-results/human-harness-request-preview.png', fullPage: true });
+  showAttachmentReview = true;
+  await expect(page.getByRole('button', { name: '验收原件并继续 Agent' })).toBeVisible();
+  await page.locator('#human-request-review-preview-request-1')
+    .fill('本次模拟审核意见：原件版本仍需核验。');
+  await expect(page.getByRole('button', { name: '退回补充文件' })).toBeEnabled();
+  await page.screenshot({ path: 'test-results/human-harness-attachment-review-preview.png', fullPage: true });
 });
 
 
