@@ -96,3 +96,28 @@ test('hamburger drawer holds project scheduler settings while Todo remains acces
   await page.getByRole('button', { name: '关闭任务详情' }).click();
   await expect(page.locator('.todo-detail-wrap')).toHaveCount(0);
 });
+
+
+test('Agent-generated Human Todo is visible beside the paused Agent (visual fixture)', async ({ page }) => {
+  await createProject(page, '待补充问题界面预览（模拟状态）');
+  await page.route('**/api/v1/projects/*', async route => {
+    if (route.request().method() !== 'GET') return route.continue();
+    const response = await route.fetch();
+    const data = await response.json();
+    if (!data.project?.steps?.extract) return route.fulfill({ response });
+    data.project.steps.extract.state = 'waiting_input';
+    data.project.humanRequests = [{
+      id: 'preview-request-1', stepId: 'extract', runId: 'preview-run',
+      materialId: 'source-a', reason: '请确认原始资料的最新版本和来源。',
+      status: 'pending', createdAt: '2026-11-09T00:00:00Z'
+    }];
+    await route.fulfill({ response, contentType: 'application/json', body: JSON.stringify(data) });
+  });
+  const human = page.getByRole('region', { name: '人类 TodoList' });
+  const agent = page.getByRole('region', { name: 'Agent TodoList' });
+  await expect(human.getByRole('button', { name: /补充说明：第一份资料/ })).toBeVisible();
+  await expect(agent.getByText('等待人工答复')).toBeVisible();
+  await human.getByRole('button', { name: /补充说明：第一份资料/ }).click();
+  await expect(page.getByRole('button', { name: '提交回复并继续 Agent' })).toBeVisible();
+  await page.screenshot({ path: 'test-results/human-harness-request-preview.png', fullPage: true });
+});
