@@ -291,6 +291,7 @@ export function RuntimeWorkspace() {
                     <h3>{s.title}</h3><p>{s.instructions}</p>
                     {status.state === 'ready' && <button type="button" className="primary" disabled={busy} onClick={() => action('run_agent', { stepId: s.id })}>运行此 Agent 任务</button>}
                     {status.state === 'failed' && <button type="button" disabled={busy} onClick={() => action('retry_agent', { stepId: s.id })}>重新允许执行</button>}
+                    {status.state === 'running' && <button type="button" disabled={busy} onClick={() => action('recover_agent', { stepId: s.id })}>恢复超时任务（运行超过15分钟）</button>}
                     {versions.map((a, index) => <details className="output" key={a.id} open={index === 0 && status.state === 'review'}>
                       <summary>候选成果 v{a.revision} · {a.name}</summary>
                       {index === 0 && status.state === 'done' && s.outputContractId && <a className="file-download" href={'/api/v1/projects/' + encodeURIComponent(project.id) + '/outputs/' + encodeURIComponent(a.id)}>下载审核通过的成果</a>}
