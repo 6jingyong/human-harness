@@ -12,9 +12,7 @@ after(() => {
 });
 
 function startProject() {
-  const template = JSON.parse(readFileSync(join(process.cwd(), 'examples/template.land-investigation-runtime.json'), 'utf8'));
-  store.addTemplate(template);
-  return store.createProject(template.id, 'Sample property');
+  return store.createProject('land-investigation-runtime', 'Sample property');
 }
 function submitInputs(projectId: string) {
   store.submitHuman(projectId, 'site-info', 'Example municipality, scope TBD');
