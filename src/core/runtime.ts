@@ -5,11 +5,12 @@ import type { SemanticNote } from '../protocol/semantics';
 export type WorkState = 'dormant' | 'blocked' | 'ready' | 'running' | 'waiting_input' | 'review' | 'done' | 'not_applicable' | 'failed';
 export type RequirementState = 'dormant' | 'expected' | 'requested' | 'received' | 'accepted' | 'rejected' | 'not_applicable';
 export type RuntimeStep = { state: WorkState; runId?: string; startedAt?: string };
-export type RuntimeMaterial = { state: RequirementState; artifactIds: string[] };
+export type RuntimeMaterial = { state: RequirementState; artifactIds: string[]; acceptedArtifactId?: string };
 export type RuntimeArtifact = {
   id: string; kind: 'material' | 'agent_output'; name: string; content: string | null;
   ownerId: string; revision: number; filePath?: string; createdAt: string;
   semanticNotes?: SemanticNote[];
+  invalidatedAt?: string;
 };
 export type RuntimeRun = { id: string; stepId: string; status: 'running' | 'needs_input' | 'review' | 'failed'; startedAt: string; endedAt?: string; result?: HumanHarnessTaskResult; error?: string; codexThreadId?: string; codexTurnId?: string; lastExecutorEvent?: string };
 /** Runtime-only Human Todo spawned by a material question against a template-declared input.
@@ -17,8 +18,8 @@ export type RuntimeRun = { id: string; stepId: string; status: 'running' | 'need
  */
 export type HumanInputRequest = {
   id: string; stepId: string; runId: string; materialId: string;
-  reason: string; status: 'pending' | 'answered';
-  createdAt: string; answer?: string; answeredAt?: string;
+  reason: string; status: 'pending' | 'awaiting_review' | 'answered';
+  createdAt: string; answer?: string; answeredAt?: string; attachmentArtifactId?: string;
 };
 export type ProjectEvent = { id: string; type: string; subject: string; detail: string; createdAt: string };
 export type ExecutionPolicy = { autoDispatch: boolean; maxParallel: number };
@@ -138,16 +139,95 @@ export function applyHumanStep(project: ProjectState, stepId: string, value: str
   reconcile(project);
 }
 
-export function receiveMaterial(project: ProjectState, materialId: string, artifact: RuntimeArtifact): void {
+/** Select the last *accepted* artifact; a pending upload does not replace it. */
+export function acceptedMaterialArtifact(p: ProjectState, materialId: string): RuntimeArtifact | undefined {
+  const material = p.materials[materialId];
+  if (!material || (material.state !== 'accepted' && !material.acceptedArtifactId)) return;
+  const artifactId = material.acceptedArtifactId ??
+    (material.state === 'accepted' ? material.artifactIds.at(-1) : undefined);
+  return p.artifacts.find(a => a.id === artifactId && a.kind === 'material' && a.ownerId === materialId);
+}
+
+const conditionMentionsStep = (condition: Condition | undefined, stepIds: Set<string>): boolean => {
+  if (!condition) return false;
+  if (condition.type === 'decision' || condition.type === 'work_done') return stepIds.has(condition.stepId);
+  return condition.clauses.some(clause => conditionMentionsStep(clause, stepIds));
+};
+
+/** Conservative template graph reachability: direct evidence users plus descendants.
+ * Includes condition references so an old human decision cannot silently select a stale branch.
+ */
+export function affectedStepsForMaterial(p: ProjectState, materialId: string): Set<string> {
+  const affected = new Set(p.package.steps.filter(step =>
+    step.needsMaterials.includes(materialId) ||
+    (step.requestableMaterialIds ?? []).includes(materialId)
+  ).map(step => step.id));
+  for (let i = 0; i < p.package.steps.length; i++) {
+    let changed = false;
+    for (const step of p.package.steps) {
+      if (affected.has(step.id)) continue;
+      if (step.dependsOn.some(id => affected.has(id)) ||
+          conditionMentionsStep(step.when, affected)) {
+        affected.add(step.id);
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+  return affected;
+}
+
+/** Source replacement impacts only tasks that could have used this material.
+ * Never race an active run: the operator must finish/cancel it first.
+ * Historical outputs remain available as history, but no longer count as approved.
+ */
+export function invalidateMaterialDependents(p: ProjectState, materialId: string, exemptStepId?: string) {
+  const affected = affectedStepsForMaterial(p, materialId);
+  for (const stepId of affected) {
+    if (stepId === exemptStepId) continue;
+    if (['running', 'waiting_input'].includes(p.steps[stepId]?.state)) {
+      throw new Error('Dependent Agent work is active; finish or cancel it before accepting a replacement');
+    }
+  }
+  let invalidated = 0;
+  for (const stepId of affected) {
+    if (stepId === exemptStepId) continue;
+    const state = p.steps[stepId];
+    if (!state) continue;
+    if (state.state === 'done' || state.state === 'review' || state.state === 'failed') {
+      state.state = 'blocked';
+      delete state.runId; delete state.startedAt;
+      delete p.decisions[stepId];
+      for (const artifact of p.artifacts) {
+        if (artifact.kind === 'agent_output' && artifact.ownerId === stepId) {
+          artifact.invalidatedAt ??= now();
+        }
+      }
+      recordEvent(p, 'work.invalidated', stepId, 'Source material replaced: ' + materialId);
+      invalidated++;
+    }
+  }
+  if (invalidated) recordEvent(p, 'material.dependents_invalidated', materialId, String(invalidated));
+  reconcile(p);
+}
+
+export function receiveMaterial(project: ProjectState, materialId: string,
+  artifact: RuntimeArtifact, replaceAccepted = false): void {
   const material = project.materials[materialId];
-  if (!material || !['requested', 'rejected'].includes(material.state)) throw new Error('Material is not currently requested');
+  if (!material || !(['requested', 'rejected'].includes(material.state) ||
+        (replaceAccepted && material.state === 'accepted'))) {
+    throw new Error('Material is not currently requested or eligible for replacement');
+  }
   if (artifact.kind !== 'material' || artifact.ownerId !== materialId || !artifact.content && !artifact.filePath) {
     throw new Error('Invalid material artifact');
+  }
+  if (material.state === 'accepted' && replaceAccepted && !material.acceptedArtifactId) {
+    material.acceptedArtifactId = material.artifactIds.at(-1);
   }
   project.artifacts.push(artifact);
   material.artifactIds.push(artifact.id);
   material.state = 'received';
-  recordEvent(project, 'material.received', materialId, artifact.id);
+  recordEvent(project, replaceAccepted ? 'material.replacement_received' : 'material.received', materialId, artifact.id);
   reconcile(project);
 }
 
@@ -155,10 +235,35 @@ export function reviewMaterial(project: ProjectState, materialId: string, accept
   const material = project.materials[materialId];
   if (material?.state !== 'received') throw new Error('Only received material can be reviewed');
   if (!accepted && !feedback.trim()) throw new Error('A rejection must include an explanation');
+  const candidateId = material.artifactIds.at(-1);
+  const oldAccepted = material.acceptedArtifactId;
+  const attachedRequest = project.humanRequests?.find(request =>
+    request.attachmentArtifactId === candidateId && request.status === 'awaiting_review');
+  if (accepted && oldAccepted && oldAccepted !== candidateId) {
+    invalidateMaterialDependents(project, materialId, attachedRequest?.stepId);
+  }
   material.state = accepted ? 'accepted' : 'rejected';
+  if (accepted) {
+    material.acceptedArtifactId = candidateId;
+  }
+  if (attachedRequest) {
+    if (accepted) {
+      attachedRequest.status = 'answered';
+      attachedRequest.answer = attachedRequest.answer?.trim() ||
+        '已提供新原件，经过人工核验，文件标识 ' + candidateId;
+      attachedRequest.answeredAt = now();
+      recordEvent(project, 'human.attachment_accepted', attachedRequest.id, candidateId ?? '');
+      resumeAfterHumanAnswers(project, attachedRequest.stepId);
+    } else {
+      attachedRequest.status = 'pending';
+      delete attachedRequest.attachmentArtifactId;
+      recordEvent(project, 'human.attachment_rejected', attachedRequest.id, feedback.slice(0, 500));
+    }
+  }
   recordEvent(project, accepted ? 'material.accepted' : 'material.rejected', materialId, feedback.slice(0, 500));
   reconcile(project);
 }
+
 
 export function reserveAgent(project: ProjectState, stepId: string): string {
   const def = project.package.steps.find(s => s.id === stepId);
@@ -239,6 +344,38 @@ export function holdAgentForHuman(project: ProjectState, stepId: string, runId: 
 /** Human answer is the only authorization needed to resume this Agent task.
  * Human wording remains explicitly declared information, not validated evidence.
  */
+/** All questions must be settled before the single originating WorkItem can resume. */
+function resumeAfterHumanAnswers(project: ProjectState, stepId: string) {
+  if (!project.humanRequests?.some(request =>
+    request.stepId === stepId && request.status !== 'answered')) {
+    const step = project.steps[stepId];
+    if (step?.state !== 'waiting_input') throw new Error('Agent task is not waiting for Human input');
+    step.state = 'blocked';
+    delete step.runId; delete step.startedAt;
+    recordEvent(project, 'run.resumed_from_human', stepId);
+    reconcile(project);
+  }
+}
+
+/** Bind a newly submitted candidate material version to a still-pending question.
+ * Its answer is NOT accepted until the normal material review passes.
+ */
+export function attachHumanRequestArtifact(project: ProjectState, requestId: string, artifactId: string, note: string) {
+  const request = project.humanRequests?.find(item => item.id === requestId);
+  if (!request || request.status !== 'pending' ||
+      project.steps[request.stepId]?.state !== 'waiting_input') {
+    throw new Error('Human request is not pending');
+  }
+  if (!project.artifacts.some(a => a.id === artifactId && a.kind === 'material' &&
+      a.ownerId === request.materialId)) {
+    throw new Error('Attachment does not match the request material');
+  }
+  request.status = 'awaiting_review';
+  request.attachmentArtifactId = artifactId;
+  request.answer = note.trim();
+  recordEvent(project, 'human.attachment_submitted', requestId, artifactId);
+}
+
 export function answerHumanRequest(project: ProjectState, requestId: string, rawValue: string): void {
   const value = rawValue.trim();
   if (!value || value.length > 8000) throw new Error('Human answer must contain 1–8000 characters');
@@ -249,14 +386,7 @@ export function answerHumanRequest(project: ProjectState, requestId: string, raw
   }
   item.status = 'answered'; item.answer = value; item.answeredAt = now();
   recordEvent(project, 'human.request_answered', requestId, item.stepId);
-  if (!project.humanRequests?.some(request =>
-    request.stepId === item.stepId && request.status === 'pending')) {
-    const step = project.steps[item.stepId];
-    step.state = 'ready';
-    delete step.runId; delete step.startedAt;
-    recordEvent(project, 'run.resumed_from_human', item.stepId);
-    reconcile(project);
-  }
+  resumeAfterHumanAnswers(project, item.stepId);
 }
 
 export function reviewAgent(project: ProjectState, stepId: string, approved: boolean, feedback: string): void {
@@ -302,9 +432,14 @@ export function createTaskPacket(project: ProjectState, stepId: string, runId: s
   const def = project.package.steps.find(s => s.id === stepId);
   const item = project.steps[stepId];
   if (!def || !item || item.runId !== runId || item.state !== 'running') throw new Error('Task packet is not authorized');
-  const materials = def.needsMaterials.flatMap(id =>
+  const attachedIds = (project.humanRequests ?? [])
+    .filter(request => request.stepId === stepId && request.status === 'answered' &&
+      request.attachmentArtifactId)
+    .map(request => request.materialId);
+  const materialIds = [...new Set([...def.needsMaterials, ...attachedIds])];
+  const materials = materialIds.flatMap(id =>
     project.materials[id]?.state === 'accepted'
-      ? project.materials[id].artifactIds.slice(-1).map(ref => project.artifacts.find(a => a.id === ref)).filter((a): a is RuntimeArtifact => Boolean(a))
+      ? [acceptedMaterialArtifact(project, id)].filter((a): a is RuntimeArtifact => Boolean(a))
       : []);
   const upstreamOutputs = def.dependsOn.flatMap(id => project.steps[id]?.state === 'done'
     ? project.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === id).slice(-1) : []);
