@@ -1,4 +1,5 @@
 import { freshId } from '../core/runtime';
+import { approvedSemanticNotes } from '../core/semantics';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { getProject, getTaskPacket, markAgentFailed, recordExecutorEvent, startAgent, succeedAgent } from '../core/store';
@@ -66,7 +67,8 @@ function prepareTask(projectId: string, stepId: string, runId: string): Executor
     ).at(-1);
     return recent ? [{ stepId: id, kind: upstream.kind, value: recent.detail }] : [];
   });
-  return { packet, stepTitle: step.title, evidence, reviewFeedback, humanHandoffs };
+  return { packet, stepTitle: step.title, evidence, reviewFeedback, humanHandoffs,
+    approvedSemanticNotes: approvedSemanticNotes(project, step.needsMaterials) };
 }
 
 /** Shared authoritative run lifecycle. Backends return proposals and cannot commit state. */
@@ -95,6 +97,21 @@ export async function executeOneAgentTask(projectId: string, requestedStepId?: s
     const response = executorOutputSchema.parse(await responsePromise);
     const project = getProject(projectId);
     const knownMaterials = new Set(project.package.materials.map(m => m.id));
+    // AI notes are candidates. An invented or cross-scope citation rejects the
+    // entire run; only a human-reviewed output can become reusable knowledge.
+    const scopedEvidence = new Map(task.evidence
+      .filter(e => e.role === 'case_evidence').map(e => [e.artifactId, e]));
+    const stepDef = project.package.steps.find(step => step.id === started.stepId);
+    for (const note of response.semanticNotes ?? []) {
+      const source = scopedEvidence.get(note.sourceArtifactId);
+      const artifact = project.artifacts.find(a => a.id === note.sourceArtifactId &&
+        a.kind === 'material' && a.ownerId === note.materialId);
+      if (!source || !artifact || source.revision !== note.sourceRevision ||
+          artifact.revision !== note.sourceRevision ||
+          !stepDef?.needsMaterials.includes(note.materialId)) {
+        throw new Error('Agent semantic note cites material outside this run\'s accepted evidence scope');
+      }
+    }
     const evidenceRefs = task.packet.readableInputs.map(a => a.artifactId);
     const proposedActions = response.materialRequests
       .filter(request => knownMaterials.has(request.materialId) && evidenceRefs.length > 0)
@@ -118,7 +135,8 @@ export async function executeOneAgentTask(projectId: string, requestedStepId?: s
       proposedActions,
       limitations: response.limitations
     });
-    const projectAfter = succeedAgent(projectId, started.stepId, started.runId, result, response.body);
+    const projectAfter = succeedAgent(projectId, started.stepId, started.runId, result, response.body,
+      response.semanticNotes ?? []);
     return { project: projectAfter, executedStepId: started.stepId, runId: started.runId };
   } catch (error) {
     markAgentFailed(
