@@ -252,7 +252,7 @@ export function TaskWorkbench({
                 </button>
               </section>}
               {currentStepState.state === 'blocked' && <p className="dispatch-hint">上游成果或资料尚未满足，暂不能执行。</p>}
-              {currentStepState.state === 'waiting_input' && <p className="dispatch-hint">已暂停：等待左侧 Human Todo 的补充信息。全部回复后自动进入待执行队列。</p>}
+              {currentStepState.state === 'waiting_input' && <p className="dispatch-hint">已暂停：等待左侧 Human Todo 的补充信息。全部回复后重新进入待执行队列；如自动派发已暂停，可以手动执行。</p>}
               {outputRevisions.length > 0 && <section className="inspector-section">
                 <h3>候选成果与历史版本</h3>
                 {outputRevisions.map((artifact, index) =>
