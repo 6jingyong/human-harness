@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { basename, extname, join, resolve } from 'node:path';
 import type { Artifact, Project, Task } from './domain';
-import { canStart, nextReadyAgentTask } from './domain';
+import { canStart, nextReadyAgentTask, validateDeliverableContent } from './domain';
 import { templates } from './templates';
 import { parseTemplate } from './template-import';
 import type { ProjectTemplate } from './domain';
@@ -23,6 +23,7 @@ db.exec([
   'CREATE TABLE IF NOT EXISTS artifacts (id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), task_id TEXT NOT NULL, kind TEXT NOT NULL, name TEXT NOT NULL, content TEXT, file_path TEXT, created_at TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), task_id TEXT, action TEXT NOT NULL, detail TEXT NOT NULL, created_at TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS custom_templates (id TEXT NOT NULL, version INTEGER NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, definition TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (id, version))',
+  'CREATE TABLE IF NOT EXISTS project_template_snapshots (project_id TEXT PRIMARY KEY REFERENCES projects(id), definition TEXT NOT NULL)',
   'CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id, ordinal)',
   'CREATE INDEX IF NOT EXISTS idx_artifacts_project ON artifacts(project_id, created_at)',
   'CREATE INDEX IF NOT EXISTS idx_events_project ON events(project_id, created_at)'
@@ -82,6 +83,7 @@ export function createProject(templateId: string, rawTitle: string): Project {
   const projectId = id();
   db.transaction(() => {
     db.prepare('INSERT INTO projects VALUES (?, ?, ?, ?, ?)').run(projectId, title, template.id, template.version, now());
+    db.prepare('INSERT INTO project_template_snapshots VALUES (?, ?)').run(projectId, JSON.stringify(template));
     const insert = db.prepare('INSERT INTO tasks VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     template.tasks.forEach((t, index) => {
       insert.run(projectId, t.id, index, t.title, t.description, t.owner, 'pending',
@@ -96,7 +98,11 @@ export function createProject(templateId: string, rawTitle: string): Project {
 export function getProject(projectId: string): Project | null {
   const r = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) as Row | undefined;
   if (!r) return null;
+  const snapshot = db.prepare('SELECT definition FROM project_template_snapshots WHERE project_id = ?').get(projectId) as { definition: string } | undefined;
+  const template: ProjectTemplate | undefined = snapshot ? parseTemplate(JSON.parse(snapshot.definition)) : undefined;
+  const definitions = new Map(template?.tasks.map(t => [t.id, t]) ?? []);
   const tasks: Task[] = rows('SELECT * FROM tasks WHERE project_id = ? ORDER BY ordinal', projectId).map(t => ({
+    ...(definitions.get(String(t.task_id)) ?? {}),
     id: String(t.task_id), projectId, ordinal: Number(t.ordinal), title: String(t.title),
     description: String(t.description), owner: t.owner as Task['owner'], status: t.status as Task['status'],
     dependsOn: JSON.parse(String(t.depends_on)) as string[],
@@ -116,7 +122,7 @@ export function getProject(projectId: string): Project | null {
   return {
     id: String(r.id), title: String(r.title), templateId: String(r.template_id),
     templateVersion: Number(r.template_version), createdAt: String(r.created_at),
-    tasks, artifacts, events
+    template, tasks, artifacts, events
   };
 }
 
@@ -212,8 +218,9 @@ export function finishAgent(projectId: string, taskId: string, output: string, r
   db.transaction(() => {
     const p = getProjectOrThrow(projectId);
     if (getTask(p, taskId).status !== 'running') throw new DomainError('Agent task is not running');
+    const artifactName = validateDeliverableContent(p.template, taskId, output);
     db.prepare('INSERT INTO artifacts VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
-      id(), projectId, taskId, 'agent_result', 'Agent 产出', output.slice(0, 100000), null, now());
+      id(), projectId, taskId, 'agent_result', artifactName, output.slice(0, 100000), null, now());
     db.prepare('UPDATE tasks SET status = ? WHERE project_id = ? AND task_id = ?').run(
       requiresReview ? 'review' : 'completed', projectId, taskId);
     record(projectId, taskId, requiresReview ? 'agent.review_requested' : 'agent.completed', '');
