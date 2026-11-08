@@ -140,6 +140,14 @@ tests/               流程与结构化协议回归测试
 
 **这不是正式 PDF/DOCX 读取功能，也没有启动 Codex。** 实验只验证固定表头的合成表格，后续仍需扫描件、复杂表格及真实布局的系统测试。
 
+## 优先原生复用 Codex 插件，不再自行开发通用解析器
+
+**下一步不开发自己的 PDF/DOCX 读取器。** Human Harness 只给出「当前项目需要提取哪些字段、核验什么、出现问题如何生成用户 Todo」，由 Codex 直接调用环境中已经安装、启用和可执行的 Plugin / Skill / MCP 工具。缺少能力时优先通过 Codex 原生机制安装/连接；只有确有缺口才研发新工具。
+
+[原生 Codex 插件复用方案](codex-native-plugins.md) 给出了 `plugin/list`、`skills/list`、MCP 就绪状态、能力绑定及缺失能力处理方案。把 Human Harness 自身发布成一个 Codex Plugin 是**另一条可选方向**，但不是我们复用现成 PDF/DOCX 插件的前提。
+
+之前的合成 PDF/DOCX 实验仅保留作方法合同验证，不继续作为解析器研发路线。**目前 Codex 插件还没有接到 Human Harness 运行代码中。**
+
 ## 我们接下来怎样学习成熟 Agent / 插件？
 
 **不复制整个成熟框架，而是优先复用它已经解决的问题。**
