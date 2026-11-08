@@ -2,7 +2,7 @@ import { freshId } from '../core/runtime';
 import { approvedSemanticNotes } from '../core/semantics';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { getProject, getTaskPacket, markAgentFailed, recordExecutorEvent, startAgent, succeedAgent } from '../core/store';
+import { awaitHumanInput, getProject, getTaskPacket, markAgentFailed, recordExecutorEvent, startAgent, succeedAgent } from '../core/store';
 import { taskResultSchema } from '../protocol/v1';
 import { executorOutputSchema, type ExecutorTask, type TaskExecutor } from './contracts';
 import { demoExecutor } from './demo';
@@ -67,7 +67,16 @@ function prepareTask(projectId: string, stepId: string, runId: string): Executor
     ).at(-1);
     return recent ? [{ stepId: id, kind: upstream.kind, value: recent.detail }] : [];
   });
-  return { packet, stepTitle: step.title, evidence, reviewFeedback, humanHandoffs,
+  const requestedAnswers = (project.humanRequests ?? [])
+    .filter(request => request.stepId === stepId && request.status === 'answered' && request.answer)
+    .map(request => ({
+      stepId,
+      kind: 'agent_requested_input',
+      value: 'Question about template material ' + request.materialId + ': ' +
+        request.reason + '\nHuman response (not independently verified): ' + request.answer
+    }));
+  return { packet, stepTitle: step.title, evidence, reviewFeedback,
+    humanHandoffs: [...humanHandoffs, ...requestedAnswers],
     approvedSemanticNotes: approvedSemanticNotes(project, step.needsMaterials) };
 }
 
@@ -113,15 +122,35 @@ export async function executeOneAgentTask(projectId: string, requestedStepId?: s
       }
     }
     const evidenceRefs = task.packet.readableInputs.map(a => a.artifactId);
-    const proposedActions = response.materialRequests
-      .filter(request => knownMaterials.has(request.materialId) && evidenceRefs.length > 0)
-      .map(request => ({
-        type: 'request_material' as const,
-        requirementKind: request.materialId,
-        reason: request.reason,
-        evidenceRefs: evidenceRefs.slice(0, 30)
-      }));
-
+    if (response.materialRequests.length) {
+      const distinct = new Set<string>();
+      for (const request of response.materialRequests) {
+        if (!knownMaterials.has(request.materialId) || distinct.has(request.materialId)) {
+          throw new Error('Agent requested an unknown or duplicate template material');
+        }
+        distinct.add(request.materialId);
+      }
+      const result = taskResultSchema.parse({
+        protocol: 'hh.result/1',
+        runId: started.runId,
+        workItemId: started.stepId,
+        outcome: 'needs_input',
+        producedArtifacts: [],
+        proposedActions: response.materialRequests
+          .filter(() => evidenceRefs.length > 0)
+          .map(request => ({
+            type: 'request_material' as const,
+            requirementKind: request.materialId,
+            reason: request.reason,
+            evidenceRefs: evidenceRefs.slice(0, 30)
+          })),
+        limitations: response.limitations
+      });
+      const heldProject = awaitHumanInput(projectId, started.stepId, started.runId,
+        result, response.materialRequests);
+      return { project: heldProject, executedStepId: started.stepId, runId: started.runId };
+    }
+    const proposedActions: typeof taskResultSchema._output.proposedActions = [];
     const artifactId = freshId();
     const result = taskResultSchema.parse({
       protocol: 'hh.result/1',
