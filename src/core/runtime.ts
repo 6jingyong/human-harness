@@ -20,6 +20,7 @@ export type HumanInputRequest = {
   id: string; stepId: string; runId: string; materialId: string;
   reason: string; status: 'pending' | 'awaiting_review' | 'answered';
   createdAt: string; answer?: string; answeredAt?: string; attachmentArtifactId?: string;
+  invalidatedAt?: string;
 };
 export type ProjectEvent = { id: string; type: string; subject: string; detail: string; createdAt: string };
 export type ExecutionPolicy = { autoDispatch: boolean; maxParallel: number };
@@ -198,6 +199,9 @@ export function invalidateMaterialDependents(p: ProjectState, materialId: string
       state.state = 'blocked';
       delete state.runId; delete state.startedAt;
       delete p.decisions[stepId];
+      for (const request of p.humanRequests ?? []) {
+        if (request.stepId === stepId) request.invalidatedAt ??= now();
+      }
       for (const artifact of p.artifacts) {
         if (artifact.kind === 'agent_output' && artifact.ownerId === stepId) {
           artifact.invalidatedAt ??= now();
@@ -320,11 +324,11 @@ export function holdAgentForHuman(project: ProjectState, stepId: string, runId: 
     }
     unique.add(request.materialId);
     // A second identical request after an answer is a loop, not new evidence.
-    if (outstanding.some(item => item.stepId === stepId && item.materialId === request.materialId)) {
+    if (outstanding.some(item => !item.invalidatedAt && item.stepId === stepId && item.materialId === request.materialId)) {
       throw new Error('Repeated human request for the same material; retry needs human review');
     }
   }
-  if (outstanding.filter(item => item.stepId === stepId).length + requests.length > 5) {
+  if (outstanding.filter(item => !item.invalidatedAt && item.stepId === stepId).length + requests.length > 5) {
     throw new Error('Agent exceeded the per-step human request limit');
   }
   project.humanRequests ??= [];
@@ -347,7 +351,7 @@ export function holdAgentForHuman(project: ProjectState, stepId: string, runId: 
 /** All questions must be settled before the single originating WorkItem can resume. */
 function resumeAfterHumanAnswers(project: ProjectState, stepId: string) {
   if (!project.humanRequests?.some(request =>
-    request.stepId === stepId && request.status !== 'answered')) {
+    request.stepId === stepId && !request.invalidatedAt && request.status !== 'answered')) {
     const step = project.steps[stepId];
     if (step?.state !== 'waiting_input') throw new Error('Agent task is not waiting for Human input');
     step.state = 'blocked';
@@ -362,7 +366,7 @@ function resumeAfterHumanAnswers(project: ProjectState, stepId: string) {
  */
 export function attachHumanRequestArtifact(project: ProjectState, requestId: string, artifactId: string, note: string) {
   const request = project.humanRequests?.find(item => item.id === requestId);
-  if (!request || request.status !== 'pending' ||
+  if (!request || request.invalidatedAt || request.status !== 'pending' ||
       project.steps[request.stepId]?.state !== 'waiting_input') {
     throw new Error('Human request is not pending');
   }
@@ -380,7 +384,7 @@ export function answerHumanRequest(project: ProjectState, requestId: string, raw
   const value = rawValue.trim();
   if (!value || value.length > 8000) throw new Error('Human answer must contain 1–8000 characters');
   const item = project.humanRequests?.find(request => request.id === requestId);
-  if (!item || item.status !== 'pending' ||
+  if (!item || item.invalidatedAt || item.status !== 'pending' ||
       project.steps[item.stepId]?.state !== 'waiting_input') {
     throw new Error('Human request is not pending');
   }
@@ -433,7 +437,7 @@ export function createTaskPacket(project: ProjectState, stepId: string, runId: s
   const item = project.steps[stepId];
   if (!def || !item || item.runId !== runId || item.state !== 'running') throw new Error('Task packet is not authorized');
   const attachedIds = (project.humanRequests ?? [])
-    .filter(request => request.stepId === stepId && request.status === 'answered' &&
+    .filter(request => request.stepId === stepId && !request.invalidatedAt && request.status === 'answered' &&
       request.attachmentArtifactId)
     .map(request => request.materialId);
   const materialIds = [...new Set([...def.needsMaterials, ...attachedIds])];
