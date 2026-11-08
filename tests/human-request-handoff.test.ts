@@ -91,7 +91,7 @@ test('material questions cannot create new template requirements or cause infini
       ] };
     }
   };
-  await assert.rejects(() => executeOneAgentTask(id, 'draft', invented), /unknown or duplicate/);
+  await assert.rejects(() => executeOneAgentTask(id, 'draft', invented), /unauthorized or duplicate/);
   assert.equal(store.getProject(id).steps.draft.state, 'failed');
   assert.equal(store.getProject(id).humanRequests?.length, 0);
   store.retryFailedAgent(id, 'draft');
