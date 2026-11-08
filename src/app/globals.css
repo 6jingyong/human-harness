@@ -64,55 +64,76 @@ h1,h2,h3,p{margin-top:0}h1{font-size:clamp(22px,2.5vw,30px)}h2{font-size:19px;ma
 .advanced-editor summary{color:var(--accent);cursor:pointer;font-size:13px}
 @media(max-width:720px){.author-grid{grid-template-columns:1fr}.author-grid .wide{grid-column:auto}}
 
-/* Task-centric Human Harness GUI: two queues, one task operation panel. */
-.workbench-shell{margin:0 0 20px;background:var(--panel);border:1px solid var(--line);border-radius:15px;overflow:hidden}
-.workbench-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:21px 23px;border-bottom:1px solid var(--line)}
-.workbench-heading h2{margin:5px 0 2px;font-size:21px}.workbench-heading p{font-size:12px;margin:0}.workbench-heading button{white-space:nowrap}
-.workbench-main{display:grid;grid-template-columns:minmax(330px, .9fr) minmax(0,1.25fr);min-height:490px}
-.workbench-navigation{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:0;border-right:1px solid var(--line);background:#111c2d}
-.workbench-lane{padding:17px 12px 20px;min-width:0;max-height:520px;overflow-y:auto}
-.workbench-lane:first-child{border-right:1px solid var(--line)}
-.workbench-lane h3{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;line-height:1.5;margin:0 0 13px}
-.workbench-lane h3 span{font-size:11px;color:var(--accent);border:1px solid var(--line);border-radius:99px;padding:1px 7px}
-.workbench-item{display:flex;align-items:flex-start;flex-direction:column;gap:7px;width:100%;text-align:left;background:#1c2a3e;padding:12px;margin-bottom:8px;border-radius:9px}
-.workbench-item:hover:not(:disabled){background:#2b3f58}
-.workbench-item.selected{background:#2a4663;border-color:#9bbddd;box-shadow:inset 3px 0 0 var(--accent)}
-.workbench-item-label{font-size:12px;font-weight:650;line-height:1.5;overflow-wrap:anywhere}
-.task-state{white-space:nowrap;color:#bed4ea;background:#23354d;border-radius:20px;border:1px solid #52667e;padding:2px 8px;font-size:11px}
-.task-state.ready,.task-state.requested{border-color:#5b8879;color:#b8e6cd}
-.task-state.review,.task-state.received{border-color:#9b804e;color:#ffe0ad}
-.task-state.running{border-color:#6b95c2;color:#bfdfff}
-.task-state.done,.task-state.accepted{border-color:#4c806d;color:#abe3c4}
-.task-state.failed,.task-state.rejected{border-color:#ac6073;color:#ffc0ca}
-.task-state.blocked{opacity:.8}
-.workbench-archive{border-top:1px solid var(--line);grid-column:1/-1;padding:10px 14px 16px}
-.workbench-archive summary{cursor:pointer;color:#aac6e6;font-size:12px;padding:7px 1px 11px}
-.workbench-archive .workbench-item{display:inline-flex;width:calc(50% - 5px);margin:0 7px 8px 0;vertical-align:top}
-.workbench-inspector{background:#172337;min-width:0;padding:23px clamp(18px,2vw,34px);min-height:480px}
-.workbench-inspector-header{display:flex;gap:10px;align-items:center;justify-content:space-between}
-.workbench-inspector h2{font-size:22px;line-height:1.35;margin:12px 0 10px;overflow-wrap:anywhere}
-.task-instructions{font-size:13px;line-height:1.75;white-space:pre-wrap}
-.task-context-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:16px 0 22px}
-.task-context-grid>div{display:grid;gap:4px;border:1px solid var(--line);border-radius:9px;padding:9px 11px;background:#1d2c40;min-width:0}
-.task-context-grid strong{font-size:11px;color:var(--muted)}.task-context-grid span{font-size:12px;overflow-wrap:anywhere}
-.inspector-section{border-top:1px solid var(--line);padding:20px 0 10px}
-.inspector-section h3{font-size:14px;margin-bottom:10px}
-.inspector-section p,.inspector-section li{font-size:12px;line-height:1.75}
-.inspector-section ul{padding-left:20px;color:#c9d6e6;margin:10px 0}
-.inspector-section label{display:block;font-size:12px;color:#a9c4dd;margin:13px 0 6px}
-.inspector-section select,.inspector-section input[type=file],.inspector-section textarea{margin-bottom:12px}
-.inspector-section button.primary{margin-top:3px}
-.inspector-section .actions{margin:9px 0 0}
-.inspector-section .result{max-height:390px}
-.inspector-section .output{margin-bottom:10px}
-.source-revision{font-size:12px;color:#a9c8df;background:#21364d;border-radius:8px;padding:8px 10px}
-.requirement-line{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid #2c4057;font-size:12px}
-.requirement-line span:last-child{white-space:nowrap;color:#a8c9e7}
-.approval-section{border-top:2px solid #6c91b8;background:#1e3045;border-radius:9px;padding:17px;margin-top:10px}
-.inspector-success{color:#abebc8!important;background:#1e3b34;padding:10px 12px;border-radius:9px}
-.workbench-empty{margin:40px 0}
-@media(max-width:1450px){.workbench-main{grid-template-columns:1fr}.workbench-navigation{border-right:0;border-bottom:1px solid var(--line)}.workbench-lane{max-height:290px}.workbench-inspector{min-height:300px}}
-@media(max-width:700px){.workbench-heading{align-items:flex-start;flex-direction:column}.workbench-lane{padding:13px 8px;max-height:240px}.workbench-item{padding:9px}.workbench-inspector{padding:18px 14px}.task-context-grid{grid-template-columns:1fr}}
+/* Two-row Human Harness home. All secondary information lives in the drawer/library. */
+.shell{display:block;min-height:calc(100vh - 74px)}
+.main{max-width:1350px;padding:36px clamp(18px,4vw,60px) 90px}
+.topbar{justify-content:flex-start}.head-info{margin-left:auto}
+.hamburger{flex-shrink:0;background:transparent;font-size:20px;border-color:transparent;padding:8px 12px}
+.menu-backdrop{position:fixed;inset:74px 0 0;z-index:15;background:#0008;border:0;border-radius:0;width:100vw;height:calc(100vh - 74px)}
+.navigation-drawer{position:fixed;z-index:16;left:0;top:74px;bottom:0;width:min(365px,92vw);overflow-y:auto;box-shadow:12px 0 38px #0009;transform:translateX(-108%);visibility:hidden;transition:transform .16s ease,visibility .16s ease}
+.navigation-drawer.open{transform:translateX(0);visibility:visible}
+.drawer-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.drawer-heading button{padding:4px 10px}.drawer-navigation{display:grid;gap:7px;border-bottom:1px solid var(--line);padding-bottom:17px;margin-bottom:20px}
+.drawer-navigation button{text-align:left}.drawer-execution{padding:12px 0;border-bottom:1px solid var(--line)}
+.drawer-execution label{font-size:12px;color:var(--muted);display:block;margin:10px 0}
+.drawer-execution button{margin-top:8px;width:100%}
+.simple-project-title{display:flex;justify-content:space-between;align-items:center;gap:15px;margin:0 0 36px}
+.simple-project-title h1{font-size:clamp(22px,3vw,33px);margin:4px 0 0}
+.simple-project-actions{display:flex;align-items:center;gap:16px;font-size:12px;color:var(--muted)}
+.simple-project-actions button{font-size:12px}
+.todo-home{display:grid;gap:18px}
+.todo-row{border:1px solid var(--line);border-radius:15px;background:var(--panel);padding:18px 20px 20px}
+.todo-row-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.todo-row-title h2{font-size:18px;margin-bottom:15px;letter-spacing:.01em}
+.todo-row-title h2 span{font-size:12px;font-weight:500;margin-left:7px;color:var(--muted)}
+.todo-row-title small{color:var(--muted);font-size:12px}
+.todo-row-items{display:flex;align-items:stretch;gap:10px;overflow-x:auto;padding:1px 0 5px;scrollbar-width:thin;min-height:70px}
+.todo-row .workbench-item{display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:10px;flex:0 0 clamp(180px,23%,255px);min-height:66px;padding:11px 14px;text-align:left;background:#1b293b;border:1px solid #415168;border-radius:10px}
+.todo-row .workbench-item:hover{background:#2a3d56}
+.todo-row .workbench-item.selected{background:#2f4a62;border-color:#96b7d6}
+.workbench-item-label{font-size:13px;line-height:1.45;overflow-wrap:anywhere}
+.task-state{font-size:11px;padding:2px 8px;border-radius:16px;border:1px solid #637185;color:#d6e4ee}
+.task-state.ready,.task-state.requested{color:#b8e6cd}
+.task-state.running{color:#bbdfff}
+.task-state.review,.task-state.received{color:#f5dcae}
+.task-state.failed,.task-state.rejected{color:#ffc6cf}
+.todo-empty{font-size:13px;color:#8a9db6;padding:11px 2px;margin:0}
+.todo-detail-wrap{border:1px solid var(--line);border-radius:15px;overflow:hidden;background:#182438}
+.todo-detail-top{display:flex;align-items:center;justify-content:space-between;padding:10px 23px;background:#23354b;color:#acc9e8;font-size:12px}
+.todo-detail-top button{padding:5px 10px;font-size:12px}
+.workbench-inspector{padding:25px clamp(18px,3vw,40px);max-width:960px}
+.workbench-inspector-header{display:flex;justify-content:space-between;align-items:center}
+.workbench-inspector h2{font-size:21px;margin:9px 0}.workbench-inspector .task-instructions{white-space:pre-wrap;font-size:13px;line-height:1.7}
+.task-context-grid{display:flex;gap:14px;margin:16px 0}.task-context-grid>div{min-width:140px;display:flex;flex-direction:column;gap:4px;border:1px solid var(--line);border-radius:8px;padding:8px 11px}
+.task-context-grid strong{font-size:11px;color:var(--muted)}.task-context-grid span{font-size:12px}
+.inspector-section{border-top:1px solid var(--line);padding:18px 0 10px}.inspector-section h3{font-size:14px;margin-bottom:10px}
+.inspector-section p,.inspector-section li{font-size:12px;line-height:1.7}.inspector-section label{font-size:12px;color:var(--muted);display:block;margin:12px 0 6px}
+.inspector-section textarea,.inspector-section input,.inspector-section select{margin-bottom:10px}
+.inspector-section .result{max-height:340px}.inspector-section .output{margin-bottom:10px}
+.source-revision{font-size:12px;color:#c7dbec;background:#24364b;padding:8px;border-radius:8px}
+.requirement-line{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #334458;font-size:12px}
+.requirement-line span:last-child{color:#aaccdf}.approval-section{border-top:1px solid #7593b6}
+.inspector-success{color:#b5e6c9!important;background:#1c3a32;padding:10px;border-radius:8px}
+
+/* Project assets and semantic explanations remain discoverable, but off the main home. */
+.library-page{max-width:1120px;margin:auto}.library-heading{display:flex;gap:22px;align-items:center;margin-bottom:25px}
+.library-heading h1{margin:6px 0}.library-heading p{font-size:12px;margin:0}.library-heading button{white-space:nowrap}
+.library-meta{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:23px}.library-meta>div{display:grid;gap:4px;min-width:170px;padding:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.library-meta strong{font-size:11px;color:var(--muted)}.library-meta span{font-size:13px}
+.library-items{display:grid;gap:16px}.library-material{border:1px solid var(--line);border-radius:13px;background:var(--panel);padding:22px}
+.library-material>header{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+.library-material h2{font-size:17px;margin:0 0 5px}.library-material small{font-size:11px;color:var(--muted)}
+.library-section{border-top:1px solid var(--line);padding:15px 0 2px;margin-top:16px}
+.library-section h3{font-size:13px;color:#c7ddf4}.library-section p{font-size:12px;line-height:1.75}
+.library-file{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #2a3b50;flex-wrap:wrap}
+.library-file>div{flex:1;min-width:180px;display:grid;gap:3px}.library-file>div strong{font-size:13px}
+.library-file a{font-size:12px;white-space:nowrap;color:var(--accent)}.library-file details{flex:1 1 100%}
+.library-section details summary{font-size:12px;color:#b8d5ed;cursor:pointer;padding:6px 0}
+.semantic-result summary span{float:right;font-size:11px;color:#d7bc8c}
+.semantic-provenance{color:#a1b5cc}.library-events{margin-top:24px;background:var(--panel);padding:14px 20px;border-radius:11px;border:1px solid var(--line)}
+.library-events summary{cursor:pointer;font-size:12px}
+.library-events>div{display:flex;gap:12px;padding:7px 0;border-top:1px solid var(--line);font-size:12px}
+@media(max-width:720px){.topbar{padding:0 12px}.brand-mark{display:none}.brand{font-size:16px}.head-info{font-size:11px}.main{padding:20px 14px 50px}.simple-project-title{align-items:flex-start;flex-direction:column;margin-bottom:20px}.simple-project-actions{width:100%;justify-content:space-between}.todo-row{padding:14px}.todo-row-title h2{font-size:16px}.todo-row .workbench-item{flex-basis:210px}.task-context-grid{flex-direction:column}.library-heading{align-items:flex-start;flex-direction:column;gap:10px}.library-material{padding:14px}}
 
 /* Independent project scheduler: project-level controls stay visible above task lanes. */
 .execution-toolbar{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:18px 21px;margin:0 0 18px;background:var(--panel);border:1px solid var(--line);border-radius:14px}
