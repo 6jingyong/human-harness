@@ -39,6 +39,11 @@ export function ProjectMaterialLibrary({ project, onBack }: {
               step, artifact, verified: index === 0 && project.steps[step.id]?.state === 'done'
             }))
         );
+        const structured = interpretations.flatMap(({ step, artifact, verified }) =>
+          (artifact.semanticNotes ?? []).filter(note => note.materialId === def.id)
+            .map(note => ({ step, artifact, verified, note }))
+        );
+        const acceptedSourceId = state?.state === 'accepted' ? state.artifactIds.at(-1) : undefined;
         return <article className="library-material" key={def.id}>
           <header><div><h2>{def.title}</h2><small>{def.id}</small></div>
             <span className="task-state">{materialStates[state?.state] ?? '未知'}</span></header>
@@ -69,6 +74,22 @@ export function ProjectMaterialLibrary({ project, onBack }: {
           </div>
           <div className="library-section semantic-section">
             <h3>Agent 语义说明</h3>
+            {structured.map(({ step, artifact, verified, note }, index) =>
+              <div className="semantic-note" key={artifact.id + ':' + index}>
+                <div className="semantic-note-title">
+                  <strong>{note.summary}</strong>
+                  <span className="task-state">{verified && note.sourceArtifactId === acceptedSourceId
+                    ? '已审核 · 当前原件' : verified ? '历史原件 / 旧版' : '候选待审'}</span>
+                </div>
+                <p>来源：{versions.find(source => source.id === note.sourceArtifactId)?.name ?? note.sourceArtifactId}
+                  {' · v' + note.sourceRevision} · {note.location}</p>
+                {note.caveat && <p>限制：{note.caveat}</p>}
+                <small>来自任务：{step.title} / {artifact.name}</small>
+              </div>)}
+            {!structured.length && <p className="muted">
+              暂无带来源引用的结构化语义记录；以下仅展示模板关联的 Agent 成果，不能自动视为逐条核实的事实。
+            </p>}
+            <h3 className="linked-output-title">相关 Agent 成果</h3>
             {interpretations.map(({ step, artifact, verified }) =>
               <details className="semantic-result" key={artifact.id}>
                 <summary>{step.title} · v{artifact.revision}
@@ -84,8 +105,7 @@ export function ProjectMaterialLibrary({ project, onBack }: {
                 </a>}
               </details>)}
             {!interpretations.length && <p className="muted">
-              暂无 Agent 处理后的语义说明。原件上传并不会自动生成可信的内容理解；
-              等相关 Agent 完成处理后，才会在此显示其候选结果。
+              暂无关联 Agent 结果。原件上传不会自动生成可信的语义信息。
             </p>}
           </div>
         </article>;
