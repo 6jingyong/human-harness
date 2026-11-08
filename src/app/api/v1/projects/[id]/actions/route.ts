@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import {
-  answerRequestedInput, completeHuman, recoverAbandonedAgent, retryFailedAgent, reviewAgentOutput, reviewReceivedMaterial,
+  answerRequestedInput, getProject, completeHuman, recoverAbandonedAgent, retryFailedAgent, reviewAgentOutput, reviewReceivedMaterial,
   RuntimeError, submitMaterial, setExecutionPolicy
 } from '@/core/store';
 import { ensureLocalScheduler } from '@/executors/scheduler';
@@ -19,7 +19,20 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const feedback = String(form.get('feedback') ?? '');
     let project;
     if (action === 'answer_human_request') {
-      project = answerRequestedInput(id, String(form.get('requestId') ?? ''), value);
+      const requestId = String(form.get('requestId') ?? '');
+      const candidate = form.get('file');
+      const file = candidate instanceof File && candidate.size ? candidate : undefined;
+      if (file && file.size > 12 * 1024 * 1024) throw new RuntimeError('File exceeds 12 MB');
+      if (file) {
+        const pending = getProject(id).humanRequests?.find(request => request.id === requestId);
+        if (!pending || pending.status !== 'pending' || pending.invalidatedAt) {
+          throw new RuntimeError('Human request is not pending');
+        }
+        project = submitMaterial(id, pending.materialId, value,
+          { name: file.name, buffer: Buffer.from(await file.arrayBuffer()) }, { requestId });
+      } else {
+        project = answerRequestedInput(id, requestId, value);
+      }
     } else if (action === 'complete_human') {
       project = completeHuman(id, stepId, value);
     } else if (action === 'submit_material') {
@@ -27,6 +40,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const file = candidate instanceof File && candidate.size ? candidate : undefined;
       if (file && file.size > 12 * 1024 * 1024) throw new RuntimeError('File exceeds 12 MB');
       project = submitMaterial(id, materialId, value, file ? { name: file.name, buffer: Buffer.from(await file.arrayBuffer()) } : undefined);
+    } else if (action === 'replace_material') {
+      const candidate = form.get('file');
+      const file = candidate instanceof File && candidate.size ? candidate : undefined;
+      if (file && file.size > 12 * 1024 * 1024) throw new RuntimeError('File exceeds 12 MB');
+      project = submitMaterial(id, materialId, value,
+        file ? { name: file.name, buffer: Buffer.from(await file.arrayBuffer()) } : undefined,
+        { replaceAccepted: true });
     } else if (action === 'accept_material' || action === 'reject_material') {
       project = reviewReceivedMaterial(id, materialId, action === 'accept_material', feedback);
     } else if (action === 'approve_agent' || action === 'reject_agent') {
