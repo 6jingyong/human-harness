@@ -58,6 +58,12 @@ Codex's **thread/turn** state does **not** replace Human Harness's durable **pro
 
 Reference: https://developers.openai.com/blog/openai-for-developers-2025
 
+## Template methods and Human Todo (design clarification)
+
+**No separate project approval subsystem is needed.** Humans already work through Human TodoList: provide materials, resolve ambiguities, review candidate results, and decide professional branches. Codex's execution-level permissions and sandbox remain enforced by the Codex runtime, but they do not become a parallel business approval workflow.
+
+ProjectTemplate should specify the **source recognition method, expected extracted fields, validation method, cross-file dependencies, and an exception policy** for each material class. A material such as a lab report is not complete merely because a file was uploaded or text was OCR'd. See [material handling proposal](template-material-processing.md). The actual parser and validators have not been implemented.
+
 ## Recommended architecture: Codex as executor, not as project database
 
 We should experiment with an adapter shaped like:
