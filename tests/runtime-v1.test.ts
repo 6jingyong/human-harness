@@ -359,3 +359,48 @@ test('P0 parallel contract: independent Agent jobs and Human Todo progress concu
   assert.equal(stepState(p.id, 'merge'), 'ready');
   assert.equal(store.getProject(p.id).events.filter(e => e.type === 'run.started').length, 2);
 });
+
+
+test('general document template hands reviewed Agent facts and Human Todo corrections into final task', async () => {
+  const p = store.createProject('document-handoff', 'Human–AI handoff end to end');
+  assert.equal(stepState(p.id, 'extract'), 'blocked');
+  store.submitMaterial(p.id, 'source-a', '', {
+    name: 'first.pdf', buffer: Buffer.from('%PDF-1.7\nfixture')
+  });
+  store.reviewReceivedMaterial(p.id, 'source-a', true, '');
+  store.submitMaterial(p.id, 'source-b', '', {
+    name: 'second.docx', buffer: Buffer.from('PK\x03\x04fixture')
+  });
+  store.reviewReceivedMaterial(p.id, 'source-b', true, '');
+  assert.equal(stepState(p.id, 'extract'), 'ready');
+  const first: TaskExecutor = {
+    id: 'controlled-document-extraction',
+    async execute(task) {
+      assert.deepEqual(task.evidence.map(e => e.name), ['first.pdf', 'second.docx']);
+      assert.equal(task.humanHandoffs?.length, 0);
+      return { body: 'A 文件数值 12，B 文件数值 13，存在冲突，待人类核实。', limitations: [], materialRequests: [] };
+    }
+  };
+  await executeOneAgentTask(p.id, 'extract', first);
+  assert.equal(stepState(p.id, 'resolve'), 'blocked');
+  store.reviewAgentOutput(p.id, 'extract', true, '同意将冲突交人类核实');
+  assert.equal(stepState(p.id, 'resolve'), 'ready');
+  assert.equal(stepState(p.id, 'final'), 'blocked');
+  const resolution = '已联系资料提供方，数值 13 为笔误，应以 12 为准。请在最终成果注明修正依据。';
+  store.completeHuman(p.id, 'resolve', resolution);
+  assert.equal(stepState(p.id, 'final'), 'ready');
+  const second: TaskExecutor = {
+    id: 'controlled-final',
+    async execute(task) {
+      assert.deepEqual(task.evidence.map(e => e.name), ['first.pdf', 'second.docx', 'extraction.md']);
+      assert.deepEqual(task.humanHandoffs, [{ stepId: 'resolve', kind: 'human_action', value: resolution }]);
+      const { renderTextContext } = await import('../src/executors/contracts');
+      assert.match(renderTextContext(task), /应以 12 为准/);
+      return { body: '核实结果：12。数值 13 为人工确认的笔误。', limitations: [], materialRequests: [] };
+    }
+  };
+  await executeOneAgentTask(p.id, 'final', second);
+  assert.equal(stepState(p.id, 'final'), 'review');
+  store.reviewAgentOutput(p.id, 'final', true, '项目交付');
+  assert.equal(stepState(p.id, 'final'), 'done');
+});
