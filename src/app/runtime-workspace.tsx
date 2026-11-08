@@ -250,7 +250,7 @@ export function RuntimeWorkspace() {
                     </> : <>
                       {m.formats.includes('text/plain') && <textarea aria-label={m.title} rows={3}
                         value={values[key] || ''} onChange={e => setValues(v => ({ ...v, [key]: e.target.value }))} placeholder="输入资料或来源说明" />}
-                      <input type="file" aria-label={m.title + '文件'} onChange={e => setFiles(v => ({ ...v, [key]: e.target.files?.[0] }))} />
+                      {m.formats.some(format => format !== 'text/plain') && <input type="file" aria-label={m.title + '文件'} onChange={e => setFiles(v => ({ ...v, [key]: e.target.files?.[0] }))} />}
                       <button type="button" className="primary" disabled={busy} onClick={() => action('submit_material', { materialId: key })}>提交资料</button>
                       {state.state === 'rejected' && <p className="error-text">该资料已退回，请重新提交。</p>}
                     </>}
@@ -292,7 +292,9 @@ export function RuntimeWorkspace() {
                     {status.state === 'ready' && <button type="button" className="primary" disabled={busy} onClick={() => action('run_agent', { stepId: s.id })}>运行此 Agent 任务</button>}
                     {status.state === 'failed' && <button type="button" disabled={busy} onClick={() => action('retry_agent', { stepId: s.id })}>重新允许执行</button>}
                     {versions.map((a, index) => <details className="output" key={a.id} open={index === 0 && status.state === 'review'}>
-                      <summary>候选成果 v{a.revision} · {a.name}</summary><pre className="result">{a.content}</pre>
+                      <summary>候选成果 v{a.revision} · {a.name}</summary>
+                      {index === 0 && status.state === 'done' && s.outputContractId && <a className="file-download" href={'/api/v1/projects/' + encodeURIComponent(project.id) + '/outputs/' + encodeURIComponent(a.id)}>下载审核通过的成果</a>}
+                      <pre className="result">{a.content}</pre>
                     </details>)}
                   </article>;
                 })}
