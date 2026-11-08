@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { HumanHarnessPackage, Condition, HumanHarnessTaskPacket, HumanHarnessTaskResult } from '../protocol/v1';
 import type { SemanticNote } from '../protocol/semantics';
+import type { MethodCheckResult } from '../executors/contracts';
 
 export type WorkState = 'dormant' | 'blocked' | 'ready' | 'running' | 'waiting_input' | 'review' | 'done' | 'not_applicable' | 'failed';
 export type RequirementState = 'dormant' | 'expected' | 'requested' | 'received' | 'accepted' | 'rejected' | 'not_applicable';
@@ -10,6 +11,7 @@ export type RuntimeArtifact = {
   id: string; kind: 'material' | 'agent_output'; name: string; content: string | null;
   ownerId: string; revision: number; filePath?: string; createdAt: string;
   semanticNotes?: SemanticNote[];
+  methodChecks?: MethodCheckResult[];
   invalidatedAt?: string;
 };
 export type RuntimeRun = { id: string; stepId: string; status: 'running' | 'needs_input' | 'review' | 'failed'; startedAt: string; endedAt?: string; result?: HumanHarnessTaskResult; error?: string; codexThreadId?: string; codexTurnId?: string; lastExecutorEvent?: string };
@@ -397,6 +399,17 @@ export function reviewAgent(project: ProjectState, stepId: string, approved: boo
   const state = project.steps[stepId];
   if (!state || state.state !== 'review') throw new Error('Task is not pending review');
   if (!approved && !feedback.trim()) throw new Error('Rejection requires feedback');
+  const def = project.package.steps.find(step => step.id === stepId);
+  const current = project.artifacts.filter(a =>
+    a.kind === 'agent_output' && a.ownerId === stepId).at(-1);
+  if (approved && def?.method && (!current?.methodChecks ||
+      current.methodChecks.length !== def.method.checks.length)) {
+    throw new Error('Template method checklist is missing; cannot approve');
+  }
+  if (approved && current?.methodChecks?.some(check => check.status !== 'passed') &&
+      !feedback.trim()) {
+    throw new Error('Unresolved method checks require explicit Human approval rationale');
+  }
   state.state = approved ? 'done' : 'ready';
   recordEvent(project, approved ? 'work.approved' : 'work.rejected', stepId, feedback.slice(0, 1000));
   reconcile(project);
