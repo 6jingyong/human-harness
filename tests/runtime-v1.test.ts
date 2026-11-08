@@ -10,7 +10,8 @@ const temp = mkdtempSync(join(tmpdir(), 'hh-v1-runtime-'));
 process.env.HH_DATA_DIR = temp;
 process.env.HH_EXECUTOR = 'demo';
 const store = await import('../src/core/store');
-const { executeOneAgentTask } = await import('../src/executors/mastra');
+const { executeOneAgentTask, configuredExecutorMode } = await import('../src/executors/runner');
+import type { TaskExecutor } from '../src/executors/contracts';
 
 after(() => {
   try { rmSync(temp, { recursive: true, force: true }); } catch { /* db handle on Windows */ }
