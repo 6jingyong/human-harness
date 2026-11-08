@@ -1,4 +1,6 @@
-# Human Harness — Template-first Product Architecture (Design Proposal v0.1)
+# Human Harness — Template-first Product Architecture (Historical Design Proposal)
+
+> **Superseded for discovery/search.** The product no longer plans to build template search, intent matching, discovery ranking or a marketplace. Current decisions are recorded in [runtime-first-reconstruction.md](../runtime-first-reconstruction.md). This file is retained as prior design exploration; its template registry/search sections are not implementation requirements.
 
 > **Status:** design specification, not an implemented feature set.  
 > **Working example:** 中国建设用地土壤污染状况调查（UI 简称「土地污染调查」）.  
