@@ -35,6 +35,16 @@ Human Harness is a **project-first human–AI collaboration runtime**, not a cha
 
 Read only the material relevant to the current task. Keep changes focused; avoid unnecessary architectural migrations or new dependencies.
 
+## Parallel-first project scheduling
+
+- The ProjectPackage dependency graph, **not an LLM planner conversation**, determines which tasks are runnable concurrently.
+- Human TodoList must stay actionable while Agent tasks run. Never implement a project-global `busy` as the final interface behavior.
+- Independent WorkItems need independent run IDs / Codex thread-turn mappings, durable progress, input version tracking, and separate success/failure.
+- Same WorkItem must not run duplicate attempts concurrently. Avoid shared writable workspace collisions and late-result overwrites.
+- Existing runtime concurrency is regression-tested, but frontend is still serialized by a global busy flag; complete this in **P1.2**, after P1.1.
+- Codex internal `spawn_agent` multitasking is **not a replacement** for Human Harness project-level parallelism.
+- See `docs/parallel-first.md`.
+
 ## Working safely
 
 - The app is a **local development prototype**. No authentication, reliable sandbox for untrusted documents, or production-ready external integrations.
