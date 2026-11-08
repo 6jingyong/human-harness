@@ -3,9 +3,9 @@
 **A project-first workspace for humans and AI agents.**  
 Define a project once, then let people and agents work through its real-world dependencies—without relying on a long chat to remember what comes next.
 
-**[中文说明](docs/README.zh-CN.md)** · **[Codex Edition V1 roadmap](docs/roadmap-codex-v1.md)** · [Protocol 1.0](docs/protocol/human-harness-1.0.md) · [Codex-first design](docs/codex-reference.md) · [Interoperability roadmap](docs/interoperability.md) · [Land investigation example](examples/land-investigation.hh.json)
+**[通用文档交接 MVP](docs/mvp-document-handoff.md)** · **[中文说明](docs/README.zh-CN.md)** · **[Codex Edition V1 roadmap](docs/roadmap-codex-v1.md)** · [Protocol 1.0](docs/protocol/human-harness-1.0.md) · [Codex-first design](docs/codex-reference.md) · [Interoperability roadmap](docs/interoperability.md) · [Land investigation example](examples/land-investigation.hh.json)
 
-> **Status: early local-development prototype.** The task engine and no-key demo workflow work; real model calls, third-party connectors, office document parsing, and production deployment are **not verified or supported**. This repository is not a regulatory compliance tool.
+> **Status: early local-development prototype.** The project now includes a generic PDF/DOCX → Agent → Human → Agent handoff example and a protocol-fixture-tested local Codex Skill bridge. Neither actual Codex document parsing nor official DOCX/PDF report generation has been verified.  The task engine and no-key demo workflow work; real model calls, third-party connectors, office document parsing, and production deployment are **not verified or supported**. This repository is not a regulatory compliance tool.
 
 ## Why does this exist?
 
@@ -148,7 +148,7 @@ We are using the **open-source Codex harness as the main architectural reference
 
 **Current code supports a protocol-tested Codex adapter in addition to the Mastra/demo prototype; actual model calls have not been verified on a logged-in Codex host.** Human Harness continues to own project templates, pending human inputs, evidence acceptance and project-level decisions. A Codex thread/turn cannot replace that project ledger.
 
-Read the [Codex-first design note](docs/codex-reference.md) and [app-server / Skills / permissions study](docs/codex-app-server-study.md). The app-server adapter now exists for text-only calls, but installed Skills/Plugins and PDF/DOCX integration remain future milestones.
+Read the [Codex-first design note](docs/codex-reference.md) and [app-server / Skills / permissions study](docs/codex-app-server-study.md). The app-server adapter now exists for text-only calls, but installed Skills/Plugins and PDF/DOCX Skill discovery and explicit invocation are implemented for accepted originals, but require a locally installed skill, explicit HH_CODEX_DOCUMENTS=1 and a real-host acceptance test.
 
 ## First reproducible document-method experiment (synthetic data)
 
