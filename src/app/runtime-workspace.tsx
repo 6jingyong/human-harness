@@ -151,11 +151,11 @@ export function RuntimeWorkspace() {
 
   async function action(
     type: string,
-    extra: { stepId?: string; materialId?: string; autoDispatch?: boolean; maxParallel?: number } = {}
+    extra: { stepId?: string; materialId?: string; requestId?: string; autoDispatch?: boolean; maxParallel?: number } = {}
   ) {
     if (!project || busy) return;
     const projectId = project.id;
-    const key = extra.stepId || extra.materialId || 'execution-policy';
+    const key = extra.requestId || extra.stepId || extra.materialId || 'execution-policy';
     const scopedKey = projectId + ':' + key;
     // Serialize only operations on the same WorkItem, not the entire project.
     if (pendingKeys.current.has(scopedKey)) return;
@@ -166,6 +166,7 @@ export function RuntimeWorkspace() {
     data.append('action', type);
     if (extra.stepId) data.append('stepId', extra.stepId);
     if (extra.materialId) data.append('materialId', extra.materialId);
+    if (extra.requestId) data.append('requestId', extra.requestId);
     if (type === 'set_execution_policy') {
       data.append('autoDispatch', String(extra.autoDispatch));
       data.append('maxParallel', String(extra.maxParallel));
@@ -177,7 +178,7 @@ export function RuntimeWorkspace() {
       await parseResponse(await fetch('/api/v1/projects/' + encodeURIComponent(projectId) + '/actions', {
         method: 'POST', body: data
       }));
-      if (['complete_human', 'submit_material'].includes(type)) {
+      if (['complete_human', 'submit_material', 'answer_human_request'].includes(type)) {
         setValues(old => ({ ...old, [key]: '' }));
         setFiles(old => ({ ...old, [key]: undefined }));
       }
