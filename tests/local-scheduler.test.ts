@@ -150,3 +150,50 @@ test('legacy projects with no policy do not silently begin paid model calls', as
   assert.throws(() => store.setExecutionPolicy(project.id, true, 0), /Invalid execution policy/);
   assert.throws(() => store.setExecutionPolicy(project.id, true, 6), /Invalid execution policy/);
 });
+
+
+test('human cancellation invalidates run, rejects late model output and requires explicit retry', async () => {
+  const id = makeProject('cancel-late-output');
+  store.setExecutionPolicy(id, true, 1);
+  const releases = new Map<string, (text: string) => void>();
+  const scheduler = new LocalScheduler({
+    id: 'cancel-ignoring-signal-fixture',
+    execute: task => new Promise(resolve => {
+      releases.set(task.packet.workItemId, body => resolve({ body, limitations: [], materialRequests: [] }));
+    })
+  }, 2, () => undefined);
+
+  scheduler.pulse();
+  const before = store.getProject(id);
+  assert.equal(before.steps.a.state, 'running');
+  const runId = before.steps.a.runId;
+  assert.ok(runId);
+  const after = scheduler.cancel(id, 'a');
+  assert.equal(after.steps.a.state, 'failed');
+  assert.equal(after.runs.find(run => run.id === runId)?.status, 'failed');
+  assert.equal(after.artifacts.filter(a => a.ownerId === 'a').length, 0);
+  assert.throws(() => scheduler.cancel(id, 'a'), /Run identity changed|not owned/);
+
+  // The executor ignores AbortSignal and returns late. It cannot mutate HH state.
+  releases.get('a')!('This result arrived AFTER user cancellation');
+  await scheduler.waitUntilIdle();
+  assert.equal(store.getProject(id).artifacts.filter(a => a.ownerId === 'a').length, 0);
+  assert.equal(store.getProject(id).runs.length, 1);
+  store.setExecutionPolicy(id, false, 1);
+  store.retryFailedAgent(id, 'a');
+  assert.equal(store.getProject(id).steps.a.state, 'ready');
+  scheduler.stop();
+});
+
+test('first local worker boot marks stranded runs as interrupted, never auto-replays them', async () => {
+  const id = makeProject('orphaned-local-restart');
+  const started = store.startAgent(id, 'a');
+  assert.equal(store.getProject(id).steps.a.state, 'running');
+  assert.equal(store.interruptOrphanedRuns(), 1);
+  const saved = store.getProject(id);
+  assert.equal(saved.steps.a.state, 'failed');
+  assert.equal(saved.runs.find(run => run.id === started.runId)?.status, 'failed');
+  assert.equal(saved.events.filter(e => e.type === 'run.interrupted' && e.subject === 'a').length, 1);
+  assert.equal(store.interruptOrphanedRuns(), 0);
+  assert.equal(saved.artifacts.filter(a => a.ownerId === 'a').length, 0);
+});
