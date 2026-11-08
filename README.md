@@ -156,6 +156,14 @@ This demonstrates how templates could specify recognition â†’ field extraction â
 - [Measured results and limitations](docs/document-methods-experiment.md)
 - [Demo Skill](.agents/skills/document-evidence-demo/SKILL.md)
 
+## One project core, more than one possible ecosystem
+
+Human Harness needs **Codex's local Agent/Skill/Plugin ecosystem**, not Codex Cloud or hosted collaboration features. The initial target is a **local Codex execution adapter**; online model APIs or external tools remain optional choices made by the user, not mandatory Codex product integrations.
+
+A **future China-oriented profile** may use TencentCloud's **Octop Harness / Octop** runtime and its domestic document, IM and connector ecosystem. The project templates, material methods, evidence state and Human TodoList should remain unchanged. Octop's plugin format is not assumed to be interchangeable with Codex Plugins.
+
+This is a design direction, **not** an existing second distribution, fork, or working adapter. See [ecosystem distribution strategy](docs/ecosystem-distributions.md).
+
 ## Native Codex Plugins first
 
 **The next integration milestone is to consume existing native Codex plugins**, not to build our own PDF/DOCX reader. Human Harness will provide a scoped task and its expected outputs; Codex will discover and use installed Skills/MCP tools. The template retains only the *business requirement* (which fields, which checks, what to do if unresolved). If a compatible plugin is missing, the user can install/connect it through the normal Codex flow.
