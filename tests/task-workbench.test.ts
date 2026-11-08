@@ -137,7 +137,7 @@ test('Agent missing-information proposal appears in Human Todo without a separat
   const html = markup(p, 'request:request-1');
   assert.match(html, /Agent 请求补充信息/);
   assert.match(html, /项目编号是否已更正/);
-  assert.match(html, /提交回复并继续 Agent/);
+  assert.match(html, /提交说明并继续 Agent/);
   assert.match(html, /等待人工答复/);
   assert.doesNotMatch(html, /确认接受材料/);
 });
