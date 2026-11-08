@@ -21,11 +21,24 @@ const condition: z.ZodType<Condition> = z.lazy(() => z.discriminatedUnion('type'
 const stage = z.strictObject({ id, title: description, description });
 const capability = z.strictObject({ id: capabilityId, kind: z.enum(['agent', 'script', 'parser', 'renderer']), description });
 const asset = z.strictObject({ id, kind: z.enum(['reference', 'document_master', 'form']), path: z.string().min(1).max(500), sha256: digest, title: description });
+/** Template-owned method text, not an invitation for the runtime to invent a parser. */
+const materialMethod = z.strictObject({
+  acquisition: description,
+  extraction: description,
+  verification: z.array(description).min(1).max(20)
+});
+const workCheck = z.strictObject({ id, criterion: description });
+const workMethod = z.strictObject({
+  procedure: z.array(description).min(1).max(20),
+  checks: z.array(workCheck).min(1).max(20),
+  onMissing: z.enum(['request_human', 'record_limitation'])
+});
 const material = z.strictObject({
   id, title: description, producer: z.enum(['human', 'agent', 'external_institution']),
   requiredWhen: condition.optional(), requestWhen: condition.optional(),
   formats: z.array(z.string().min(1).max(100)).max(20),
-  acceptance: z.array(description).min(1).max(20), description
+  acceptance: z.array(description).min(1).max(20), description,
+  method: materialMethod.optional()
 });
 const agentGroup = z.strictObject({ id, title: description, description });
 const step = z.strictObject({
@@ -37,7 +50,8 @@ const step = z.strictObject({
   when: condition.optional(), capabilityId: capabilityId.optional(),
   options: z.array(z.strictObject({ id, label: description })).min(2).max(20).optional(),
   requiresReview: z.boolean().optional(), outputContractId: id.optional(),
-  resourceIds: z.array(id).max(30).optional()
+  resourceIds: z.array(id).max(30).optional(),
+  method: workMethod.optional()
 });
 const output = z.strictObject({
   id, title: description, audience: z.enum(['internal', 'external']),
@@ -120,6 +134,12 @@ export const packageSchema = z.strictObject({
       if (!materials.has(m)) error(s.id + ': undeclared requestable material ' + m);
     }
     for (const r of s.resourceIds ?? []) if (!assets.has(r)) error(s.id + ': unknown resource ' + r);
+    if (s.method) {
+      if (s.kind !== 'agent' && s.kind !== 'script') {
+        error(s.id + ': work method requires an Agent/script step');
+      }
+      unique(s.method.checks.map(check => check.id), 'method check for ' + s.id);
+    }
     checkCondition(s.when, 'step ' + s.id);
     if (s.kind === 'human_decision') {
       if (!s.options || new Set(s.options.map(option => option.id)).size !== s.options.length) error(s.id + ': invalid choice gate options');
