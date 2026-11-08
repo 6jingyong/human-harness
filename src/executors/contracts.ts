@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { HumanHarnessTaskPacket } from '../protocol/v1';
+import { semanticNoteSchema, type SemanticNote } from '../protocol/semantics';
 
 /** Executor-visible context. Never expose the full project snapshot or private upload paths. */
 export type AuthorizedEvidence = Readonly<{
@@ -18,6 +19,8 @@ export type ExecutorTask = Readonly<{
   stepTitle: string;
   evidence: readonly AuthorizedEvidence[];
   reviewFeedback: readonly string[];
+  /** Source-validated and human-approved semantic notes on task-authorized materials. */
+  approvedSemanticNotes?: readonly SemanticNote[];
   /** Completed direct upstream Human Todo answers, explicitly scoped by task dependencies. */
   humanHandoffs?: readonly Readonly<{ stepId: string; kind: string; value: string }>[];
 }>;
@@ -26,6 +29,7 @@ export type ExecutorTask = Readonly<{
 export const executorOutputSchema = z.strictObject({
   body: z.string().min(1).max(100000),
   limitations: z.array(z.string().min(1).max(4000)).max(30),
+  semanticNotes: z.array(semanticNoteSchema).max(30).optional(),
   materialRequests: z.array(z.strictObject({
     materialId: z.string().min(1).max(128),
     reason: z.string().min(1).max(4000)
@@ -65,6 +69,10 @@ export function renderTextContext(task: ExecutorTask): string {
   if (task.humanHandoffs?.length) {
     chunks.push('Completed upstream Human Todo answers (user declarations, not independently verified):\n' +
       JSON.stringify(task.humanHandoffs, null, 2));
+  }
+  if (task.approvedSemanticNotes?.length) {
+    chunks.push('Approved, source-version-checked semantic notes for authorized inputs:\n' +
+      JSON.stringify(task.approvedSemanticNotes.slice(0, 30), null, 2).slice(0, 12000));
   }
   if (task.reviewFeedback.length) {
     chunks.push('Previous review feedback:\n' + task.reviewFeedback.join('\n'));
