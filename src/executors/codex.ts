@@ -244,7 +244,11 @@ export async function runCodexTask(task: ExecutorTask, options: CodexLaunchOptio
     const instructions = [
       selectedSkills.map(skill => '$' + skill.name).join(' '),
       'Complete one authorized project work item. Reply only with a JSON object with exactly these keys:',
-      '{"body":"nonempty Markdown or valid JSON text","limitations":[],"materialRequests":[],"semanticNotes":[]}.',
+      '{"body":"nonempty Markdown or valid JSON text","limitations":[],"materialRequests":[],"semanticNotes":[],"methodChecks":[]}.',
+      'semanticNotes and methodChecks are optional only if the pinned task does not ask for them.',
+      'If PINNED WORK METHOD lists checks and no Human clarification is requested, include exactly one methodChecks result for each check id: checkId, status (passed/failed/unverified), explanation, evidenceRefs.',
+      'Evidence refs must match authorized artifact IDs in TASK PACKET; never invent refs. Mark uncertainty as unverified or failed instead of claiming a false pass.',
+      'If a check is unverified/failed, state the limitation in the candidate so Human review can decide. A method check is a self-assessment, NOT an approval.',
       'semanticNotes is OPTIONAL. Add notes only after actually inspecting a task-authorized material.',
       'A note must contain materialId, sourceArtifactId, sourceRevision, location, summary, and optional caveat.',
       'Cite exact artifact identifiers/revisions as provided in the task context; never fabricate citations.',
@@ -288,7 +292,7 @@ export async function runCodexTask(task: ExecutorTask, options: CodexLaunchOptio
     await completion;
     if (observedTurnId !== turnId) throw new Error('Codex turn identity mismatch; result discarded');
     const response = parseOutput(completedText || streamedText);
-    if (response.materialRequests.length) throw new Error('Codex proposed unsupported material requests');
+    // Template-scoped materialRequests are validated by the shared runner and routed to Human Todo.
     return response;
   } finally {
     if (timeout) clearTimeout(timeout);
