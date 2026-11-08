@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import {
   completeHuman, recoverAbandonedAgent, retryFailedAgent, reviewAgentOutput, reviewReceivedMaterial,
-  RuntimeError, submitMaterial
+  RuntimeError, submitMaterial, setExecutionPolicy
 } from '@/core/store';
 import { executeOneAgentTask } from '@/executors/runner';
+import { ensureLocalScheduler } from '@/executors/scheduler';
 
 export const runtime = 'nodejs'; export const dynamic = 'force-dynamic';
 
@@ -33,12 +34,18 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       project = retryFailedAgent(id, stepId);
     } else if (action === 'recover_agent') {
       project = recoverAbandonedAgent(id, stepId);
+    } else if (action === 'set_execution_policy') {
+      const enabled = form.get('autoDispatch');
+      const maxParallel = Number(form.get('maxParallel'));
+      if (enabled !== 'true' && enabled !== 'false') throw new RuntimeError('Invalid autoDispatch');
+      project = setExecutionPolicy(id, enabled === 'true', maxParallel);
     } else if (action === 'run_agent') {
       const result = await executeOneAgentTask(id, stepId || undefined);
       project = result.project;
     } else {
       throw new RuntimeError('Unknown action');
     }
+    ensureLocalScheduler();
     const safe = { ...project, artifacts: project.artifacts.map(({ filePath: _hidden, ...artifact }) => artifact) };
     return NextResponse.json({ project: safe });
   } catch (error) {
