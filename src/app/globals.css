@@ -84,3 +84,15 @@ h1,h2,h3,p{margin-top:0}h1{font-size:clamp(22px,2.5vw,30px)}h2{font-size:19px;ma
 .handoff-warning{margin:0;border-top:1px solid var(--line);padding:11px 21px;font-size:11px;color:#e5cda6;background:#292519}
 @media(max-width:1260px){.handoff-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.handoff-detail{grid-column:1/-1;border-top:1px solid var(--line)}.handoff-lane:nth-child(2){border-right:0}}
 @media(max-width:720px){.handoff-grid{grid-template-columns:1fr}.handoff-lane{max-height:210px;border-right:0;border-bottom:1px solid var(--line)}.handoff-detail{grid-column:auto}.handoff-header{align-items:flex-start;flex-direction:column}}
+
+/* Independent project scheduler: project-level controls stay visible above task lanes. */
+.execution-toolbar{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:18px 21px;margin:0 0 18px;background:var(--panel);border:1px solid var(--line);border-radius:14px}
+.execution-toolbar strong{display:block;font-size:16px;margin:4px 0}
+.execution-toolbar p{font-size:12px;max-width:700px;margin:0}
+.execution-controls{display:flex;gap:10px;align-items:end}
+.execution-controls label{display:grid;gap:4px;min-width:105px;font-size:11px;color:var(--muted)}
+.execution-controls select{min-width:105px;font-size:13px}
+.execution-controls button{white-space:nowrap;font-size:13px}
+.dispatch-hint{font-size:12px!important;color:#afd6f0!important;margin:8px 0}
+.run-detail{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px!important;color:#b8c8dc!important;overflow-wrap:anywhere}
+@media(max-width:820px){.execution-toolbar{align-items:flex-start;flex-direction:column}.execution-controls{width:100%;justify-content:space-between}.execution-controls button{white-space:normal}}
