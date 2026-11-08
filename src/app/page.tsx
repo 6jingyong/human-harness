@@ -1,5 +1,5 @@
-import { Workspace } from './workspace';
+import { RuntimeWorkspace } from './runtime-workspace';
 
 export default function Home() {
-  return <Workspace />;
+  return <RuntimeWorkspace />;
 }
