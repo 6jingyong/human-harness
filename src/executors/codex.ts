@@ -255,7 +255,9 @@ export async function runCodexTask(task: ExecutorTask, options: CodexLaunchOptio
           + 'Cite the artifact ID and page/paragraph/table location when possible. '
           + 'If a Skill fails, report the failure instead of guessing. Do not create extra outputs.'
         : 'Text-only task: do not run shell commands, use tools or read files.',
-      'Material requests must remain an empty array; mention unresolved questions in limitations.',
+      'Only if necessary, ask the human a specific question using materialRequests. Each materialId MUST be in the template-authorized material catalog in the task context.',
+      'Use at most one question per material and five questions per turn. A material request means the task is waiting for human input, NOT completed.',
+      'If no Human clarification is needed, return materialRequests as an empty array. Never invent a new materialId or request credentials.',
       'Staged approved source files (relative paths and SHA-256):\n' +
         (documents.length ? documents.map(d =>
           d.artifactId + ' @ revision ' + d.revision + ': ' + d.path + ' [' + d.sha256 + ']'
