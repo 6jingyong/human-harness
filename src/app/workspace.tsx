@@ -91,7 +91,12 @@ export function Workspace() {
       if (name === 'reject') setInfo('已退回 Agent 任务，反馈将传入下次执行。');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-      if (name === 'run') await openProject(project.id).catch(() => {});
+      if (name === 'run') {
+        try {
+          const fresh = await parseResponse(await fetch('/api/projects/' + encodeURIComponent(project.id), { cache: 'no-store' }));
+          setProject(fresh.project);
+        } catch { /* preserve original model error */ }
+      }
     } finally { setBusy(false); }
   }
 
@@ -187,7 +192,7 @@ export function Workspace() {
                   <div className="panel-header run-header"><div><span className="eyebrow">02 / AGENT</span><h2>Agent 执行与成果</h2><p>只有依赖满足的任务才会执行。</p></div><button className="primary" type="button" disabled={busy || readyAgents.length === 0} onClick={() => action('run')}>{busy ? '执行中…' : '运行下一项 →'}</button></div>
                   <div className="cards">
                     {agents.map(task => {
-                      const output = latestResult(task.id);
+                      const outputs = [...artifactsFor(task.id)].filter(a => a.kind === 'agent_result').reverse();
                       const blockers = blockingDependencies(task, project.tasks);
                       return <article className="task-card" key={task.id}>
                         <div className="task-top"><span className="task-id">{task.id}</span>{badge(task)}</div>
@@ -195,7 +200,7 @@ export function Workspace() {
                         {blockers.length > 0 && task.status === 'pending' && <div className="blocked-by">依赖：{blockers.join('、')}</div>}
                         {canStart(task, project.tasks) && <div className="ready-hint">✓ 已具备执行条件</div>}
                         {task.status === 'failed' && <p className="error-text">执行失败，可重试；详情见运行日志。</p>}
-                        {output && <details className="output" open={task.status === 'review'}><summary>查看最近一次成果 · {output.createdAt.slice(0, 16).replace('T', ' ')}</summary><pre className="result">{output.content}</pre></details>}
+                        {outputs.map((output, version) => <details key={output.id} className="output" open={version === 0 && task.status === 'review'}><summary>成果版本 {outputs.length - version} · {output.createdAt.slice(0, 16).replace('T', ' ')}</summary><pre className="result">{output.content}</pre></details>)}
                       </article>;
                     })}
                   </div>
