@@ -1,6 +1,15 @@
 import { test, expect } from '@playwright/test';
 import { Buffer } from 'node:buffer';
 
+// Keep network and hydration failures visible in CI rather than treating an empty queue as success.
+test.beforeEach(async ({ page }) => {
+  page.on('pageerror', error => console.error('BROWSER PAGE ERROR:', error.message));
+  page.on('console', message => { if (message.type() === 'error') console.error('BROWSER CONSOLE:', message.text()); });
+  page.on('response', response => {
+    if (response.url().includes('/api/v1/projects')) console.log('PROJECT API:', response.status(), response.url());
+  });
+});
+
 test('Human Harness supports document → Agent → Human → Agent GUI handoff', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /从项目模板开始/ })).toBeVisible();
