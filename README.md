@@ -47,7 +47,7 @@ A future material requirement may be recorded on day one but remains outside the
 | Project execution | Persisted tasks, conditional branches, decisions, external milestones | General dynamic task creation; upstream change invalidation |
 | Human–AI collaboration | Human TodoList, Agent task queue, approve/reject/retry | Multi-user identity, permissions, secure public hosting |
 | Materials | Save files and text; request/receive/accept/reject; track versions | Robust PDF/DOCX/CAD parsing, content-level professional verification |
-| Agent executor | One-task-at-a-time Mastra adapter; simulated no-key mode | Real provider/API smoke-test guarantee; automated background workers |
+| Agent executor | Demo/Mastra and text-only Codex app-server adapter (protocol CI tested) | Real Codex model smoke test; plugins; automated background workers |
 | Outputs | Reviewed Markdown/JSON downloads | Production DOCX/PDF compilation and publication |
 | Integration | Internal typed TaskPacket/TaskResult contracts | MCP client/server, portable Agent Skills, host-platform adapters |
 
@@ -73,6 +73,8 @@ On Windows, use PowerShell `Copy-Item .env.example .env.local` instead of `cp` i
 The default `HH_EXECUTOR=demo` calls **no model or outside service**. The generated text is clearly marked as simulated, so it tests the workflow rather than actual research quality.
 
 For real Mastra calls, set `HH_EXECUTOR=mastra`, choose an **available model identifier** in `HH_MODEL`, and configure the relevant provider credentials. Actual API access and model availability have not been smoke-tested in this repository.
+
+For the experimental local Codex adapter, install and authenticate the Codex CLI, set `HH_EXECUTOR=codex` (optional `HH_CODEX_MODEL` from app-server's `model/list`), and run the separate **real** smoke check `npm run codex:smoke`. No API key is stored by Human Harness. Codex runs in an isolated temporary cwd, with read-only sandbox and no interactive tool approvals in P1.1. Text-only task packets are supported; binary parsing, Skills, Plugins and MCP are **not** enabled. The CI tests use a **fake JSON-RPC process**, not a model, and cannot certify live availability.
 
 ### Walk through the built-in example
 
@@ -115,7 +117,7 @@ A **MaterialRequirement** expresses *what must eventually exist*. A **WorkItem**
 
 The project runtime is responsible for state transitions. **The shared runner** (`src/executors/runner.ts`) reserves tasks, selects the authorized evidence references, validates the candidate result and commits the next review state. The replaceable adapter (`src/executors/contracts.ts`) receives only the scoped task/evidence/feedback and returns a typed candidate; it never receives the full project snapshot or the private upload path.
 
-The existing `demo` and `mastra` adapters use this boundary. **Codex is the next integration target and is not wired yet**: setting `HH_EXECUTOR=codex` currently fails clearly rather than silently switching to demo. [P0–P5 milestone plan](docs/roadmap-codex-v1.md).
+The existing `demo` / `mastra` adapters and the new **text-only Codex app-server adapter** use this boundary. Codex creates isolated local thread/turn runs; their identities and typed candidate results are tracked by the runtime. CI validates the protocol against a fixture, while an authenticated live-model run remains **unverified**. [P0–P5 milestone plan](docs/roadmap-codex-v1.md).
 
 ### Materials are processed according to the template
 
@@ -144,9 +146,9 @@ All state is local: `.human-harness/protocol-v1.sqlite` and `.human-harness/uplo
 
 We are using the **open-source Codex harness as the main architectural reference** for the next stage. It already provides an agent loop, context/session lifecycle, tool execution, approval and sandbox boundaries, and programmatic integration through **Codex SDK, `codex exec` and app-server**. These are the pieces to study **before** inventing another executor runtime.
 
-**Current code still runs on Mastra. Codex is a research/integration direction, not an installed or tested executor.** Human Harness continues to own project templates, pending human inputs, evidence acceptance and project-level decisions. A Codex thread/turn cannot replace that project ledger.
+**Current code supports a protocol-tested Codex adapter in addition to the Mastra/demo prototype; actual model calls have not been verified on a logged-in Codex host.** Human Harness continues to own project templates, pending human inputs, evidence acceptance and project-level decisions. A Codex thread/turn cannot replace that project ledger.
 
-Read the [Codex-first design note](docs/codex-reference.md) and the more specific [app-server / Skills / permissions study](docs/codex-app-server-study.md). These documents define a proposed execution-adapter boundary; neither a Codex adapter nor any PDF/DOCX plugin is installed yet.
+Read the [Codex-first design note](docs/codex-reference.md) and [app-server / Skills / permissions study](docs/codex-app-server-study.md). The app-server adapter now exists for text-only calls, but installed Skills/Plugins and PDF/DOCX integration remain future milestones.
 
 ## First reproducible document-method experiment (synthetic data)
 
