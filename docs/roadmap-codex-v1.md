@@ -1,6 +1,6 @@
 # Human Harness — Codex 版开发路线与交付验收
 
-> **决定日期：2026-11-08。** 本文定义 Codex Edition 的开发顺序与完成标准，**不是已完成功能清单**。当前仓库的实际可运行底座仍是 Mastra/demo，Codex app-server 和原生 Plugins 尚未接入。本文沿用现有 `hh.package/1`、`hh.task/1`、`hh.result/1` 协议，不新造一套项目状态机。
+> **决定日期：2026-11-08。** 本文定义 Codex Edition 的开发顺序与完成标准，**不是已完成功能清单**。当前仓库具备 demo/Mastra 以及已通过模拟 RPC 测试的 Codex app-server 文本任务适配器；真实 Codex 模型调用和原生 Plugins 尚未验收。本文沿用现有 `hh.package/1`、`hh.task/1`、`hh.result/1` 协议，不新造一套项目状态机。
 >
 > 产品入口：[中文说明](README.zh-CN.md) · [English README](../README.md) · [Codex 原生插件策略](codex-native-plugins.md) · [模板素材方法](template-material-processing.md) · [上游 Codex app-server](https://developers.openai.com/codex/app-server)
 
@@ -58,6 +58,8 @@
 **验收**：现有 `npm run typecheck`、`npm test`、`npm run build` 通过；有最小适配器契约与边界测试；旧演示项目不回退。
 
 ### P1 — 真正跑通本地 Codex（第一优先级）
+
+**P1.1 本轮进展（2026-11-08）**：已在 `src/executors/codex.ts` 实现本地 stdio JSON-RPC 调用；`initialize → model/list → thread/start → turn/start → turn/completed`、候选输出 Zod 校验、进程退出/失败/越权审批拒绝、thread/turn ID 持久化、共享 runner 回写，以及带 fixture 的协议测试。提供 `npm run codex:smoke` 作为独立、真正运行本机 Codex 的验收命令。**CI 的协议回归不代表真实 Codex 已登录或模型调用通过。** 目前没有真实 Codex CLI/凭证验收记录，不宣称 P1.1 全部完成。中断恢复仍使用现有人工超时恢复机制，主动取消与页面进度流尚待补齐；P1.2 不提前展开。
 
 **目的：让 Human Harness 工作台执行一项真实 Codex 任务。**
 
