@@ -5,13 +5,13 @@ import { deriveWorkbenchQueues, groupAgentTasks, type WorkbenchItem } from './wo
 
 const stepStates: Record<string, string> = {
   dormant: '未来阶段', blocked: '等待依赖', ready: '可执行', running: '执行中',
-  review: '等待人工审核', done: '已完成', not_applicable: '不适用', failed: '执行失败'
+  waiting_input: '等待人工补充', review: '等待人工审核', done: '已完成', not_applicable: '不适用', failed: '执行失败'
 };
 const materialStates: Record<string, string> = {
   requested: '待提交', received: '待核验', accepted: '已接受', rejected: '已退回',
   dormant: '未来阶段', expected: '尚未需要', not_applicable: '不适用'
 };
-type ActionOptions = { stepId?: string; materialId?: string };
+type ActionOptions = { stepId?: string; materialId?: string; requestId?: string };
 
 type Props = {
   project: ProjectState;
@@ -32,7 +32,8 @@ type Props = {
 function TaskOption({ item, selected, onSelect }: {
   item: WorkbenchItem; selected: boolean; onSelect: (key: string) => void;
 }) {
-  const label = item.kind === 'material' ? materialStates[item.state] : stepStates[item.state];
+  const label = item.kind === 'request' ? (item.state === 'pending' ? '需要答复' : '已答复') :
+    item.kind === 'material' ? materialStates[item.state] : stepStates[item.state];
   return <button type="button" className={'workbench-item' + (selected ? ' selected' : '')}
     aria-pressed={selected} onClick={() => onSelect(item.key)} key={item.key}>
     <span className="workbench-item-label">{item.title}</span>
@@ -50,8 +51,10 @@ export function TaskWorkbench({
     [...queues.human, ...queues.agent].find(item => item.key === selectedKey) : undefined;
   const material = current?.kind === 'material'
     ? project.package.materials.find(m => m.id === current.id) : undefined;
-  const step = current?.kind !== 'material'
-    ? project.package.steps.find(s => s.id === current?.id) : undefined;
+  const step = current?.kind === 'agent' || current?.kind === 'human'
+    ? project.package.steps.find(s => s.id === current.id) : undefined;
+  const humanRequest = current?.kind === 'request'
+    ? project.humanRequests?.find(request => request.id === current.id) : undefined;
   const currentMaterialState = material ? project.materials[material.id] : undefined;
   const currentStepState = step ? project.steps[step.id] : undefined;
   const key = current?.id ?? '';
@@ -88,10 +91,10 @@ export function TaskWorkbench({
           {agentGroups.map(group => <details className="agent-folder" key={group.id} open>
             <summary><span>{group.title}</span><small>{group.tasks.length}</small></summary>
             <div className="agent-folder-content">
-              {(['running', 'ready', 'failed', 'blocked'] as const).map(state => {
+              {(['running', 'ready', 'waiting_input', 'failed', 'blocked'] as const).map(state => {
                 const tasks = group.tasks.filter(item => item.state === state);
                 if (!tasks.length) return null;
-                const label = { running: '运行中', ready: '待执行', failed: '执行失败', blocked: '等待依赖' }[state];
+                const label = { running: '运行中', ready: '待执行', waiting_input: '等待人工答复', failed: '执行失败', blocked: '等待依赖' }[state];
                 return <details className="agent-state-folder" key={state} open={state !== 'blocked'}>
                   <summary><span>{label}</span><small>{tasks.length}</small></summary>
                   <div className="todo-vertical-list">
@@ -120,16 +123,29 @@ export function TaskWorkbench({
             <span className="eyebrow">{material ? 'MATERIAL HANDOFF' :
               step?.kind === 'agent' || step?.kind === 'script' ? 'AGENT WORK ITEM' : 'HUMAN WORK ITEM'}</span>
             <span className={'task-state ' + current.state}>
-              {(material ? materialStates : stepStates)[current.state] ?? current.state}
+              {(current.kind === 'request' ? { pending: '需要答复', answered: '已答复' } :
+                material ? materialStates : stepStates)[current.state] ?? current.state}
             </span>
           </div>
           <h2>{current.title}</h2>
-          <p className="task-instructions">{material?.description ?? step?.instructions}</p>
+          <p className="task-instructions">{material?.description ?? step?.instructions ?? humanRequest?.reason}</p>
           <div className="task-context-grid">
             <div><strong>任务编号</strong><span>{current.id}</span></div>
             <div><strong>负责方</strong><span>{current.owner === 'history' ? '已完成' :
               current.owner === 'human' ? '人类' : 'Agent'}</span></div>
           </div>
+          {humanRequest && <section className="inspector-section">
+            <h3>Agent 请求补充信息</h3>
+            <p>相关资料：{project.package.materials.find(m => m.id === humanRequest.materialId)?.title ?? humanRequest.materialId}</p>
+            <p>问题：{humanRequest.reason}</p>
+            <p className="muted">请填写实际知道的信息，或明确说明无法取得；本回答会交给原 Agent 继续处理，不会被标记为已核验原件。</p>
+            <label htmlFor={'human-request-' + key}>你的回复</label>
+            <textarea id={'human-request-' + key} rows={5} value={pending}
+              onChange={event => onValue(key, event.target.value)}
+              placeholder="补充信息、来源或无法提供的原因" />
+            <button type="button" className="primary" disabled={disabled || !pending.trim()}
+              onClick={() => onAction('answer_human_request', { requestId: key })}>提交回复并继续 Agent</button>
+          </section>}
           {material && currentMaterialState && <>
             <section className="inspector-section">
               <h3>资料要求与验收</h3>
@@ -236,6 +252,7 @@ export function TaskWorkbench({
                 </button>
               </section>}
               {currentStepState.state === 'blocked' && <p className="dispatch-hint">上游成果或资料尚未满足，暂不能执行。</p>}
+              {currentStepState.state === 'waiting_input' && <p className="dispatch-hint">已暂停：等待左侧 Human Todo 的补充信息。全部回复后自动进入待执行队列。</p>}
               {outputRevisions.length > 0 && <section className="inspector-section">
                 <h3>候选成果与历史版本</h3>
                 {outputRevisions.map((artifact, index) =>
