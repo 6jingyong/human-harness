@@ -334,7 +334,7 @@ export function TaskWorkbench({
                 <p>批准后才会解除依赖并推进后续任务；退回必须说明原因。</p>
                 {unresolvedMethodChecks.length > 0 && <p className="error-text">
                   有 {unresolvedMethodChecks.length} 项模板检查未通过或未确认。若仍批准，必须填写人工判断依据。
-                </p>
+                </p>}
                 <label htmlFor={'agent-review-' + key}>审核说明</label>
                 <textarea id={'agent-review-' + key} value={note}
                   onChange={event => onFeedback(key, event.target.value)}
