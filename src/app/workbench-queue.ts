@@ -43,12 +43,13 @@ export function deriveWorkbenchQueues(project: ProjectState): WorkbenchQueues {
   }
 
   for (const request of project.humanRequests ?? []) {
+    if (request.invalidatedAt) continue;
     const entry: WorkbenchItem = {
       key: 'request:' + request.id, id: request.id, kind: 'request',
       title: '补充说明：' + (project.package.materials.find(m => m.id === request.materialId)?.title ?? request.materialId),
-      state: request.status, owner: request.status === 'pending' ? 'human' : 'history'
+      state: request.status, owner: request.status === 'answered' ? 'history' : 'human'
     };
-    if (request.status === 'pending') human.push(entry);
+    if (request.status !== 'answered') human.push(entry);
     else history.push(entry);
   }
 
