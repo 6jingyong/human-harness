@@ -150,3 +150,25 @@ test('expired Agent execution needs an explicit recovery action and can be retri
   retryAgent(reserved.project, 'inventory');
   assert.equal(reserved.project.steps.inventory.state, 'ready');
 });
+
+
+test('the Mastra-facing packet is scoped and a forged run cannot commit output', () => {
+  const p = store.createProject('land-investigation', 'Authorization example');
+  provideInput(p.id);
+  const reserved = store.startAgent(p.id, 'inventory');
+  const packet = store.getTaskPacket(p.id, 'inventory', reserved.runId);
+  assert.equal(packet.protocol, 'hh.task/1');
+  assert.equal(packet.readableInputs.length, 3);
+  assert.deepEqual(packet.toolsAllowed, []);
+  assert.deepEqual(packet.readableInputs.map(x => x.role), ['case_evidence', 'case_evidence', 'case_evidence']);
+  const forged = {
+    protocol: 'hh.result/1', runId: 'another-run', workItemId: 'inventory',
+    outcome: 'submitted_for_review',
+    producedArtifacts: [{ artifactRef: 'forged-artifact' }], proposedActions: [], limitations: []
+  };
+  assert.throws(() => store.succeedAgent(p.id, 'inventory', reserved.runId, forged, 'Forged result'),
+    /Run identity or state mismatch/);
+  assert.equal(stepState(p.id, 'inventory'), 'running');
+  store.markAgentFailed(p.id, 'inventory', reserved.runId, 'Test cleanup');
+  assert.equal(stepState(p.id, 'inventory'), 'failed');
+});
