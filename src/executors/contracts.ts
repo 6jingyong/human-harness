@@ -40,7 +40,7 @@ export type ExecutorRunEvent =
 
 export interface TaskExecutor {
   readonly id: string;
-  execute(task: ExecutorTask, onEvent?: (event: ExecutorRunEvent) => void): Promise<ExecutorOutput>;
+  execute(task: ExecutorTask, onEvent?: (event: ExecutorRunEvent) => void, signal?: AbortSignal): Promise<ExecutorOutput>;
 }
 
 /** Shared text-only presentation for the existing Mastra adapter.
