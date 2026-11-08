@@ -146,6 +146,16 @@ We are using the **open-source Codex harness as the main architectural reference
 
 Read the [Codex-first design note](docs/codex-reference.md) and the more specific [app-server / Skills / permissions study](docs/codex-app-server-study.md). These documents define a proposed execution-adapter boundary; neither a Codex adapter nor any PDF/DOCX plugin is installed yet.
 
+## First reproducible document-method experiment (synthetic data)
+
+We have added a **standalone, reproducible PDF/DOCX method-contract experiment** (not yet integrated with Human Harness): two synthetic original-format documents, a declarative material-method JSON file, a read-only extraction/check runner, and a Codex-discoverable demo Skill. It identifies a deliberate sample-point mismatch and a missing measurement unit, emitting **two source-linked Human Todo proposals**.
+
+This demonstrates how templates could specify recognition → field extraction → cross-document verification → issue-to-Human-Todo, **not** production document parsing or Codex/MCP interoperability.
+
+- [Experiment and run instructions](experiments/document-methods/README.md)
+- [Measured results and limitations](docs/document-methods-experiment.md)
+- [Demo Skill](.agents/skills/document-evidence-demo/SKILL.md)
+
 ## Plugin and platform direction
 
 We want **capabilities to travel across mainstream agent environments**, not to tie PDF/DOCX readers or other tools to one chat product.
