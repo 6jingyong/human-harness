@@ -87,6 +87,10 @@ Human Harness has a persistent GUI and long-running tasks. The official Codex ap
 
 **Do not replace Mastra on paper.** Compare one test scenario with current Mastra and an actual Codex integration (configuration, authenticated execution, events, interrupted run, approval path, scoped inputs, result validation). Only then decide whether Codex should be the primary executor.
 
+## Native plugin consumption supersedes new parser development
+
+**Current decision:** first use installed Codex Plugins/Skills/MCP tools. Human Harness should read Codex's real plugin/skill availability at task runtime and delegate extraction, instead of designing and maintaining a separate generic PDF/DOCX backend. The earlier headless-parser proposal is a fallback only if actual available plugins cannot satisfy the task. See [native plugin strategy](codex-native-plugins.md).
+
 ## PDF/DOCX: follow the Codex extension philosophy
 
 Codex is not itself a guarantee that arbitrary PDFs and DOCX files will be parsed safely and faithfully in every host.
