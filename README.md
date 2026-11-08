@@ -19,7 +19,7 @@ Human Harness owns the **project state and workflow**. An existing agent framewo
 
 1. **Author or import a project template manually.** Define the workflow, required materials, decision gates, capabilities, and intended outputs.
 2. **Create a project.** The project pins the template version and a content digest.
-3. **Work on what is actionable now.** Human TodoList and Agent work are two views of the same project, not competing checklists.
+3. **Work on what is actionable now.** Human TodoList and Agent work are two views of the same project, not competing checklists. Choose an item on the left and submit/review it in the single task inspector on the right; completed steps remain accessible in the archive.
 4. **Submit materials and review results.** Uploading a file does *not* automatically verify its contents.
 5. **Advance when conditions are met.** Professional choices and external milestones activate later work.
 6. **Review and export actual deliverables.** No fake PDF/DOCX outputs when a renderer is unavailable.
@@ -74,7 +74,7 @@ The default `HH_EXECUTOR=demo` calls **no model or outside service**. The genera
 
 For real Mastra calls, set `HH_EXECUTOR=mastra`, choose an **available model identifier** in `HH_MODEL`, and configure the relevant provider credentials. Actual API access and model availability have not been smoke-tested in this repository.
 
-For the experimental local Codex adapter, install and authenticate the Codex CLI, set `HH_EXECUTOR=codex` (optional `HH_CODEX_MODEL` from app-server's `model/list`), and run the separate **real** smoke check `npm run codex:smoke`. No API key is stored by Human Harness. Codex runs in an isolated temporary cwd, with read-only sandbox and no interactive tool approvals in P1.1. Text-only task packets are supported; binary parsing, Skills, Plugins and MCP are **not** enabled. The CI tests use a **fake JSON-RPC process**, not a model, and cannot certify live availability.
+For the experimental local Codex adapter, install and authenticate the Codex CLI, set `HH_EXECUTOR=codex` (optional `HH_CODEX_MODEL` from app-server's `model/list`), and run the separate **real** smoke check `npm run codex:smoke`. No API key is stored by Human Harness. Text-only tasks remain the default. Accepted PDF/DOCX originals can opt in with `HH_CODEX_DOCUMENTS=1` and installed PDF/DOCX Skills; this bridge has only synthetic protocol-fixture verification, not a live-host skills smoke test. Broader Plugins/MCP support is not implemented.
 
 ### Walk through the built-in example
 
@@ -148,7 +148,7 @@ We are using the **open-source Codex harness as the main architectural reference
 
 **Current code supports a protocol-tested Codex adapter in addition to the Mastra/demo prototype; actual model calls have not been verified on a logged-in Codex host.** Human Harness continues to own project templates, pending human inputs, evidence acceptance and project-level decisions. A Codex thread/turn cannot replace that project ledger.
 
-Read the [Codex-first design note](docs/codex-reference.md) and [app-server / Skills / permissions study](docs/codex-app-server-study.md). The app-server adapter now exists for text-only calls, but installed Skills/Plugins and PDF/DOCX Skill discovery and explicit invocation are implemented for accepted originals, but require a locally installed skill, explicit HH_CODEX_DOCUMENTS=1 and a real-host acceptance test.
+Read the [Codex-first design note](docs/codex-reference.md) and [app-server / Skills / permissions study](docs/codex-app-server-study.md). The app-server adapter supports text tasks plus an opt-in PDF/DOCX Skill discovery/invocation bridge for approved originals. A real local Skill and model smoke test remains required; general Codex Plugin/MCP installation and discovery are not yet integrated.
 
 ## First reproducible document-method experiment (synthetic data)
 
@@ -164,7 +164,7 @@ This demonstrates how templates could specify recognition â†’ field extraction â
 
 Human Harness is not a single root-agent conversation that serially drives a project. The **project dependency graph** makes independent Human Todo items and Agent WorkItems actionable at the same time. Policy-authorized ready Agent tasks should **auto-dispatch concurrently within resource/permission limits**, while Human Todo stays independently actionable; the user should not have to click Run for every Agent task. Codex may independently use subagents *inside* an individual run, but that is a different level of parallelism.
 
-**Current status (local prototype):** project-level auto-dispatch now runs eligible independent Agent WorkItems in the background with a per-project cap (default 2), and Human Todo actions are no longer blocked by another task's model call. Run state is persisted; the GUI polls every 2 seconds and offers pause/resume. **Limitations:** the worker is an in-process Node service started by web requests, not a standalone durable worker or multi-process queue; crash recovery is still explicit and real concurrent Codex runs are unverified. See [parallel-first contract](docs/parallel-first.md).
+**Current status (local prototype):** the task-first GUI combines two queues with one direct input/review panel; the no-key Demo flow has passed Chromium browser E2E tests. Project-level auto-dispatch now runs eligible independent Agent WorkItems in the background with a per-project cap (default 2), and Human Todo actions are no longer blocked by another task's model call. Run state is persisted; the GUI polls every 2 seconds and offers pause/resume. **Limitations:** the worker is an in-process Node service started by web requests, not a standalone durable worker or multi-process queue; crash recovery is still explicit and real concurrent Codex runs are unverified. See [parallel-first contract](docs/parallel-first.md). For reproducible browser verification run `npx playwright install chromium` and `npm run test:browser` (CI also installs system dependencies and builds the production server).
 
 ## One project core, more than one possible ecosystem
 
