@@ -19,6 +19,8 @@ export type ExecutorTask = Readonly<{
   stepTitle: string;
   evidence: readonly AuthorizedEvidence[];
   reviewFeedback: readonly string[];
+  /** Only material categories declared for this WorkItem in the pinned project template. */
+  requestableMaterials?: readonly Readonly<{ id: string; title: string; description: string }>[];
   /** Source-validated and human-approved semantic notes on task-authorized materials. */
   approvedSemanticNotes?: readonly SemanticNote[];
   /** Completed direct upstream Human Todo answers, explicitly scoped by task dependencies. */
@@ -65,6 +67,10 @@ export function renderTextContext(task: ExecutorTask): string {
     chunks.push(text);
     remaining -= text.length;
     if (!remaining) break;
+  }
+  if (task.requestableMaterials?.length) {
+    chunks.push('Template-authorized materials for actionable Human clarification requests:\n' +
+      JSON.stringify(task.requestableMaterials, null, 2).slice(0, 8000));
   }
   if (task.humanHandoffs?.length) {
     chunks.push('Completed upstream Human Todo answers (user declarations, not independently verified):\n' +
