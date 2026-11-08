@@ -135,6 +135,21 @@ export function createProject(packageId: string, rawTitle: string): ProjectState
   return project;
 }
 
+/** Project-scoped, durable dispatch policy. Pause affects future starts, not active runs. */
+export function setExecutionPolicy(id: string, autoDispatch: boolean, maxParallel: number) {
+  if (typeof autoDispatch !== 'boolean' || !Number.isInteger(maxParallel) ||
+      maxParallel < 1 || maxParallel > 4) {
+    throw new RuntimeError('Invalid execution policy (autoDispatch boolean, maxParallel 1–4)');
+  }
+  return mutate(id, project => {
+    const current = project.execution;
+    if (current?.autoDispatch === autoDispatch && current.maxParallel === maxParallel) return;
+    project.execution = { autoDispatch, maxParallel };
+    recordEvent(project, 'execution.policy_changed', project.id,
+      (autoDispatch ? 'auto' : 'paused') + ': ' + maxParallel);
+  }).project;
+}
+
 export function completeHuman(id: string, stepId: string, value: string) {
   if (value.length > 8000) throw new RuntimeError('Human input is too long');
   return mutate(id, p => applyHumanStep(p, stepId, value)).project;
