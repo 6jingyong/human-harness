@@ -93,10 +93,15 @@ export function Workspace() {
     setBusy(true); setError(''); setInfo('');
     try {
       const data = await parseResponse(await fetch('/api/templates?id=' + encodeURIComponent(templateId), { cache: 'no-store' }));
-      const draft = { ...data.template, version: data.template.version + 1 };
+      const builtIn = ['general-project', 'site-investigation', 'land-investigation-runtime'].includes(data.template.id);
+      const draft = {
+        ...data.template,
+        id: builtIn ? data.template.id + '-custom' : data.template.id,
+        version: builtIn ? 1 : data.template.version + 1
+      };
       setTemplateJson(JSON.stringify(draft, null, 2));
       setShowTemplateEditor(true);
-      setInfo('已载入模板并增加版本号。内置模板不可覆盖，请修改 id 后另存。');
+      setInfo(builtIn ? '已创建内置模板副本；可以自由编辑后另存。' : '已载入模板新版本；校验通过后可保存。');
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
