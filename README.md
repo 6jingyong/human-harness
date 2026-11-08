@@ -1,78 +1,89 @@
 # Human Harness
 
-**Project-first human–AI collaboration, driven by structured tasks rather than conversations.**
+**Project-first human–AI collaboration, driven by real task state instead of conversation history.**
 
-Human Harness turns a reusable project template into two coordinated views: a **Human TodoList** for materials and approvals, and an **Agent Execution** board for runnable tasks and reviewable deliverables. Both views share one durable task dependency graph.
+Human Harness uses **manually authored project templates** to coordinate work between people, an AI worker, registered scripts and external organizations. There is no template search, marketplace or recommendation system.
 
-## Current direction: manually-authored templates + project execution
+The canonical format is **Human Harness Protocol 1.0**: `hh.package/1`, `hh.task/1`, `hh.result/1`. Earlier trial `schemaVersion 2/3` formats are deliberately **not accepted**. Mastra remains a replaceable model/Agent executor; Human Harness owns the authoritative project state.
 
-Human Harness is **not a template search engine or marketplace**. Users create/import a template themselves and instantiate projects that are advanced by human/Agent task state, approvals, and evidence requirements. Mastra remains a replaceable execution adapter.
+## What works now
 
-## Included in v0.1–v0.2
-
-- Next.js dual-pane dashboard with project creation and project selection.
-- Two starter templates: general research, and site-investigation workflow (not an actual environmental report template).
-- Strictly validated JSON template import with v2 **executable project packages**: initial human inputs, staged workflow, bundled references/document masters/trusted automations, and output contracts.
-- **Schema v3**: manually-authored project templates, professional choice gates, conditional branches and delayed material requirements.
-- Manual template form generates valid JSON for initial inputs and Agent work; advanced JSON is available for branch design.
-- Built-in land-investigation-runtime scenario: first-stage exit or sampling branch; commissioning precedes requests for actual lab/QC reports.
-- Full package snapshot per project; old projects stay pinned to their original template and resources.
-- Registered deterministic Markdown compilation and content validation before human review.
-- Human submissions: text or private file upload (12 MB), optional-task skipping.
-- Explicit task dependencies and states, human approval and rejection with feedback.
-- Mastra executor adapter and clearly labeled demo mode without API key.
-- Local SQLite project store, immutable output artifacts and append-only event trail.
-- Unit tests for dependency and task state rules.
+- A local form for hand-authoring a basic package, plus import/edit of strict Protocol 1.0 JSON.
+- Persistent project instances with a frozen package version/digest, typed events and task lifecycle.
+- One shared task graph projected into **Human TodoList** and **Agent work queue**.
+- Human decisions and external milestone confirmations as explicit steps.
+- Material requirements with separate dormant, expected, requested, received, accepted, rejected and not-applicable states.
+- Real Mastra single-task execution adapter (or clearly labeled no-key demo mode).
+- Agent outputs require human approval before dependent tasks run.
+- Approved Markdown/JSON output contracts can be downloaded; no fake DOCX/PDF export.
+- Built-in **土地污染调查** branch example with no premature QC upload request.
+- Schema and state-machine automated tests and GitHub Actions CI.
 
 ## Local setup
 
-Requirements: Node.js 22.19+ and npm, with persistent local disk.
+Requires **Node.js 22.19+** and npm, on a computer with persistent local storage.
 
-1. Clone this repository and enter the project directory.
-2. Run npm install.
-3. Copy .env.example to .env.local (the default HH_EXECUTOR=demo requires no key).
-4. Run npm run dev.
-5. Open http://localhost:3000 and create a project.
-6. Choose the built-in **土地污染调查 · 分阶段执行示例** to test conditional decisions; or use **新建模板** to author a template from a small form, then review/edit its JSON.
-7. To import a complete v2 package, use the JSON file picker. Try examples/template.document-review.json.
-8. For the document-review package, complete the Human tasks, run/approve two LLM (or demo) stages, then run the registered Markdown compilation step.
+```bash
+git clone https://github.com/6jingyong/human-harness.git
+cd human-harness
+npm install
+cp .env.example .env.local
+npm run dev
+```
 
-When a task is ready, click the Agent pane's “运行下一项” button; then review the proposed output in the Human pane. Approving it unblocks dependent work.
+On Windows, copy `.env.example` to `.env.local` manually if `cp` is unavailable. Open http://localhost:3000.
 
-## Real model setup
+The default `HH_EXECUTOR=demo` does not call any model and every demo result is labeled as simulated.
 
-Edit .env.local:
+To use a real model, edit `.env.local`:
 
-    HH_EXECUTOR=mastra
-    HH_MODEL=openai/gpt-6.1-sol
-    OPENAI_API_KEY=your-key
+```dotenv
+HH_EXECUTOR=mastra
+HH_MODEL=openai/gpt-6.1-sol
+OPENAI_API_KEY=your-key
+```
 
-Restart the server. Models use Mastra's provider/model naming. Set the matching provider API key for other providers. Never put API credentials in NEXT_PUBLIC variables.
+Restart the app. Model access, quota and provider availability are subject to the selected API provider. The app has no browsing/GIS or arbitrary filesystem tools installed on its Mastra agent.
 
-## Checks
+## Test the project flow
 
-    npm run typecheck
-    npm test
-    npm run build
+Choose **土地污染调查 · 项目运行示例** and create a project.
 
-## Code structure
+1. Supply the project identity, a **boundary file** and land-use explanation.
+2. Explicitly accept each material. Received data is **not automatically verified**.
+3. Run the evidence-inventory Agent task; approve or reject its candidate output.
+4. Select the professional **stage-one exit** or **sampling** decision.
+5. In the sampling branch, review the candidate plan, record professional approval and commissioning.
+6. Confirm actual institution completion **only after the institution has done the work**. Field logs, test results and QC materials become actionable then, never at project creation.
+7. Upload/approve those materials and run the internal review drafts.
 
-- src/lib/domain.ts — shared types, graph validation, readiness logic.
-- src/lib/templates.ts — built-in versioned project templates.
-- src/lib/store.ts — durable state, artifacts and events.
-- src/lib/executor.ts — replaceable demo/Mastra executor.
-- src/app/api — server-side command boundary.
-- src/app/workspace.tsx — human/agent dashboard.
-- docs/architecture.md — state machine and future roadmap.
-- docs/project-package-v2.md — four-part template package design and trust boundaries.
-- docs/runtime-first-reconstruction.md — v3 conditional runtime, manual authoring, limits and acceptance tests.
+This is a **software acceptance demo**. It does not perform real GIS, sampling, quality assurance calculations or regulatory report signing. Do not treat demo labels or accepted uploads as professional evidence validation.
 
-## Limits and deployment warning
+## Architecture
 
-This is an early **local development foundation**, not a production-ready service. It has no authentication, multi-user permissions, durable background worker or public-deployment security. Do not expose the port publicly. PDF, CAD and image files are stored but not semantically parsed; the agent is told that their contents are unavailable. The land-investigation example produces only **internal review drafts**, not professional regulatory reports.
+- `src/protocol/v1.ts` — strict canonical JSON schema for project packages and Agent packets/results.
+- `src/protocol/manual.ts` — generate a canonical template from manual input fields.
+- `src/core/runtime.ts` — deterministic activation, branch decisions, evidence receipt and review.
+- `src/core/store.ts` — SQLite package registry and project state/event transaction layer.
+- `src/executors/mastra.ts` — replaceable Mastra structured-output worker.
+- `src/app/runtime-workspace.tsx` — Human/Agent workboards and template authoring UI.
+- `src/app/api/v1` — Protocol 1.0 runtime API.
+- `examples/land-investigation.hh.json` — built-in canonical scenario template.
+- `docs/protocol/human-harness-1.0.md` — protocol architecture and design boundaries.
+- `tests/runtime-v1.test.ts` / `tests/protocol-v1.test.ts` — runtime and schema tests.
 
-The .human-harness directory contains projects.sqlite and uploads and is excluded from Git. Back up both components together.
+Run `npm run typecheck`, `npm test` and `npm run build`.
 
-## Core principle
+## Data compatibility
 
-A human is not a fallback chat operator. Human inputs, resources and reviews are first-class project dependencies. An LLM proposes artifacts; the project system owns task completion.
+Protocol 1.0 stores local runtime state under `.human-harness/protocol-v1.sqlite` and file uploads under `.human-harness/uploads/`. Earlier prototypes used `projects.sqlite`; it is **not migrated** and is not read by this runtime. Back up the complete directory before deleting any old prototype data. Existing v0.x format templates must be rewritten as `hh.package/1`; no compatibility shim is provided.
+
+## Security and current limitations
+
+**For local development only.** There is no authentication, workspace/tenant isolation, robust file parsing sandbox, persistent job queue, worker lease recovery or public-server security hardening. Do not expose this app on the public Internet or upload materials you cannot safely store locally.
+
+Binary CAD/PDF/images are stored but their contents are **not parsed**. A person can mark an uploaded artifact accepted; this is a human workflow receipt, **not** proof that its contents have undergone technical verification. Existing sampling/GIS and DOCX-report skills have not yet been migrated. Registered scripts and binary bundled assets are described by Protocol 1.0 but are not installed by this runtime.
+
+## Guiding principle
+
+**A template defines the plan; the project state records reality; people provide and approve evidence; mature Agent frameworks execute only scoped, replaceable work units.**
