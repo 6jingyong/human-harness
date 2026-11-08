@@ -3,7 +3,7 @@ import type { ProjectState } from '@/core/runtime';
 export type WorkbenchItem = {
   key: string;
   id: string;
-  kind: 'material' | 'human' | 'agent';
+  kind: 'material' | 'human' | 'agent' | 'request';
   title: string;
   state: string;
   owner: 'human' | 'agent' | 'history';
@@ -18,8 +18,8 @@ export type WorkbenchQueues = {
 
 const activeMaterials = new Set(['requested', 'received', 'rejected']);
 const humanKinds = new Set(['human_action', 'human_decision', 'external_milestone']);
-const activeAgentStates = new Set(['ready', 'running', 'blocked', 'failed']);
-const agentSort: Record<string, number> = { running: 0, ready: 1, failed: 2, blocked: 3 };
+const activeAgentStates = new Set(['ready', 'running', 'waiting_input', 'blocked', 'failed']);
+const agentSort: Record<string, number> = { running: 0, ready: 1, waiting_input: 2, failed: 3, blocked: 4 };
 
 /**
  * A single project dependency graph projected into Human, Agent and history lanes.
@@ -40,6 +40,16 @@ export function deriveWorkbenchQueues(project: ProjectState): WorkbenchQueues {
     };
     if (activeMaterials.has(state)) human.push(entry);
     else if (state === 'accepted') history.push({ ...entry, owner: 'history' });
+  }
+
+  for (const request of project.humanRequests ?? []) {
+    const entry: WorkbenchItem = {
+      key: 'request:' + request.id, id: request.id, kind: 'request',
+      title: '补充说明：' + (project.package.materials.find(m => m.id === request.materialId)?.title ?? request.materialId),
+      state: request.status, owner: request.status === 'pending' ? 'human' : 'history'
+    };
+    if (request.status === 'pending') human.push(entry);
+    else history.push(entry);
   }
 
   for (const step of project.package.steps) {
@@ -78,7 +88,7 @@ export type AgentTaskGroup = {
   title: string;
   description: string;
   tasks: WorkbenchItem[];
-  counts: { running: number; ready: number; failed: number; blocked: number };
+  counts: { running: number; ready: number; waiting_input: number; failed: number; blocked: number };
 };
 
 /** Template assignments are presentation ownership, not extra model credentials.
@@ -102,6 +112,7 @@ export function groupAgentTasks(project: ProjectState, queue: WorkbenchItem[]): 
       counts: {
         running: tasks.filter(item => item.state === 'running').length,
         ready: tasks.filter(item => item.state === 'ready').length,
+        waiting_input: tasks.filter(item => item.state === 'waiting_input').length,
         failed: tasks.filter(item => item.state === 'failed').length,
         blocked: tasks.filter(item => item.state === 'blocked').length
       }
