@@ -9,7 +9,7 @@ export type RuntimeArtifact = {
   id: string; kind: 'material' | 'agent_output'; name: string; content: string | null;
   ownerId: string; revision: number; filePath?: string; createdAt: string;
 };
-export type RuntimeRun = { id: string; stepId: string; status: 'running' | 'review' | 'failed'; startedAt: string; endedAt?: string; result?: HumanHarnessTaskResult; error?: string };
+export type RuntimeRun = { id: string; stepId: string; status: 'running' | 'review' | 'failed'; startedAt: string; endedAt?: string; result?: HumanHarnessTaskResult; error?: string; codexThreadId?: string; codexTurnId?: string; lastExecutorEvent?: string };
 export type ProjectEvent = { id: string; type: string; subject: string; detail: string; createdAt: string };
 export type ProjectState = {
   id: string; title: string; templateId: string; templateVersion: string;
