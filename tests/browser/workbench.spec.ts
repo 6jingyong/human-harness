@@ -23,11 +23,19 @@ async function createProject(page: import('@playwright/test').Page, title: strin
 
 test('simple two-row UI completes Human → Agent → Human → Agent and opens material library', async ({ page }) => {
   await createProject(page, '双 Todo 浏览器闭环');
-  const human = page.locator('.todo-row').first();
-  const agent = page.locator('.todo-row').nth(1);
+  const human = page.getByRole('region', { name: '人类 TodoList' });
+  const agent = page.getByRole('region', { name: 'Agent TodoList' });
   await expect(page.locator('.todo-detail-wrap')).toHaveCount(0);
   await expect(human.getByRole('button')).toHaveCount(2);
-  await expect(agent.getByRole('button')).toHaveCount(2);
+  await expect(agent.locator('.agent-folder')).toHaveCount(2);
+  await expect(agent.locator('.workbench-item')).toHaveCount(2);
+  await expect(agent.locator('.agent-folder').first()).toContainText('Agent A · 资料提取');
+  await expect(agent.locator('.agent-folder').nth(1)).toContainText('Agent B · 成果整理');
+  const blocked = agent.locator('.agent-folder').first().locator('.agent-state-folder');
+  await expect(blocked.locator('summary')).toContainText('等待依赖');
+  await blocked.locator('summary').click();
+  await expect(blocked.getByRole('button', { name: /抽取两份文档中的关键事实/ })).toBeVisible();
+  await blocked.locator('summary').click();
 
   // Capture the actual minimal home as requested by the product owner.
   await page.screenshot({ path: 'test-results/human-harness-home.png', fullPage: true });
@@ -83,7 +91,7 @@ test('hamburger drawer holds project scheduler settings while Todo remains acces
   await page.getByRole('button', { name: '恢复自动派发' }).click();
   await expect(page.getByText('正在自动执行')).toBeVisible();
   await page.getByRole('button', { name: '关闭菜单' }).click();
-  await page.locator('.todo-row').first().getByRole('button', { name: /第一份资料/ }).click();
+  await page.getByRole('region', { name: '人类 TodoList' }).getByRole('button', { name: /第一份资料/ }).click();
   await expect(page.locator('#material-file-source-a')).toBeEnabled();
   await page.getByRole('button', { name: '关闭任务详情' }).click();
   await expect(page.locator('.todo-detail-wrap')).toHaveCount(0);
