@@ -204,3 +204,33 @@ test('no self-certified pass: Demo checks remain unverified, requiring Human rat
   assert.throws(() => store.reviewAgentOutput(id, 'check-demand', true, ''),
     /Unresolved method checks/);
 });
+
+
+test('template chooses whether a missing fact becomes Human Todo or a disclosed limitation', async () => {
+  const id = createPilot('method failure routing');
+  await assert.rejects(() => executeOneAgentTask(id, 'check-demand', {
+    id: 'forbidden-escalation',
+    async execute() {
+      return { body: 'Need more text', limitations: [], materialRequests: [{
+        materialId: 'purchase-spec', reason: '需求方电压不清楚'
+      }] };
+    }
+  }), /requires recording limitations/);
+  assert.equal(store.getProject(id).steps['check-demand'].state, 'failed');
+  assert.equal(store.getProject(id).humanRequests?.length, 0);
+  store.retryFailedAgent(id, 'check-demand');
+  await executeOneAgentTask(id, 'check-demand', {
+    id: 'disclose-missing-fact',
+    async execute(task) {
+      assert.equal(task.workMethod?.onMissing, 'record_limitation');
+      return {
+        body: '需求未充分确定，不能自行补全。',
+        limitations: ['缺少可核实的来源'],
+        materialRequests: [], methodChecks: checked(task, 'unverified',
+          '来源不足，已按模板记录不确定性')
+      };
+    }
+  });
+  assert.equal(store.getProject(id).steps['check-demand'].state, 'review');
+  assert.equal(store.getProject(id).humanRequests?.length, 0);
+});
