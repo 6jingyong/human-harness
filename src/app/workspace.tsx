@@ -7,7 +7,24 @@ import { blockingDependencies, canStart } from '@/lib/domain';
 type TemplateSummary = { id: string; title: string; description: string; version: number };
 type ProjectSummary = { id: string; title: string; templateId: string; createdAt: string };
 
+const starterManifest = JSON.stringify({
+  id: 'my-project-template', title: '我的项目模板', description: '通过手动定义任务流程运行一个项目',
+  version: 1, schemaVersion: 3,
+  workflow: { stages: [
+    { id: 'intake', title: '用户资料', description: '收集项目初始输入' },
+    { id: 'work', title: 'AI执行与审核', description: '根据提交的资料形成待审草稿' }
+  ] },
+  materials: [{ id: 'project-brief', title: '项目要求', taskId: 'brief', producer: 'human', required: true }],
+  resources: [],
+  tasks: [
+    { id: 'brief', title: '提交项目要求', description: '描述项目目标与预期结果', owner: 'human', dependsOn: [], inputKind: 'text', stageId: 'intake' },
+    { id: 'draft', title: '形成内部草稿', description: 'Agent 形成待审核成果', owner: 'agent', dependsOn: ['brief'], prompt: '仅根据已有证据形成内部草稿，无法核实的事项单独标记。', reviewRequired: true, stageId: 'work' }
+  ],
+  deliverables: [{ id: 'draft-output', taskId: 'draft', fileName: 'draft.md', format: 'markdown', minChars: 20 }]
+}, null, 2);
+
 const statusLabels: Record<string, string> = {
+  inactive: '分支未激活', not_applicable: '当前分支不适用',
   pending: '待执行', running: '执行中', review: '待审核',
   completed: '已完成', failed: '执行失败', skipped: '已跳过'
 };
@@ -24,6 +41,8 @@ export function Workspace() {
   const [project, setProject] = useState<Project | null>(null);
   const [templateId, setTemplateId] = useState('general-project');
   const [newName, setNewName] = useState('');
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+  const [templateJson, setTemplateJson] = useState(starterManifest);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<Record<string, File | null>>({});
@@ -68,6 +87,34 @@ export function Workspace() {
       field.value = '';
       setBusy(false);
     }
+  }
+
+  async function loadTemplateForEditing() {
+    setBusy(true); setError(''); setInfo('');
+    try {
+      const data = await parseResponse(await fetch('/api/templates?id=' + encodeURIComponent(templateId), { cache: 'no-store' }));
+      const draft = { ...data.template, version: data.template.version + 1 };
+      setTemplateJson(JSON.stringify(draft, null, 2));
+      setShowTemplateEditor(true);
+      setInfo('已载入模板并增加版本号。内置模板不可覆盖，请修改 id 后另存。');
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  }
+
+  async function saveTemplateJson() {
+    if (busy) return;
+    setBusy(true); setError(''); setInfo('');
+    try {
+      if (templateJson.length > 100000) throw new Error('模板 JSON 不能超过 100 KB');
+      const data = await parseResponse(await fetch('/api/templates', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: templateJson
+      }));
+      await reloadIndex();
+      setTemplateId(data.template.id);
+      setInfo('模板已保存并完成结构校验：' + data.template.title + ' v' + data.template.version);
+      setShowTemplateEditor(false);
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
   }
 
   async function create(event: React.FormEvent<HTMLFormElement>) {
@@ -123,8 +170,9 @@ export function Workspace() {
 
   const artifactsFor = (id: string) => project?.artifacts.filter(a => a.taskId === id) || [];
   const latestResult = (id: string) => [...artifactsFor(id)].reverse().find(a => a.kind === 'agent_result');
-  const humans = project?.tasks.filter(t => t.owner === 'human' || t.status === 'review') || [];
-  const agents = project?.tasks.filter(t => t.owner === 'agent') || [];
+  const humans = project?.tasks.filter(t => t.status === 'review' || (t.owner === 'human' && canStart(t, project.tasks))) || [];
+  const pastHumanTasks = project?.tasks.filter(t => t.owner === 'human' && (t.status === 'completed' || t.status === 'skipped')) || [];
+  const agents = project?.tasks.filter(t => t.owner === 'agent' && t.status !== 'not_applicable') || [];
   const readyAgents = agents.filter(t => canStart(t, project!.tasks));
 
   function badge(task: Task) {
@@ -153,10 +201,13 @@ export function Workspace() {
             <input id="project-title" value={newName} onChange={e => setNewName(e.target.value)} placeholder="例如：新项目可行性研究" maxLength={120} />
             <button className="primary" type="submit" disabled={busy || !newName.trim()}>＋ 从模板创建项目</button>
           </form>
+          <div className="section-label with-gap">手动管理模板</div>
+          <button type="button" disabled={busy} onClick={() => { setTemplateJson(starterManifest); setShowTemplateEditor(true); setError(''); }}>＋ 新建模板</button>
+          <button type="button" disabled={busy} onClick={loadTemplateForEditing}>复制 / 编辑所选模板</button>
           <div className="section-label with-gap">已创建项目</div>
           <nav className="project-list" aria-label="项目列表">
             {projects.map(p => (
-              <button type="button" key={p.id} className={project?.id === p.id ? 'project-item active' : 'project-item'} onClick={() => openProject(p.id).catch(e => setError(e.message))}>
+              <button type="button" key={p.id} className={project?.id === p.id ? 'project-item active' : 'project-item'} onClick={() => { setShowTemplateEditor(false); openProject(p.id).catch(e => setError(e.message)); }}>
                 <strong>{p.title}</strong><small>{p.templateId}</small>
               </button>
             ))}
@@ -167,7 +218,16 @@ export function Workspace() {
         <main className="main">
           {error && <div role="alert" className="alert error">{error}</div>}
           {info && <div role="status" className="alert info">{info}</div>}
-          {!project ? (
+          {showTemplateEditor ? (
+            <section className="editor-screen">
+              <span className="eyebrow">MANUAL TEMPLATE STUDIO</span>
+              <h1>手动创建或修改项目模板</h1>
+              <p>模板描述初始资料、阶段、人工决策、Agent 任务、内置资源与成果。暂用带校验的 JSON 编辑器；不包含模板搜索或推荐。</p>
+              <textarea aria-label="项目模板 JSON 编辑器" spellCheck={false} className="json-editor" value={templateJson} onChange={event => setTemplateJson(event.target.value)} />
+              <div className="actions"><button type="button" className="primary" disabled={busy} onClick={saveTemplateJson}>校验并保存模板</button><button type="button" disabled={busy} onClick={() => setShowTemplateEditor(false)}>返回项目</button></div>
+              <p className="muted">项目创建后会冻结模板版本。可从仓库中的 examples/template.land-investigation-runtime.json 导入真实的分支示例。</p>
+            </section>
+          ) : !project ? (
             <div className="empty">
               <span className="eyebrow">WELCOME TO HUMAN HARNESS</span>
               <h1>把项目交给任务系统，不再依赖漫长的聊天记录。</h1>
@@ -178,9 +238,9 @@ export function Workspace() {
             <>
               <div className="project-header">
                 <div><span className="eyebrow">PROJECT / {project.templateId} v{project.templateVersion}</span><h1>{project.title}</h1></div>
-                <div className="stats"><div><b>{humans.filter(t => t.status === 'pending' || t.status === 'review').length}</b><span>用户待办</span></div><div><b>{readyAgents.length}</b><span>可执行 Agent</span></div><div><b>{project.artifacts.length}</b><span>成果与素材</span></div></div>
+                <div className="stats"><div><b>{humans.length}</b><span>用户待办</span></div><div><b>{readyAgents.length}</b><span>可执行 Agent</span></div><div><b>{project.artifacts.length}</b><span>成果与素材</span></div></div>
               </div>
-              {project.template?.schemaVersion === 2 && (
+              {(project.template?.schemaVersion === 2 || project.template?.schemaVersion === 3) && (
                 <section className="package-summary" aria-label="项目模板内置资源与交付契约">
                   <div><strong>项目流程</strong><p>{project.template.workflow?.stages.map(s => s.title).join(' → ')}</p></div>
                   <div><strong>内置资源与自动化</strong><p>{project.template.resources?.map(r => r.title).join(' · ') || '无'}</p></div>
@@ -201,8 +261,9 @@ export function Workspace() {
                         {blockers.length > 0 && task.status === 'pending' && <div className="blocked-by">等待：{blockers.join('、')}</div>}
                         {task.owner === 'human' && ready && (
                           <div className="task-form">
-                            {task.inputKind !== 'file' && <textarea aria-label={task.title + '说明'} value={notes[task.id] || ''} onChange={e => setNotes(previous => ({ ...previous, [task.id]: e.target.value }))} placeholder="填写资料、文字说明或链接" rows={4} />}
-                            {task.inputKind !== 'text' && <input aria-label={task.title + '上传文件'} type="file" onChange={e => setFiles(previous => ({ ...previous, [task.id]: e.target.files?.[0] || null }))} />}
+                            {task.inputKind === 'choice' && <select aria-label={task.title + '决策选项'} value={notes[task.id] || ''} onChange={e => setNotes(previous => ({ ...previous, [task.id]: e.target.value }))}><option value="">请选择专业决策结果</option>{task.choices?.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select>}
+                            {task.inputKind !== 'file' && task.inputKind !== 'choice' && <textarea aria-label={task.title + '说明'} value={notes[task.id] || ''} onChange={e => setNotes(previous => ({ ...previous, [task.id]: e.target.value }))} placeholder="填写资料、文字说明或链接" rows={4} />}
+                            {(task.inputKind === 'file' || task.inputKind === 'either') && <input aria-label={task.title + '上传文件'} type="file" onChange={e => setFiles(previous => ({ ...previous, [task.id]: e.target.files?.[0] || null }))} />}
                             <div className="actions"><button type="button" disabled={busy} onClick={() => action('submit', task)} className="primary">提交并完成</button>{task.optional && <button type="button" disabled={busy} onClick={() => action('skip', task)}>跳过</button>}</div>
                           </div>
                         )}
@@ -216,6 +277,9 @@ export function Workspace() {
                         )}
                       </article>;
                     })}
+                    <details className="completed-group"><summary>已完成的用户任务（{pastHumanTasks.length}）</summary>
+                      {pastHumanTasks.map(t => <div key={t.id} className="completed-line"><span>{t.title}</span><span>{statusLabels[t.status]}</span></div>)}
+                    </details>
                   </div>
                 </section>
                 <section className="panel">
@@ -236,6 +300,15 @@ export function Workspace() {
                   </div>
                 </section>
               </div>
+              {project.materials && project.materials.length > 0 && (
+                <section className="timeline material-overview">
+                  <div className="panel-header"><div><span className="eyebrow">MATERIAL REQUIREMENTS</span><h2>资料需求与产生时机</h2><p>未激活的是未来可能需要的资料，不属于当前用户待办；已收到也不代表专业验证通过。</p></div></div>
+                  <div className="material-grid">{project.materials.map(m => <div className="material-item" key={m.id}>
+                    <strong>{m.title}</strong><span className={'badge ' + m.status}>{m.status === 'needed' ? '当前需提供' : m.status === 'received' ? '已收到·待核验' : m.status === 'not_applicable' ? '本分支不适用' : '未来阶段'}</span>
+                    <small>{m.producer === 'external_institution' ? '来源：外部专业机构' : '来源：用户'}{m.note ? ' · ' + m.note : ''}</small>
+                  </div>)}</div>
+                </section>
+              )}
               <section className="timeline"><div className="panel-header"><div><span className="eyebrow">AUDIT TRAIL</span><h2>项目事件记录</h2></div></div><div className="events">{[...project.events].reverse().slice(0, 15).map(event => <div className="event" key={event.id}><time>{event.createdAt.slice(0, 19).replace('T', ' ')}</time><strong>{event.action}</strong><span>{event.taskId || '项目'} · {event.detail}</span></div>)}</div></section>
             </>
           )}
