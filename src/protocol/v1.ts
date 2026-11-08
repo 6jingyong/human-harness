@@ -124,6 +124,38 @@ export const packageSchema = z.strictObject({
     if (out.rendererCapabilityId && capabilities.get(out.rendererCapabilityId)?.kind !== 'renderer') error(out.id + ': unknown renderer capability');
     if (out.audience === 'external' && !out.humanSignoff) error(out.id + ': external output requires human signoff');
   }
+  // Detect deadlocks that cross step/material boundaries, not only task-to-task cycles.
+  // Example: a QC material cannot be requested only after the task that requires it is completed.
+  const graph = new Map<string, string[]>();
+  const append = (node: string, dep: string) => graph.set(node, [...(graph.get(node) ?? []), dep]);
+  const conditionRefs = (c: Condition | undefined): string[] => {
+    if (!c) return [];
+    if (c.type === 'decision' || c.type === 'work_done') return [c.stepId];
+    return c.clauses.flatMap(conditionRefs);
+  };
+  for (const step of pkg.steps) {
+    const key = 'step:' + step.id;
+    graph.set(key, []);
+    for (const dep of step.dependsOn) append(key, 'step:' + dep);
+    for (const materialId of step.needsMaterials) append(key, 'material:' + materialId);
+    for (const dep of conditionRefs(step.when)) append(key, 'step:' + dep);
+  }
+  for (const material of pkg.materials) {
+    const key = 'material:' + material.id;
+    graph.set(key, []);
+    for (const dep of [...conditionRefs(material.requiredWhen), ...conditionRefs(material.requestWhen)]) {
+      append(key, 'step:' + dep);
+    }
+  }
+  const visitingGraph = new Set<string>(), resolvedGraph = new Set<string>();
+  const inspectGraph = (key: string): void => {
+    if (resolvedGraph.has(key)) return;
+    if (visitingGraph.has(key)) { error('Dependency deadlock at ' + key); return; }
+    visitingGraph.add(key);
+    for (const ref of graph.get(key) ?? []) if (graph.has(ref)) inspectGraph(ref);
+    visitingGraph.delete(key); resolvedGraph.add(key);
+  };
+  for (const key of graph.keys()) inspectGraph(key);
   const active = new Set<string>(), visited = new Set<string>();
   const visit = (stepId: string): void => {
     if (visited.has(stepId)) return;
