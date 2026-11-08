@@ -26,7 +26,7 @@ test('Human and Agent queue are two projections of one stable task ID across rev
   let queues = deriveWorkbenchQueues(p);
   assert.deepEqual(queues.human.map(x => x.key), ['material:source-a', 'material:source-b']);
   assert.equal(queues.agent.find(x => x.key === 'step:extract')?.state, 'blocked');
-  assert.equal(currentWorkbenchItem(queues, '').key, 'material:source-a');
+  assert.equal(currentWorkbenchItem(queues, '')?.key, 'material:source-a');
 
   p.materials['source-a'].state = 'accepted';
   p.materials['source-b'].state = 'accepted';
