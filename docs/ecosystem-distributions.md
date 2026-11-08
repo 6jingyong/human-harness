@@ -98,6 +98,8 @@
 4. **不建设业务审批子系统。** 资料核查、缺失项和专业判断均是普通的 Human Todo；执行器原有工具/沙盒权限仍需保持。
 5. **不承诺中国版已经成立。** Octop Adapter 没有实现，当前版本只有 Mastra 演示执行器。
 
+**当前优先级以 [Codex 版 V1 路线图](roadmap-codex-v1.md) 为准：先完成 P0–P5。Octop 中国版保留方向，不进入当前研发排期。**
+
 ## 下一步
 
 先做 **Codex 本地 app-server + 原生 Plugin/Skill 调用的一个端到端闭环**；只为这一条路径写一个薄的 Executor Adapter。等项目层和任务协议经真实调用稳定后，再评估 Octop Harness / ACP 所需的最小第二适配器。避免提前引入两个上游框架造成的维护负担。
