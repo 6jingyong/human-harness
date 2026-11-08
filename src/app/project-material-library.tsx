@@ -11,8 +11,15 @@ const materialStates: Record<string, string> = {
  * File/semantic workspace is intentionally separate from the two-row Todo home.
  * Original file, template intent and reviewed Agent interpretation are distinct.
  */
-export function ProjectMaterialLibrary({ project, onBack }: {
-  project: ProjectState; onBack: () => void;
+export function ProjectMaterialLibrary({ project, onBack, onReplace, values, files, onValue, onFile, isPending }: {
+  project: ProjectState;
+  onBack: () => void;
+  onReplace: (materialId: string) => void;
+  values: Record<string, string>;
+  files: Record<string, File | undefined>;
+  onValue: (id: string, value: string) => void;
+  onFile: (id: string, file: File | undefined) => void;
+  isPending: (id: string) => boolean;
 }) {
   return <section className="library-page" aria-label="项目资料管理">
     <header className="library-heading">
@@ -61,6 +68,27 @@ export function ProjectMaterialLibrary({ project, onBack }: {
               </a>}
             </div>)}
             {!versions.length && <p className="muted">尚无资料文件。通过 Human Todo 按需提交。</p>}
+            {state.state === 'accepted' && <details className="source-replacement">
+              <summary>替换这份资料（新版本须重新验收）</summary>
+              <p>原件通过验收后，依赖此资料的成果和后续审核会重新进入待处理状态；不相关分支不受影响。</p>
+              {def.formats.includes('text/plain') && <>
+                <label htmlFor={'replacement-text-' + def.id}>新的文字资料</label>
+                <textarea id={'replacement-text-' + def.id} value={values[def.id] ?? ''}
+                  onChange={event => onValue(def.id, event.target.value)} rows={3} />
+              </>}
+              {def.formats.some(format => format !== 'text/plain') && <>
+                <label htmlFor={'replacement-file-' + def.id}>选择新原件</label>
+                <input id={'replacement-file-' + def.id} type="file"
+                  accept={def.formats.filter(format => format !== 'text/plain').join(',')}
+                  onChange={event => onFile(def.id, event.target.files?.[0])} />
+                {files[def.id] && <p>待提交：{files[def.id]?.name}</p>}
+              </>}
+              <button type="button" disabled={isPending(def.id) || (!files[def.id] && !(values[def.id] ?? '').trim())}
+                onClick={() => onReplace(def.id)}>提交新版本，等待审核</button>
+            </details>}
+            {state.state === 'received' && <p className="source-revision">
+              新资料等待验收。请返回 Human Todo 处理；审核通过前不会取代旧原件。
+            </p>}
           </div>
           <div className="library-section">
             <h3>套用项目模板后的资料说明</h3>
