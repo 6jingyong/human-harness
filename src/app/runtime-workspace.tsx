@@ -186,7 +186,10 @@ export function RuntimeWorkspace() {
         setValues(old => ({ ...old, [key]: '' }));
         setFiles(old => ({ ...old, [key]: undefined }));
       }
-      if (type === 'revise_approved_agent') setFeedback(old => ({ ...old, [key]: '' }));
+      if (type === 'revise_approved_agent') {
+        setFeedback(old => ({ ...old, [key]: '' }));
+        setValues(old => ({ ...old, ['revision-head:' + extra.stepId]: '' }));
+      }
       await openProject(projectId, true);
       setNotice(type === 'revise_approved_agent'
         ? '人工成果修订已记录并成为当前 HEAD，受影响任务将按依赖图重新处理。'
