@@ -303,3 +303,80 @@ test('EIA pilot template appears in dual Todos and never grants Demo professiona
   await expect(library).toContainText('视觉');
   await page.screenshot({ path: 'test-results/human-harness-eia-material-methods.png', fullPage: true });
 });
+
+
+test('EIA A→B→C template keeps stage roles separate and produces a downloaded C candidate after Human review (Demo only)', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await expect(page.locator('#package-select')).toContainText('环评 A→B→C 分阶段并行流水线');
+  await page.locator('#package-select').selectOption('eia-abc-pipeline');
+  await page.getByLabel('本次项目名称').fill('ABC分阶段业务验收 ' + Date.now());
+  await page.getByRole('button', { name: /创建项目/ }).click();
+  const human = page.getByRole('region', { name: '人类 TodoList' });
+  const agent = page.getByRole('region', { name: 'Agent TodoList' });
+  await expect(human.getByRole('button')).toHaveCount(5);
+  await expect(agent.locator('.agent-folder')).toHaveCount(3);
+  await expect(agent.locator('.agent-folder').nth(0)).toContainText('Agent A · 结果提取');
+  await expect(agent.locator('.agent-folder').nth(1)).toContainText('Agent B · 分析结论');
+  await expect(agent.locator('.agent-folder').nth(2)).toContainText('Agent C · 最终成果');
+  await expect(agent.locator('.workbench-item')).toHaveCount(5);
+  await page.screenshot({ path: 'test-results/human-harness-abc-home.png', fullPage: true });
+
+  async function addText(input: RegExp, id: string, content: string) {
+    await human.getByRole('button', { name: input }).click();
+    await page.locator('#material-text-' + id).fill(content);
+    await page.getByRole('button', { name: '提交资料，等待人工核验' }).click();
+    await page.getByRole('button', { name: '确认接受材料' }).click();
+  }
+  async function addFile(input: RegExp, id: string, filename: string, mimeType: string, content: string) {
+    await human.getByRole('button', { name: input }).click();
+    await page.locator('#material-file-' + id).setInputFiles({
+      name: filename, mimeType, buffer: Buffer.from(content)
+    });
+    await page.getByRole('button', { name: '提交资料，等待人工核验' }).click();
+    await page.getByRole('button', { name: '确认接受材料' }).click();
+  }
+  async function approve(title: RegExp, stepId: string) {
+    await human.getByRole('button', { name: title }).click();
+    await page.locator('#agent-review-' + stepId).fill(
+      '仅验证系统分阶段交接与审批，不代表对合成示例或扫描文件作专业事实认证。');
+    await page.getByRole('button', { name: '批准并交接下游' }).click();
+  }
+
+  await addText(/企业陈述原文/, 'enterprise-original', '企业陈述：历史活动需核实。');
+  await addFile(/企业字段提取半成品/, 'enterprise-half-result', 'enterprise.json',
+    'application/json', '{"results":[{"label":"historical activity","status":"unverified"}]}');
+  await expect(human.getByRole('button', { name: /A1 · 企业资料转换成事实结果/ })).toBeVisible();
+  await human.getByRole('button', { name: /A1 · 企业资料转换成事实结果/ }).click();
+  await expect(page.locator('.todo-detail-wrap .result')).toContainText('"demo": true');
+  await expect(page.getByRole('button', { name: '批准并交接下游' })).toBeDisabled();
+  await page.screenshot({ path: 'test-results/human-harness-abc-a-result.png', fullPage: true });
+  await page.locator('#agent-review-a-enterprise-results').fill('只作流水线验证，结果未经真实提取。');
+  await page.getByRole('button', { name: '批准并交接下游' }).click();
+  await expect(human.getByRole('button', { name: /B1 · 企业结果形成风险分析结论/ })).toBeVisible();
+  await page.screenshot({ path: 'test-results/human-harness-abc-b-conclusion.png', fullPage: true });
+
+  await addFile(/检测质控扫描PDF/, 'qc-scan', 'qc.pdf', 'application/pdf', '%PDF synthetic fixture');
+  await addFile(/质控封存分析半成品/, 'qc-frozen-result', 'frozen.json',
+    'application/json', '{"results":[{"status":"unverified"}]}');
+  await addFile(/已有Word半成品/, 'word-reference', 'sample.docx',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'PK synthetic fixture');
+  await approve(/A2 · 质控资料转换成检测结果/, 'a-qc-results');
+  await approve(/B1 · 企业结果形成风险分析结论/, 'b-enterprise-analysis');
+  await approve(/B2 · 检测结果形成质控分析结论/, 'b-qc-analysis');
+  await human.getByRole('button', { name: /确认两路分析结论的采用与修改意见/ }).click();
+  await page.getByLabel('完成情况、结论或交接给 Agent 的信息')
+    .fill('仅检验成果交付；任何专业结论均未实际核实，不得用于对外项目。');
+  await page.getByRole('button', { name: '确认完成并交接' }).click();
+  await expect(human.getByRole('button', { name: /C · 已审核结论生成最终内部成果/ })).toBeVisible();
+  await human.getByRole('button', { name: /C · 已审核结论生成最终内部成果/ }).click();
+  await expect(page.getByRole('button', { name: '批准并交接下游' })).toBeDisabled();
+  await page.locator('#agent-review-c-final-output').fill(
+    '已确认此文件只是Demo格式测试，真实环境成果仍需专业校核。');
+  await page.getByRole('button', { name: '批准并交接下游' }).click();
+  await page.getByRole('button', { name: '查看项目资料' }).click();
+  const finalResult = page.locator('.semantic-result').filter({ hasText: '最终内部报告' }).first();
+  await finalResult.locator('summary').click();
+  await expect(finalResult.getByRole('link', { name: '下载已审核成果' })).toBeVisible();
+  await page.screenshot({ path: 'test-results/human-harness-abc-c-output.png', fullPage: true });
+});
