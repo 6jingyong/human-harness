@@ -168,6 +168,22 @@ export async function runCodexTask(task: ExecutorTask, options: CodexLaunchOptio
   client.onNotification = ({ method, params }) => {
     if (threadId && string(params.threadId) && params.threadId !== threadId) return;
     if (turnId && string(params.turnId) && params.turnId !== turnId) return;
+    // Text-only A/B/C work has zero authorized file or shell tools.
+    // A prompt saying "do not use tools" is not a security boundary.
+    // Fail the candidate on *any* observed tool execution attempt instead of
+    // accepting a reply that may have reread data outside this task capsule.
+    if (!documents.length && (method === 'item/started' || method === 'item/completed')) {
+      const type = string(object(params.item).type);
+      if (new Set([
+        'commandExecution', 'fileChange', 'mcpToolCall', 'dynamicToolCall',
+        'webSearch', 'imageView', 'collabToolCall'
+      ]).has(type)) {
+        const reason = new Error('Text-only task attempted unauthorized tool use: ' + type);
+        rejectTurn(reason);
+        client.fail(reason);
+        return;
+      }
+    }
     if (method === 'item/agentMessage/delta') {
       streamedText += string(params.delta);
       return;
