@@ -375,7 +375,7 @@ test('EIA A→B→C template keeps stage roles separate and produces a downloade
     '已确认此文件只是Demo格式测试，真实环境成果仍需专业校核。');
   await page.getByRole('button', { name: '批准并交接下游' }).click();
   await page.getByRole('button', { name: '查看项目资料' }).click();
-  const finalResult = page.locator('.semantic-result').filter({ hasText: '最终内部报告' }).first();
+  const finalResult = page.locator('.project-deliverable').filter({ hasText: '最终内部报告' }).first();
   await finalResult.locator('summary').click();
   await expect(finalResult.getByRole('link', { name: '下载已审核成果' })).toBeVisible();
   await page.screenshot({ path: 'test-results/human-harness-abc-c-output.png', fullPage: true });
