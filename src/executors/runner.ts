@@ -106,10 +106,10 @@ export async function executeOneAgentTask(projectId: string, requestedStepId?: s
     ? projectBefore.package.steps.find(step => step.id === requestedStepId)
     : projectBefore.package.steps.find(step => (step.kind === 'agent' || step.kind === 'script') &&
       projectBefore.steps[step.id]?.state === 'ready');
-  const executor = override ?? (planned?.kind === 'script'
+  const executor = planned?.kind === 'script'
     ? (planned.capabilityId === 'hh.render.markdown'
       ? markdownAssemblyExecutor : (() => { throw new Error('Unsupported script capability'); })())
-    : selectedExecutor());
+    : override ?? selectedExecutor();
   const started = startAgent(projectId, requestedStepId);
   let abortHandler: (() => void) | undefined;
   try {
