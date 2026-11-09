@@ -26,6 +26,9 @@ export type ExecutorTask = Readonly<{
     materialId: string; title: string;
     method: NonNullable<HumanHarnessPackage['materials'][number]['method']>;
   }>[];
+  /** Renderer and content format are chosen by the template, not by the Agent. */
+  outputFormat?: HumanHarnessPackage['outputs'][number]['format'];
+  outputFileName?: string;
   /** Existing output contract acceptance is always a Human review gate. */
   outputAcceptance?: readonly string[];
   evidence: readonly AuthorizedEvidence[];
@@ -100,6 +103,11 @@ export function renderTextContext(task: ExecutorTask): string {
   if (task.materialMethods?.length) {
     chunks.push('SCOPED MATERIAL METHODS (acquire/extract/verify only for this step):\n' +
       JSON.stringify(task.materialMethods, null, 2).slice(0, 10000));
+  }
+  if (task.outputFormat) {
+    chunks.push('PINNED OUTPUT CONTRACT: format=' + task.outputFormat +
+      ', filename=' + (task.outputFileName || 'unspecified') +
+      '. If format is json, body MUST contain a syntactically valid JSON object (no Markdown fences).');
   }
   if (task.outputAcceptance?.length) {
     chunks.push('HUMAN OUTPUT ACCEPTANCE REQUIREMENTS:\n' +
