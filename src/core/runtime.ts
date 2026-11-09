@@ -353,6 +353,7 @@ export function holdAgentForHuman(project: ProjectState, stepId: string, runId: 
   run.status = 'needs_input'; run.result = result; run.endedAt = now();
   step.state = 'waiting_input';
   recordEvent(project, 'run.needs_input', stepId, runId);
+  reconcile(project); // activate any on-demand source for the newly created Human Todo
 }
 
 /** Human answer is the only authorization needed to resume this Agent task.
