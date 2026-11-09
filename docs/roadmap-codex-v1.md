@@ -4,6 +4,14 @@
 >
 > 产品入口：[中文说明](README.zh-CN.md) · [English README](../README.md) · [Codex 原生插件策略](codex-native-plugins.md) · [模板素材方法](template-material-processing.md) · [上游 Codex app-server](https://developers.openai.com/codex/app-server)
 
+## 2026-11-09 · 优先级更新（用户确认）
+
+**真实 Codex 模型调用与 A→B→C 故意污染验收因用户额度暂时不足延期。** 作为非阻塞 GitHub Todo 跟踪：[Issue #4](https://github.com/6jingyong/human-harness/issues/4)。此前 P1 的模型真执行仍不可宣称验收通过，但不再因预算问题停止所有不依赖模型的功能开发。
+
+本轮架构复核认为任务图、Human/Agent 双 Todo、已批准产物交接与并行调度方向可继续。下一阶段转向**项目内的确定性脚本与成果生成**：现已加入最小白名单 `hh.render.markdown` 作为 `script` WorkItem，复用相同审批/调度链，独立于模型额度。详见 [架构复核和待办](architecture-review-and-todo-20261109.md)。仍不能把 Markdown 组装器称为 DOCX/PDF 渲染器。
+
+**以下 P1→P5 是旧里程碑的完整验收顺序，不再代表“额度不足时一律停止其它开发”的实时约束。**
+
 ## 1. 一句话目标
 
 **用户选择手工编写的项目模板 → 按一个 Human TodoList 提供真实资料和决策 → Codex 使用当前环境已安装的 Skill/Plugin/MCP 执行被授权的 Agent 任务 → 返回可追溯候选结果 → 根据模板完成检查、推进项目或生成具体待办 → 交付已确认的成果。**
