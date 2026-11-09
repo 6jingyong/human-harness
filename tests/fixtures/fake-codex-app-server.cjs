@@ -54,6 +54,12 @@ createInterface({ input: process.stdin }).on('line', line => {
       send({ id: 9001, method: 'item/commandExecution/requestApproval', params: { threadId: 'thread-fixture', turnId: 'turn-fixture' } });
       return;
     }
+    if (mode === 'text-tool-attempt') {
+      send({ method: 'item/started', params: {
+        threadId: 'thread-fixture', turnId: 'turn-fixture',
+        item: { id: 'tool-fixture', type: 'commandExecution', command: 'cat ../secret.txt' }
+      } });
+    }
     const id = mode === 'wrong-turn' ? 'turn-foreign' : 'turn-fixture';
     if (mode !== 'failed') {
       send({ method: 'item/completed', params: {
