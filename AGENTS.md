@@ -82,3 +82,10 @@ Read only the material relevant to the current task. Keep changes focused; avoid
 ## Development direction
 
 First study the current open-source **Codex** harness and its supported SDK/app-server surfaces; avoid rebuilding the agent loop, sandbox, tool router or context lifecycle. Prefer installed native Codex Plugins/Skills/MCP tools for PDF/DOCX and other standard operations. Build a new capability only for a demonstrated gap, then use the standard Plugin packaging and test actual hosts. Do not replace the Mastra runtime without an executable integration test.
+
+
+## Architecture review (2026-11-09)
+
+- Actual authenticated Codex A/B/C stage-isolation runs are **deferred by user request due to unavailable model quota** and tracked in GitHub [Issue #4](https://github.com/6jingyong/human-harness/issues/4). Do not launch them or describe simulated protocol tests as real model evaluation until the quota is restored.
+- Script steps are **not arbitrary template code**. Only trusted, locally registered `hh.render.markdown` is supported: a single process-local deterministic internal Markdown assembler from reviewed upstream artifacts; every candidate requires normal Human approval. It must preserve intentional upstream errors and must not reopen original materials or invent new conclusions. See `docs/architecture-review-and-todo-20261109.md`.
+- Runtime still lacks DOCX/PDF deterministic rendering, production multi-process leases, hosted deployment security, and authenticated Codex/Skill validation. Handle these as separate future tasks; do not claim they are done.
