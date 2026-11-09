@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
     "codex:smoke": "tsx scripts/codex-smoke.ts",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "codex:abc:live": "tsx scripts/codex-abc-live.ts"
   },
   "dependencies": {
     "@mastra/core": "1.82.0",
