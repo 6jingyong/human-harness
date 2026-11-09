@@ -14,9 +14,9 @@ const { executeOneAgentTask } = await import('../src/executors/runner');
 const { GET: downloadOutput } = await import('../src/app/api/v1/projects/[id]/outputs/[artifactId]/route');
 after(() => { try { rmSync(dir, { recursive: true, force: true }); } catch { /* sqlite on Windows */ } });
 
-function makeProject() {
+function makeProject(suffix: string) {
   const base = manualProjectPackage({
-    id: 'human-correction-test', title: 'Human correction boundary', description: 'Fixture project',
+    id: 'human-correction-test-' + suffix, title: 'Human correction boundary', description: 'Fixture project',
     inputs: 'Source statement', objective: 'Extract a result for human review'
   });
   const draft = base.steps.find(step => step.id === 'draft')!;
@@ -69,7 +69,7 @@ const getOutput = (id: string, artifactId: string) => downloadOutput(
 );
 
 test('Human correction is atomic, auditable, and becomes the only approved downstream input', async () => {
-  const id = makeProject();
+  const id = makeProject('corrected');
   assert.throws(() => store.approveHumanCorrectedOutput(id, 'draft', '{"value":220}', 'not ready'),
     /pending Agent candidate/);
   await executeOneAgentTask(id, 'draft', mistakenAgent);
@@ -115,7 +115,7 @@ test('Human correction is atomic, auditable, and becomes the only approved downs
 });
 
 test('unmodified Agent candidate can still follow the original approve/reject review path', async () => {
-  const id = makeProject(); // isolated project instance using the same pinned package
+  const id = makeProject('unmodified');
   await executeOneAgentTask(id, 'draft', mistakenAgent);
   store.reviewAgentOutput(id, 'draft', true, 'Human accepts the unmodified fixture candidate');
   const artifacts = store.getProject(id).artifacts.filter(a => a.ownerId === 'draft');
