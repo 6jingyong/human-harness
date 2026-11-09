@@ -98,7 +98,7 @@ export class LocalScheduler {
         if (runningCount >= policy.maxParallel) continue;
         for (const step of project.package.steps) {
           if (this.active.size >= this.globalLimit || runningCount >= policy.maxParallel) break;
-          if (step.kind !== 'agent' || project.steps[step.id]?.state !== 'ready') continue;
+          if (!['agent', 'script'].includes(step.kind) || project.steps[step.id]?.state !== 'ready') continue;
           if (this.active.has(this.key(project.id, step.id))) continue;
           try {
             this.dispatch(project.id, step.id);
