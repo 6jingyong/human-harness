@@ -36,6 +36,8 @@ const workMethod = z.strictObject({
 const material = z.strictObject({
   id, title: description, producer: z.enum(['human', 'agent', 'external_institution']),
   requiredWhen: condition.optional(), requestWhen: condition.optional(),
+  /** Supplemental source: show in Human Todo only when an Agent explicitly asks for it. */
+  onDemand: z.boolean().optional(),
   formats: z.array(z.string().min(1).max(100)).max(20),
   acceptance: z.array(description).min(1).max(20), description,
   method: materialMethod.optional()
@@ -113,6 +115,9 @@ export const packageSchema = z.strictObject({
     }
   }
   for (const m of pkg.materials) {
+    if (m.onDemand && (m.requiredWhen || m.requestWhen)) {
+      error(m.id + ': on-demand material cannot also have conditional automatic activation');
+    }
     checkCondition(m.requiredWhen, 'material ' + m.id);
     checkCondition(m.requestWhen, 'material ' + m.id);
   }
@@ -123,7 +128,12 @@ export const packageSchema = z.strictObject({
       error(s.id + ': only Agent/script work can declare an agent assignment');
     }
     for (const dep of s.dependsOn) if (!steps.has(dep) || dep === s.id) error(s.id + ': invalid dependency ' + dep);
-    for (const m of s.needsMaterials) if (!materials.has(m)) error(s.id + ': unknown material ' + m);
+    for (const m of s.needsMaterials) {
+      if (!materials.has(m)) error(s.id + ': unknown material ' + m);
+      if (pkg.materials.find(item => item.id === m)?.onDemand) {
+        error(s.id + ': on-demand supplemental material cannot be a required input ' + m);
+      }
+    }
     if (s.requestableMaterialIds?.length && s.kind !== 'agent' && s.kind !== 'script') {
       error(s.id + ': only Agent/script steps may request Human material clarification');
     }
