@@ -76,10 +76,10 @@ export function ProjectMaterialLibrary({ project, onBack, onReplace, values, fil
                 <textarea id={'replacement-text-' + def.id} value={values[def.id] ?? ''}
                   onChange={event => onValue(def.id, event.target.value)} rows={3} />
               </>}
-              {def.formats.some(format => format !== 'text/plain') && <>
+              {def.formats.length > 0 && <>
                 <label htmlFor={'replacement-file-' + def.id}>选择新原件</label>
                 <input id={'replacement-file-' + def.id} type="file"
-                  accept={def.formats.filter(format => format !== 'text/plain').join(',')}
+                  accept={def.formats.join(',')}
                   onChange={event => onFile(def.id, event.target.files?.[0])} />
                 {files[def.id] && <p>待提交：{files[def.id]?.name}</p>}
               </>}
