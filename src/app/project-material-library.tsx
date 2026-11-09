@@ -190,7 +190,7 @@ export function ProjectMaterialLibrary({ project, onBack, onReplace, onRevise, v
           {head && ['markdown', 'json'].includes(contract.format) &&
             <a className="file-download" href={'/api/v1/projects/' +
               encodeURIComponent(project.id) + '/outputs/' + encodeURIComponent(head.id)}>
-              下载当前已审核成果
+              下载已审核成果
             </a>}
           {artifacts.length > 1 && <details className="source-replacement">
             <summary>查看完整历史版本（{artifacts.length}）</summary>
