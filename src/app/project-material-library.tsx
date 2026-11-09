@@ -145,6 +145,41 @@ export function ProjectMaterialLibrary({ project, onBack, onReplace, values, fil
         </article>;
       })}
     </div>
+    <section className="library-deliverables" aria-label="项目成果文件">
+      <h2>项目成果文件</h2>
+      <p className="muted">
+        按模板输出契约统一汇总 A 的结果、B 的分析结论和 C 的最终成果。
+        下游不需要为了在资料库中显示而重新读取原件。
+      </p>
+      {project.package.outputs.map(contract => {
+        const producer = project.package.steps.find(step => step.id === contract.producingStepId);
+        const artifacts = project.artifacts.filter(artifact =>
+          artifact.kind === 'agent_output' && artifact.ownerId === contract.producingStepId)
+          .sort((a, b) => b.revision - a.revision);
+        const latest = artifacts[0];
+        const accepted = Boolean(latest && !latest.invalidatedAt &&
+          project.steps[contract.producingStepId]?.state === 'done');
+        return <details className="project-deliverable" key={contract.id}>
+          <summary>{contract.title} · {contract.fileName}
+            <span className="task-state">
+              {accepted ? '已审核可下载' :
+                latest ? latest.invalidatedAt ? '旧版已失效' : '候选待审核' : '尚未生成'}
+            </span>
+          </summary>
+          <p>产出任务：{producer?.title ?? contract.producingStepId}</p>
+          <p>格式：{contract.format.toUpperCase()} · 验收要求：{contract.acceptance.join('；')}</p>
+          {latest && <pre className="result">{latest.content}</pre>}
+          {accepted && latest && ['markdown', 'json'].includes(contract.format) &&
+            <a className="file-download" href={'/api/v1/projects/' +
+              encodeURIComponent(project.id) + '/outputs/' + encodeURIComponent(latest.id)}>
+              下载已审核成果
+            </a>}
+          {artifacts.length > 1 && <p className="muted">
+            此任务有 {artifacts.length - 1} 个历史候选；旧版本保留记录，但不可当作当前交付文件。
+          </p>}
+        </details>;
+      })}
+    </section>
     <details className="library-events">
       <summary>项目操作记录（{project.events.length}）</summary>
       {project.events.slice(-30).reverse().map(event => <div key={event.id}>
