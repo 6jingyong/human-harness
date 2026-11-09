@@ -47,6 +47,7 @@ function prepareTask(projectId: string, stepId: string, runId: string): Executor
       role: ref.role,
       name: artifact.name,
       content: artifact.content,
+      ...(artifact.submissionNote ? { submissionNote: artifact.submissionNote } : {}),
       ...(bytes ? { originalFile: {
         bytes,
         sha256: createHash('sha256').update(bytes).digest('hex')
