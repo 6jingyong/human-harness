@@ -224,5 +224,49 @@ test('a deliberately false but correctly formatted A result CAN spread after a m
   assert.equal(store.getProject(id).steps['b-enterprise-analysis'].state, 'review');
   assert.equal(store.getProject(id).steps['c-final-output'].state, 'blocked',
     'at least B still needs Human approval');
-  // Do not actually approve B: keep the poisoned pipeline from final delivery.
+
+  // Demonstrate the full failure chain if Human mistakenly approves B too.
+  store.reviewAgentOutput(id, 'b-enterprise-analysis', true,
+    'BLIND APPROVAL TEST: intentionally approve a nonsensical B conclusion');
+  await executeOneAgentTask(id, 'a-qc-results', {
+    id: 'qc-source-fixture',
+    async execute(task) {
+      return { body: JSON.stringify({ results: [{ status: 'unverified' }] }),
+        limitations: [], materialRequests: [], methodChecks: claimedPass(task) };
+    }
+  });
+  store.reviewAgentOutput(id, 'a-qc-results', true, 'QC branch approved solely for controlled simulation');
+  await executeOneAgentTask(id, 'b-qc-analysis', {
+    id: 'qc-analysis-fixture',
+    async execute(task) {
+      return { body: '## 质控分析\n未取得完整结果，不能直接判定合格。',
+        limitations: [], materialRequests: [], methodChecks: claimedPass(task) };
+    }
+  });
+  store.reviewAgentOutput(id, 'b-qc-analysis', true, 'QC limitation kept');
+  store.completeHuman(id, 'human-conclusion-review',
+    'BLIND APPROVAL TEST: mistakenly accept both B conclusions despite unsupported enterprise analysis.');
+  assert.equal(store.getProject(id).steps['c-final-output'].state, 'ready');
+
+  await executeOneAgentTask(id, 'c-final-output', {
+    id: 'c-sees-poison-fixture',
+    async execute(task) {
+      assert.equal(task.evidence.length, 2);
+      assert.ok(task.evidence.some(e => (e.content ?? '').includes('土豆配方')),
+        'C actually receives the incorrectly approved B conclusion');
+      return {
+        body: '# 恶意演练结果（禁止交付）\n污染被土豆配方消除。POISONED_C_CANDIDATE',
+        limitations: [], materialRequests: [], methodChecks: claimedPass(task)
+      };
+    }
+  });
+  const state = store.getProject(id);
+  const candidate = state.artifacts.find(a => a.ownerId === 'c-final-output')!;
+  assert.match(candidate.content ?? '', /POISONED_C_CANDIDATE/);
+  assert.equal(state.steps['c-final-output'].state, 'review');
+  assert.equal((await exportOutput(new Request('http://localhost/adversarial'),
+    { params: Promise.resolve({ id, artifactId: candidate.id }) })).status, 409,
+    'even corrupted C output still requires final Human approval');
+  // If C were mistakenly approved too, the existing export gate would allow it.
+  // Keep this intentionally malicious scenario unapproved.
 });
