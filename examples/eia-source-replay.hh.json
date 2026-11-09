@@ -78,7 +78,8 @@
       "title": "企业字段候选分析（JSON作为文本）",
       "producer": "human",
       "formats": [
-        "text/plain"
+        "text/plain",
+        "application/json"
       ],
       "description": "原环评Agent半成品的字段复核记录；其AI代行审核不能冒充人类专业签发。",
       "method": {
@@ -122,7 +123,8 @@
       "title": "封存分析成果快照（JSON作为文本）",
       "producer": "human",
       "formats": [
-        "text/plain"
+        "text/plain",
+        "application/json"
       ],
       "description": "既有冻结事实、图件与source_manifest；内容是有级别的既有成果，不是原件。",
       "method": {
@@ -172,7 +174,8 @@
       "acceptance": [
         "来源可信可核对",
         "不得自行猜企业与红线关系"
-      ]
+      ],
+      "onDemand": true
     },
     {
       "id": "qc-source-proof",
@@ -185,7 +188,8 @@
       "acceptance": [
         "提供原图到重建PDF页码、SHA及来源说明",
         "不凭文件名宣称相同"
-      ]
+      ],
+      "onDemand": true
     }
   ],
   "steps": [
