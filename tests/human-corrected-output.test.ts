@@ -31,7 +31,7 @@ function makeProject(suffix: string) {
       } },
       { id: 'analysis', stageId: draft.stageId, kind: 'agent',
         title: 'Analyze approved derived result', instructions: 'Analyze the approved derived JSON only',
-        dependsOn: ['draft'], needsMaterials: [], outputContractId: 'analysis-output',
+        dependsOn: ['draft'], needsMaterials: [], capabilityId: draft.capabilityId, outputContractId: 'analysis-output',
         requiresReview: true }
     ],
     outputs: [
