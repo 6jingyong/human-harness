@@ -20,7 +20,13 @@ export const demoExecutor: TaskExecutor = {
       '下一步：人工审核；本输出仅用于检验任务流程。'
     ].join('\n');
     return {
-      body,
+      body: task.outputFormat === 'json'
+        ? JSON.stringify({
+          demo: true, verified: false, workItemId: task.packet.workItemId,
+          warning: '演示数据，不含真实提取结果；未调用模型或专业 Skill。',
+          inputArtifactCount: task.evidence.length, results: []
+        }, null, 2)
+        : body,
       limitations: ['Demo mode: no real Agent or professional investigation tools were called.'],
       materialRequests: [],
       ...(task.workMethod ? { methodChecks: task.workMethod.checks.map(check => ({
