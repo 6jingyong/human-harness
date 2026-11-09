@@ -217,3 +217,8 @@ Before contributing a capability, specify **where it runs, what it can access, w
 ---
 
 **Principle:** *The template defines the plan; the project records reality; people provide and approve evidence; mature agents execute scoped work.*
+
+
+### Zero-token deterministic work items
+
+Protocol `kind: "script"` now supports a single safe, built-in `hh.render.markdown` capability for **internal** Markdown assembly from reviewed upstream outputs. The renderer never reopens original sources or evaluates template-supplied code; it copies even deliberately incorrect approved conclusions verbatim, then returns a candidate for normal Human review. See [architecture review and deferred Codex task](docs/architecture-review-and-todo-20261109.md) and importable example `examples/approved-conclusions-assembly.hh.json`. Real authenticated Codex A→B→C tests are deferred to [Issue #4](https://github.com/6jingyong/human-harness/issues/4) while model quota is unavailable. This is not DOCX/PDF support.
