@@ -11,7 +11,7 @@ import { packageSchema, taskPacketSchema, taskResultSchema, type HumanHarnessPac
 import type { SemanticNote } from '../protocol/semantics';
 import type { MethodCheckResult } from '../executors/contracts';
 import {
-  amendAndApproveAgent, answerHumanRequest, applyHumanStep, attachHumanRequestArtifact, createTaskPacket, expireAbandonedRun, failAgent, finishAgent, freshId, holdAgentForHuman, newProject, now, receiveMaterial,
+  amendAndApproveAgent, answerHumanRequest, applyHumanStep, attachHumanRequestArtifact, createTaskPacket, expireAbandonedRun, failAgent, finishAgent, freshId, holdAgentForHuman, newProject, now, receiveMaterial, reviseApprovedOutput,
   reconcile, recordEvent, reserveAgent, retryAgent, reviewAgent, reviewMaterial,
   executionPolicy, type ProjectState, type RuntimeArtifact
 } from './runtime';
@@ -333,6 +333,10 @@ export const reviewAgentOutput = (id: string, stepId: string, accepted: boolean,
 /** Atomic audit trail: retain the Agent original, add corrected Human version, then approve. */
 export const approveHumanCorrectedOutput = (id: string, stepId: string, content: string, rationale: string) =>
   mutate(id, p => amendAndApproveAgent(p, stepId, content, rationale)).project;
+/** Strict compare-and-swap against observed approved HEAD; descendants are invalidated atomically. */
+export const reviseHumanApprovedOutput = (id: string, stepId: string, expectedHead: string,
+  content: string, rationale: string) =>
+  mutate(id, p => reviseApprovedOutput(p, stepId, expectedHead, content, rationale)).project;
 export const markAgentFailed = (id: string, stepId: string, runId: string, error: string) =>
   mutate(id, p => failAgent(p, stepId, runId, error)).project;
 export const retryFailedAgent = (id: string, stepId: string) =>
