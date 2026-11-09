@@ -206,16 +206,23 @@ export function submitMaterial(id: string, materialId: string, rawText: string, 
       if (!upload && !def.formats.includes('text/plain')) {
         throw new RuntimeError('This requirement needs an original file; text notes alone are insufficient');
       }
-      if (upload && !def.formats.some(x => x !== 'text/plain')) {
-        throw new RuntimeError('This requirement expects text rather than an uploaded file');
-      }
       const name = upload ? basename(upload.name).slice(0, 150) || 'upload' : '用户文本说明';
-      const readable = upload && textExtensions.has(extname(name).toLowerCase())
-        ? upload.buffer.toString('utf8').slice(0, 30000) : null;
+      const isTextFile = Boolean(upload && textExtensions.has(extname(name).toLowerCase()));
+      if (upload && !def.formats.some(x => x !== 'text/plain') &&
+          !(def.formats.includes('text/plain') && isTextFile)) {
+        throw new RuntimeError('This requirement accepts text uploads only, not binary files');
+      }
+      const readable = upload && isTextFile ? upload.buffer.toString('utf8') : null;
+      if (readable !== null && readable.length > 30000) {
+        throw new RuntimeError('Text file exceeds 30,000 characters; submit a smaller document');
+      }
       const artifact: RuntimeArtifact = {
         id: artifactId, kind: 'material', name,
-        content: content || readable, ownerId: materialId,
+        // A source file's bytes are authoritative. Human notes cannot replace
+        // the uploaded body or turn an unread PDF into readable content.
+        content: upload ? readable : content, ownerId: materialId,
         revision: p.materials[materialId].artifactIds.length + 1, createdAt: now(),
+        ...(upload && content ? { submissionNote: content } : {}),
         ...(filePath ? { filePath } : {})
       };
       receiveMaterial(p, materialId, artifact, Boolean(options.replaceAccepted || options.requestId));
