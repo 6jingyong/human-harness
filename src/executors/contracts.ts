@@ -76,18 +76,22 @@ export function renderTextContext(task: ExecutorTask): string {
     'TASK PACKET (runtime-issued):\n' + JSON.stringify(task.packet, null, 2),
     'Relevant accessible project evidence follows. No other files were authorized.'
   ];
-  let remaining = 18000;
+  let remaining = 40000;
   for (const evidence of task.evidence) {
     const body = evidence.content === null
       ? '[Binary document stored but not parsed. Its contents are unavailable.]'
       : evidence.content;
     const sourceNote = evidence.submissionNote
       ? '\n[Human source note, not original content]: ' + evidence.submissionNote.slice(0, 1000) : '';
-    const text = ('Artifact ' + evidence.artifactId + ' / ' + evidence.name + ' / ' + evidence.role + ':\n' + body + sourceNote)
-      .slice(0, Math.min(remaining, 4500));
+    const full = 'Artifact ' + evidence.artifactId + ' / ' + evidence.name + ' / ' + evidence.role + ':\n' + body + sourceNote;
+    const limit = Math.min(remaining, 12000);
+    const text = full.length > limit
+      ? full.slice(0, Math.max(0, limit - 90)) +
+        '\n[TRUNCATED SOURCE TEXT: remaining content was NOT provided; do not claim full review.]'
+      : full;
     chunks.push(text);
-    remaining -= text.length;
-    if (!remaining) break;
+    remaining -= Math.min(limit, text.length);
+    if (remaining <= 0) break;
   }
   if (task.workMethod) {
     chunks.push('PINNED WORK METHOD (instructions/checks are template-owned, not runtime-generated):\n' +
