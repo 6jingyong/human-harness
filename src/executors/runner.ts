@@ -84,10 +84,11 @@ function prepareTask(projectId: string, stepId: string, runId: string): Executor
     allowedMaterialIds.has(m.id) && m.method).map(m => ({
       materialId: m.id, title: m.title, method: m.method!
     }));
-  const outputAcceptance = project.package.outputs.find(o =>
-    o.id === step.outputContractId)?.acceptance;
+  const outputContract = project.package.outputs.find(o => o.id === step.outputContractId);
+  const outputAcceptance = outputContract?.acceptance;
   return { packet, stepTitle: step.title, evidence, reviewFeedback,
-    workMethod: step.method, materialMethods, outputAcceptance,
+    workMethod: step.method, materialMethods,
+    outputFormat: outputContract?.format, outputFileName: outputContract?.fileName, outputAcceptance,
     requestableMaterials,
     humanHandoffs: [...humanHandoffs, ...requestedAnswers],
     approvedSemanticNotes: approvedSemanticNotes(project, step.needsMaterials) };
