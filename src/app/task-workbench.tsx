@@ -152,10 +152,10 @@ export function TaskWorkbench({
               <textarea id={'human-request-' + key} rows={4} value={pending}
                 onChange={event => onValue(key, event.target.value)}
                 placeholder="补充信息，或说明暂时无法取得" />
-              {canUploadRequestedMaterial && requestMaterial?.formats.some(format => format !== 'text/plain') && <>
+              {canUploadRequestedMaterial && requestMaterial?.formats.length > 0 && <>
                 <label htmlFor={'human-request-file-' + key}>补充原始文件（选填，须人工验收）</label>
                 <input id={'human-request-file-' + key} type="file"
-                  accept={requestMaterial.formats.filter(format => format !== 'text/plain').join(',')}
+                  accept={requestMaterial.formats.join(',')}
                   onChange={event => onFile(key, event.target.files?.[0])} />
                 {files[key] && <p className="muted">待提交：{files[key]?.name}</p>}
               </>}
@@ -222,10 +222,10 @@ export function TaskWorkbench({
                     onChange={event => onValue(key, event.target.value)}
                     placeholder="填写可供 Agent 使用的真实内容及来源" />
                 </>}
-                {material.formats.some(format => format !== 'text/plain') && <>
+                {material.formats.length > 0 && <>
                   <label htmlFor={'material-file-' + key}>原始文件</label>
                   <input id={'material-file-' + key} type="file"
-                    accept={material.formats.filter(format => format !== 'text/plain').join(',')}
+                    accept={material.formats.join(',')}
                     onChange={event => onFile(key, event.target.files?.[0])} />
                   {files[key] && <p className="muted">待上传：{files[key]?.name}</p>}
                 </>}
