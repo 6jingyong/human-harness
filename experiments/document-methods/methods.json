@@ -1,0 +1,52 @@
+{
+  "schema": "hh.method-experiment/0",
+  "description": "Synthetic evidence method. Not a valid hh.package/1 template.",
+  "materials": [
+    {
+      "id": "lab-report",
+      "file": "fixtures/lab-report.pdf",
+      "format": "pdf",
+      "recognizeText": "检测报告",
+      "tableHeaders": [
+        "sample_id",
+        "point_id",
+        "analyte",
+        "result",
+        "unit"
+      ],
+      "requiredFields": [
+        "sample_id",
+        "point_id",
+        "analyte",
+        "result",
+        "unit"
+      ]
+    },
+    {
+      "id": "field-log",
+      "file": "fixtures/field-log.docx",
+      "format": "docx",
+      "recognizeText": "现场采样记录",
+      "tableHeaders": [
+        "sample_id",
+        "point_id",
+        "sample_date"
+      ],
+      "requiredFields": [
+        "sample_id",
+        "point_id",
+        "sample_date"
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "type": "cross_material_equal",
+      "leftMaterial": "lab-report",
+      "rightMaterial": "field-log",
+      "joinKey": "sample_id",
+      "compareKey": "point_id",
+      "onMismatch": "create_human_todo"
+    }
+  ]
+}

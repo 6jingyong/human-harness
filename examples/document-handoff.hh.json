@@ -1,0 +1,150 @@
+{
+  "protocol": "hh.package/1",
+  "id": "document-handoff",
+  "version": "1.1.0",
+  "title": "双文档信息核对与交付",
+  "description": "通用 Human Harness 示例：提供两份资料，Agent 提取与对比，人类解决争议，Agent 形成最终成果。",
+  "stages": [
+    {
+      "id": "intake",
+      "title": "收集资料",
+      "description": "用户提交两份真实文档并确认来源"
+    },
+    {
+      "id": "extract",
+      "title": "提取与对比",
+      "description": "Agent 调用现有文档技能，按字段抽取并引用来源"
+    },
+    {
+      "id": "review",
+      "title": "人工核对",
+      "description": "用户核查冲突或缺失数据并给出处理意见"
+    },
+    {
+      "id": "deliver",
+      "title": "整理成果",
+      "description": "Agent 使用审核后的文档信息和人工决定形成候选成果"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "mastra.agent",
+      "kind": "agent",
+      "description": "当前执行后端适配接口（Codex 模式复用本机 Skills）"
+    }
+  ],
+  "assets": [],
+  "materials": [
+    {
+      "id": "source-a",
+      "title": "第一份资料（PDF）",
+      "producer": "human",
+      "formats": [
+        "application/pdf"
+      ],
+      "acceptance": [
+        "来源与项目相关，原件可追溯"
+      ],
+      "description": "上传一份 PDF 文档。仅用户接受的版本可交给 Agent。"
+    },
+    {
+      "id": "source-b",
+      "title": "第二份资料（DOCX）",
+      "producer": "human",
+      "formats": [
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      ],
+      "acceptance": [
+        "来源与项目相关，原件可追溯"
+      ],
+      "description": "上传一份 DOCX 文档，推荐与第一份资料存在可交叉核对的数据。"
+    }
+  ],
+  "steps": [
+    {
+      "id": "extract",
+      "stageId": "extract",
+      "kind": "agent",
+      "title": "抽取两份文档中的关键事实",
+      "instructions": "对比文档 A 与 B 的关键实体、数据、日期与单位，注明来源文件名和页码/表格位置。明确列出互相矛盾的信息及不确定处，不自行替用户做专业决定。输出 Markdown 候选核对表。",
+      "dependsOn": [],
+      "needsMaterials": [
+        "source-a",
+        "source-b"
+      ],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "extraction",
+      "requiresReview": true,
+      "agentId": "agent-a"
+    },
+    {
+      "id": "resolve",
+      "stageId": "review",
+      "kind": "human_action",
+      "title": "确认缺失信息或冲突的处理意见",
+      "instructions": "阅读并先审核 Agent 的抽取结果，然后记录关键冲突的真实处理意见。无法判断时写明仍需补充什么资料。该文字将作为后续 Agent 的授权输入。",
+      "dependsOn": [
+        "extract"
+      ],
+      "needsMaterials": []
+    },
+    {
+      "id": "final",
+      "stageId": "deliver",
+      "kind": "agent",
+      "title": "根据资料与人工核对生成成果",
+      "instructions": "结合前一步经过审核的抽取结果和用户在人工核对 Todo 中填写的处理意见，形成结构化 Markdown 成果。区分原始证据、人工意见和仍存疑点；引用文档来源，不把缺料视为已解决。",
+      "dependsOn": [
+        "extract",
+        "resolve"
+      ],
+      "needsMaterials": [
+        "source-a",
+        "source-b"
+      ],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "final-draft",
+      "requiresReview": true,
+      "agentId": "agent-b"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "extraction",
+      "title": "内部待核对信息表",
+      "audience": "internal",
+      "fileName": "extraction.md",
+      "format": "markdown",
+      "producingStepId": "extract",
+      "acceptance": [
+        "字段出处和冲突均已明确列出"
+      ],
+      "humanSignoff": true
+    },
+    {
+      "id": "final-draft",
+      "title": "最终待审信息整理稿",
+      "audience": "internal",
+      "fileName": "final-draft.md",
+      "format": "markdown",
+      "producingStepId": "final",
+      "acceptance": [
+        "根据人工核对反馈处理冲突",
+        "保留无法验证的信息边界"
+      ],
+      "humanSignoff": true
+    }
+  ],
+  "agents": [
+    {
+      "id": "agent-a",
+      "title": "Agent A · 资料提取",
+      "description": "负责原始文档信息提取与交叉对比；对应独立任务责任分组。"
+    },
+    {
+      "id": "agent-b",
+      "title": "Agent B · 成果整理",
+      "description": "负责结合已审核资料和人工意见形成最终候选成果。"
+    }
+  ]
+}

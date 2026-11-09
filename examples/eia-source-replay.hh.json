@@ -1,0 +1,363 @@
+{
+  "protocol": "hh.package/1",
+  "id": "eia-source-replay",
+  "version": "1.0.0",
+  "title": "环评素材来源与半成品复核（内部试验）",
+  "description": "使用项目已有企业历史来源、字段复核、质控扫描PDF、封存分析成果和Word半成品，核对出处、版本及结论边界；不自动形成对外签发报告。",
+  "stages": [
+    {
+      "id": "intake",
+      "title": "材料与候选成果",
+      "description": "用户提供独立来源，候选提取及冻结成果明确分级"
+    },
+    {
+      "id": "parallel",
+      "title": "并行来源复核",
+      "description": "两个Agent独立复核企业文字与质控扫描件"
+    },
+    {
+      "id": "human",
+      "title": "人类来源与专业意见",
+      "description": "人工决定重建PDF等价关系、实体/红线关系及专业审核边界"
+    },
+    {
+      "id": "handoff",
+      "title": "只读成果复用",
+      "description": "不重新临时处理扫描数据，依赖已审证据形成内部核查意见"
+    }
+  ],
+  "agents": [
+    {
+      "id": "enterprise-agent",
+      "title": "Agent A · 企业资料",
+      "description": "来源文字对照与未证实身份/位置梳理"
+    },
+    {
+      "id": "qc-agent",
+      "title": "Agent B · 质控图件",
+      "description": "扫描页视觉复核、来源版本与图件复用"
+    },
+    {
+      "id": "review-agent",
+      "title": "Agent C · 交付边界",
+      "description": "依据审核记录与封存成果整理内部复核结果"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "mastra.agent",
+      "kind": "agent",
+      "description": "可替换的Agent适配器；扫描PDF需要另行安装并验证文档/视觉Skill"
+    }
+  ],
+  "assets": [],
+  "materials": [
+    {
+      "id": "enterprise-original",
+      "title": "企业来源原文（解包后的文本）",
+      "producer": "human",
+      "formats": [
+        "text/plain"
+      ],
+      "description": "来源于原项目的企业陈述ZIP中的独立TXT；必须保留原成员SHA及来源限制，不能把旧报告文字当作独立签章证明。",
+      "method": {
+        "acquisition": "从环评资料库的企业陈述ZIP提取源文本，登记ZIP成员SHA、来源说明和版本。",
+        "extraction": "逐条定位关闭搬迁、工艺、药剂、废水陈述，不作额外污染结论。",
+        "verification": [
+          "逐项摘录原句和字段位置",
+          "区分来源自述、可独立核实的主体身份和红线空间关系"
+        ]
+      },
+      "acceptance": [
+        "具备可追溯源文本与ZIP归档关联",
+        "确认该资料是来源陈述而非独立行政证明"
+      ]
+    },
+    {
+      "id": "enterprise-extracted",
+      "title": "企业字段候选分析（JSON作为文本）",
+      "producer": "human",
+      "formats": [
+        "text/plain",
+        "application/json"
+      ],
+      "description": "原环评Agent半成品的字段复核记录；其AI代行审核不能冒充人类专业签发。",
+      "method": {
+        "acquisition": "读取已有字段审阅JSON，作为可复核候选结果，不是第二份原始证据。",
+        "extraction": "比较source_quote与源文，记录field_id、status与缺失的必有字段。",
+        "verification": [
+          "源文指纹与来源一致",
+          "不以not_in_source冒充事实已不存在",
+          "核对转录结论与本项目判断的界限"
+        ]
+      },
+      "acceptance": [
+        "标注派生结果与来源关系",
+        "保留模拟审核标记"
+      ]
+    },
+    {
+      "id": "qc-scan",
+      "title": "质控报告扫描PDF",
+      "producer": "human",
+      "formats": [
+        "application/pdf"
+      ],
+      "description": "原图重建的9页便利阅读PDF，没有可提取文字层；必须以视觉Skill复核并说明与冻结快照源版本的关系。",
+      "method": {
+        "acquisition": "从已有质控9页重建PDF导入，登记PDF SHA及对应原图SHA清单。",
+        "extraction": "由视觉工具逐页识别表格、样品编号、单位、控制限；不可将无文字层判定为字段不存在。",
+        "verification": [
+          "核对表2-1所处页和页号",
+          "检测量值、ND、单位和相对偏差不许模型猜测",
+          "重建PDF与冻结快照来源不一致时上报人类"
+        ]
+      },
+      "acceptance": [
+        "完整保存9页扫描图",
+        "PDF不是独立检测报告，保持来源限定"
+      ]
+    },
+    {
+      "id": "frozen-analysis",
+      "title": "封存分析成果快照（JSON作为文本）",
+      "producer": "human",
+      "formats": [
+        "text/plain",
+        "application/json"
+      ],
+      "description": "既有冻结事实、图件与source_manifest；内容是有级别的既有成果，不是原件。",
+      "method": {
+        "acquisition": "从环评素材提取库读取封存成果JSON并记录ledger_revision与来源指纹。",
+        "extraction": "解析facts、source_manifest、processed_assets和review_status。",
+        "verification": [
+          "每个事实必须有来源指纹与审阅等级",
+          "模拟审核不得当专业签发",
+          "引用已封存成果但不临时重算"
+        ]
+      },
+      "acceptance": [
+        "快照带事实ID、来源映射和审阅状态",
+        "未标记为对外报告签发结论"
+      ]
+    },
+    {
+      "id": "word-candidate",
+      "title": "处理后Word单节半成品",
+      "producer": "human",
+      "formats": [
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      ],
+      "description": "使用已封存成果脚本化生成的示例Word，非正式报告；验证段落与嵌入图件是否复用既有成果。",
+      "method": {
+        "acquisition": "从环评素材试跑目录引用现有Word半成品。",
+        "extraction": "逐项核对正式段落与冻结事实一致性、嵌入图件的SHA。",
+        "verification": [
+          "Word文字不得超出封存来源的结论级别",
+          "图件必须能关联到封存资产ID、来源页码",
+          "内部核查意见和对外稿要分离"
+        ]
+      },
+      "acceptance": [
+        "说明单节示范稿性质",
+        "保留图件来源与不确定性声明"
+      ]
+    },
+    {
+      "id": "enterprise-identity-proof",
+      "title": "企业主体及红线关系补证（选填）",
+      "producer": "human",
+      "formats": [
+        "text/plain"
+      ],
+      "description": "用户如能获取正式主体或位置关联材料，标注来源和时间；无法取得时说明缺口。",
+      "acceptance": [
+        "来源可信可核对",
+        "不得自行猜企业与红线关系"
+      ],
+      "onDemand": true
+    },
+    {
+      "id": "qc-source-proof",
+      "title": "重建PDF原图映射核查说明（选填）",
+      "producer": "human",
+      "formats": [
+        "text/plain"
+      ],
+      "description": "人类核对原图与重建PDF对应关系以及封存SHA指向的原件；未取得则保留未确认。",
+      "acceptance": [
+        "提供原图到重建PDF页码、SHA及来源说明",
+        "不凭文件名宣称相同"
+      ],
+      "onDemand": true
+    }
+  ],
+  "steps": [
+    {
+      "id": "enterprise-audit",
+      "stageId": "parallel",
+      "agentId": "enterprise-agent",
+      "kind": "agent",
+      "title": "企业源文与候选字段一致性复核",
+      "instructions": "独立对照两份授权的源文与候选字段，逐条核对引用和来源等级；不得认定企业与调查红线关系已证实。缺正式主体信息时提出模板授权问题。",
+      "dependsOn": [],
+      "needsMaterials": [
+        "enterprise-original",
+        "enterprise-extracted"
+      ],
+      "requestableMaterialIds": [
+        "enterprise-identity-proof"
+      ],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "enterprise-review",
+      "requiresReview": true,
+      "method": {
+        "procedure": [
+          "从源文逐条核对字段候选的引文",
+          "检查源文本和JSON中已有的来源指纹描述",
+          "将来源转录与专业结论严格区分，提出必要的Human Todo"
+        ],
+        "checks": [
+          {
+            "id": "enterprise-quote",
+            "criterion": "关键企业活动字段均能定位到授权来源原句"
+          },
+          {
+            "id": "enterprise-scope",
+            "criterion": "主体身份、空间关系和原始结论未被提升为已证实的项目判断"
+          }
+        ],
+        "onMissing": "request_human"
+      }
+    },
+    {
+      "id": "qc-audit",
+      "stageId": "parallel",
+      "agentId": "qc-agent",
+      "kind": "agent",
+      "title": "质控扫描件与封存图件来源复核",
+      "instructions": "阅读9页扫描PDF，核对第2页平行样表及其封存图件；若文件版本指纹不等价，不得伪称相同，提交Human核查问题。禁止直接宣布质控全部合格。",
+      "dependsOn": [],
+      "needsMaterials": [
+        "qc-scan",
+        "frozen-analysis",
+        "word-candidate"
+      ],
+      "requestableMaterialIds": [
+        "qc-source-proof"
+      ],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "qc-review",
+      "requiresReview": true,
+      "method": {
+        "procedure": [
+          "由文档/视觉Skill读取扫描PDF页面",
+          "对照封存快照原件、资产、Word中图件引用",
+          "对重建版PDF SHA偏差生成明确的人工核查需求"
+        ],
+        "checks": [
+          {
+            "id": "qc-page-visual",
+            "criterion": "第2页质控表已按原图视觉核对，并明确仍未复核哪些数值"
+          },
+          {
+            "id": "qc-lineage",
+            "criterion": "原PDF、封存快照和Word嵌入图件之间的字节或人工等价关系清楚说明"
+          }
+        ],
+        "onMissing": "request_human"
+      }
+    },
+    {
+      "id": "human-source-judgment",
+      "stageId": "human",
+      "kind": "human_action",
+      "title": "确认企业身份与质控来源等价关系",
+      "instructions": "分别确认企业完整主体身份和与红线空间关系，质控原图与重建PDF的对应关系，以及对模拟审核的专业复核程度。可以明确无法确认，不得凭旧报告或示例图件填补事实。",
+      "dependsOn": [
+        "enterprise-audit",
+        "qc-audit"
+      ],
+      "needsMaterials": []
+    },
+    {
+      "id": "internal-review",
+      "stageId": "handoff",
+      "agentId": "review-agent",
+      "kind": "agent",
+      "title": "生成来源边界与半成品复核意见（仅内部）",
+      "instructions": "只引用已审核的企业字段核查、质控图件核查以及人工来源决定，校验封存成果和Word候选的一致性。把未确认项目单列内部Human Todo，不要输出污染合规结论。",
+      "dependsOn": [
+        "enterprise-audit",
+        "qc-audit",
+        "human-source-judgment"
+      ],
+      "needsMaterials": [
+        "frozen-analysis",
+        "word-candidate"
+      ],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "internal-note",
+      "requiresReview": true,
+      "method": {
+        "procedure": [
+          "读取当前封存成果和Word半成品，核对事实/图件引用",
+          "结合人类对来源关系的正式决定整理通过/未通过条目",
+          "生成内部审查说明与待办清单，不出具正式环评结论"
+        ],
+        "checks": [
+          {
+            "id": "frozen-reuse",
+            "criterion": "Word中复用的文字与图件可追溯至封存快照或注明证据不足"
+          },
+          {
+            "id": "non-release",
+            "criterion": "未核对的来源和专业结论全部留在内部待办，不写作签发结论"
+          }
+        ],
+        "onMissing": "record_limitation"
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "id": "enterprise-review",
+      "title": "企业来源核验候选",
+      "audience": "internal",
+      "fileName": "enterprise-review.md",
+      "format": "markdown",
+      "producingStepId": "enterprise-audit",
+      "acceptance": [
+        "原文引述与来源状态明确",
+        "企业与红线关系不明时有待办"
+      ],
+      "humanSignoff": true
+    },
+    {
+      "id": "qc-review",
+      "title": "质控图件核验候选",
+      "audience": "internal",
+      "fileName": "qc-review.md",
+      "format": "markdown",
+      "producingStepId": "qc-audit",
+      "acceptance": [
+        "分开记录字节身份和视觉等价性",
+        "不宣布正式质控结论"
+      ],
+      "humanSignoff": true
+    },
+    {
+      "id": "internal-note",
+      "title": "来源链与Word半成品内部复核记录",
+      "audience": "internal",
+      "fileName": "internal-review.md",
+      "format": "markdown",
+      "producingStepId": "internal-review",
+      "acceptance": [
+        "只消费来源已确认且审核通过的成果",
+        "独立列出缺口和人工核查事项"
+      ],
+      "humanSignoff": true
+    }
+  ]
+}

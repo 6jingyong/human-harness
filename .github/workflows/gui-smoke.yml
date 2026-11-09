@@ -1,0 +1,28 @@
+name: gui-smoke
+on:
+  pull_request:
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:browser
+        env:
+          CI: 'true'
+          HH_EXECUTOR: demo
+          HH_DATA_DIR: ${{ runner.temp }}/human-harness-gui-smoke
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: human-harness-gui-evidence
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
