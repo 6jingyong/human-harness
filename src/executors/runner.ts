@@ -8,6 +8,7 @@ import { executorOutputSchema, type ExecutorTask, type TaskExecutor } from './co
 import { demoExecutor } from './demo';
 import { codexExecutor } from './codex';
 import { mastraExecutor } from './mastra';
+import { markdownAssemblyExecutor } from './markdown-assembly';
 
 /** Fail closed: HH_EXECUTOR=codex must not quietly run a fake demo task. */
 export function configuredExecutorMode(mode = process.env.HH_EXECUTOR): 'demo' | 'mastra' | 'codex' {
@@ -87,6 +88,7 @@ function prepareTask(projectId: string, stepId: string, runId: string): Executor
   const outputContract = project.package.outputs.find(o => o.id === step.outputContractId);
   const outputAcceptance = outputContract?.acceptance;
   return { packet, stepTitle: step.title, evidence, reviewFeedback,
+    executionCapabilityId: step.capabilityId,
     workMethod: step.method, materialMethods,
     outputFormat: outputContract?.format, outputFileName: outputContract?.fileName, outputAcceptance,
     requestableMaterials,
@@ -97,8 +99,17 @@ function prepareTask(projectId: string, stepId: string, runId: string): Executor
 /** Shared authoritative run lifecycle. Backends return proposals and cannot commit state. */
 export async function executeOneAgentTask(projectId: string, requestedStepId?: string,
   override?: TaskExecutor, signal?: AbortSignal) {
-  // Select before reserving: an unsupported or missing adapter must not strand a running task.
-  const executor = override ?? selectedExecutor();
+  // Resolve a pinned, allowlisted script before reserving. Scripts are not
+  // arbitrary template-supplied code and must not fall through to an LLM.
+  const projectBefore = getProject(projectId);
+  const planned = requestedStepId
+    ? projectBefore.package.steps.find(step => step.id === requestedStepId)
+    : projectBefore.package.steps.find(step => (step.kind === 'agent' || step.kind === 'script') &&
+      projectBefore.steps[step.id]?.state === 'ready');
+  const executor = override ?? (planned?.kind === 'script'
+    ? (planned.capabilityId === 'hh.render.markdown'
+      ? markdownAssemblyExecutor : (() => { throw new Error('Unsupported script capability'); })())
+    : selectedExecutor());
   const started = startAgent(projectId, requestedStepId);
   let abortHandler: (() => void) | undefined;
   try {
