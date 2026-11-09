@@ -78,10 +78,16 @@ export function importPackage(raw: unknown) {
 }
 
 export function inspectReadiness(pkg: HumanHarnessPackage): { errors: string[] } {
-  const allowed = new Set(['mastra.agent', 'hh.render.markdown']);
+  const allowedKinds = new Map([
+    ['mastra.agent', 'agent'],
+    ['hh.render.markdown', 'script']
+  ]);
   const errors: string[] = [];
   for (const cap of pkg.capabilities) {
-    if (!allowed.has(cap.id)) errors.push(cap.id + ': capability not installed');
+    const kind = allowedKinds.get(cap.id);
+    if (!kind || cap.kind !== kind) {
+      errors.push(cap.id + ': capability not installed or declared with incorrect kind');
+    }
   }
   if (pkg.assets.length) errors.push('Asset bundles are not installed by the current JSON-only runtime');
   for (const step of pkg.steps.filter(s => s.kind === 'script')) {
