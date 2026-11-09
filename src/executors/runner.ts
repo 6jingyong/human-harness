@@ -134,6 +134,19 @@ export async function executeOneAgentTask(projectId: string, requestedStepId?: s
       }
     }
     const evidenceRefs = task.packet.readableInputs.map(a => a.artifactId);
+    const output = project.package.outputs.find(o => o.id === stepDef?.outputContractId);
+    // A must return an actual structured result for its JSON output contract.
+    // Do not accept arbitrary prose disguised as an approved JSON deliverable.
+    if (!response.materialRequests.length && output?.format === 'json') {
+      try {
+        const parsed: unknown = JSON.parse(response.body);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          throw new Error('JSON result must be an object');
+        }
+      } catch {
+        throw new Error('Agent returned invalid JSON for the pinned JSON output contract');
+      }
+    }
     // A needs-input response pauses the WorkItem. It is not a completed candidate,
     // so the model need not manufacture completed check results.
     if (!response.materialRequests.length) {
