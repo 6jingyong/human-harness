@@ -5,7 +5,10 @@ import type { MethodCheckResult } from '../executors/contracts';
 
 export type WorkState = 'dormant' | 'blocked' | 'ready' | 'running' | 'waiting_input' | 'review' | 'done' | 'not_applicable' | 'failed';
 export type RequirementState = 'dormant' | 'expected' | 'requested' | 'received' | 'accepted' | 'rejected' | 'not_applicable';
-export type RuntimeStep = { state: WorkState; runId?: string; startedAt?: string };
+export type RuntimeStep = { state: WorkState; runId?: string; startedAt?: string;
+  /** HEAD: explicitly adopted revision, null when upstream invalidation clears adoption. */
+  approvedArtifactId?: string;
+};
 export type RuntimeMaterial = { state: RequirementState; artifactIds: string[]; acceptedArtifactId?: string };
 export type RuntimeArtifact = {
   id: string; kind: 'material' | 'agent_output'; name: string; content: string | null;
@@ -16,8 +19,10 @@ export type RuntimeArtifact = {
   invalidatedAt?: string;
   /** Approved Human replacement of an Agent candidate; its predecessor is retained. */
   humanCorrection?: { basedOnArtifactId: string; rationale: string; correctedAt: string };
+  /** Concrete artifacts consumed by this result's run, not merely template graph inputs. */
+  inputArtifactIds?: string[];
 };
-export type RuntimeRun = { id: string; stepId: string; status: 'running' | 'needs_input' | 'review' | 'failed'; startedAt: string; endedAt?: string; result?: HumanHarnessTaskResult; error?: string; codexThreadId?: string; codexTurnId?: string; lastExecutorEvent?: string };
+export type RuntimeRun = { id: string; stepId: string; status: 'running' | 'needs_input' | 'review' | 'failed'; startedAt: string; endedAt?: string; result?: HumanHarnessTaskResult; error?: string; codexThreadId?: string; codexTurnId?: string; lastExecutorEvent?: string; inputArtifactIds?: string[] };
 /** Runtime-only Human Todo spawned by a material question against a template-declared input.
  * The model may request clarification, but cannot add arbitrary requirements to the template.
  */
@@ -162,6 +167,76 @@ export function acceptedMaterialArtifact(p: ProjectState, materialId: string): R
   return p.artifacts.find(a => a.id === artifactId && a.kind === 'material' && a.ownerId === materialId);
 }
 
+/** Resolve the adopted HEAD, never the most recently generated rejected/review candidate.
+ * Older stored projects can still resolve their last valid approved artifact.
+ */
+export function currentApprovedOutput(project: ProjectState, stepId: string): RuntimeArtifact | undefined {
+  const state = project.steps[stepId];
+  if (state?.state !== 'done') return undefined;
+  const revisions = project.artifacts.filter(a =>
+    a.kind === 'agent_output' && a.ownerId === stepId && !a.invalidatedAt);
+  if (state.approvedArtifactId) return revisions.find(a => a.id === state.approvedArtifactId);
+  return revisions.at(-1);
+}
+
+/** Scope effect propagation to actual descendants and work activated by their conditions. */
+export function affectedStepsForOutput(project: ProjectState, sourceStepId: string): Set<string> {
+  const affected = new Set<string>();
+  const upstream = new Set([sourceStepId]);
+  for (let pass = 0; pass < project.package.steps.length; pass++) {
+    let changed = false;
+    for (const step of project.package.steps) {
+      if (upstream.has(step.id)) continue;
+      const viaStep = step.dependsOn.some(id => upstream.has(id)) ||
+        conditionMentionsStep(step.when, upstream);
+      const viaMaterialCondition = step.needsMaterials.some(id => {
+        const material = project.package.materials.find(m => m.id === id);
+        return Boolean(material && (conditionMentionsStep(material.requiredWhen, upstream) ||
+          conditionMentionsStep(material.requestWhen, upstream)));
+      });
+      if (viaStep || viaMaterialCondition) {
+        affected.add(step.id);
+        upstream.add(step.id);
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+  return affected;
+}
+
+export function invalidateOutputDependents(project: ProjectState, sourceStepId: string): string[] {
+  const affected = affectedStepsForOutput(project, sourceStepId);
+  for (const id of affected) {
+    if (['running', 'waiting_input'].includes(project.steps[id]?.state)) {
+      throw new Error('Dependent Agent work is active; finish or cancel it before accepting a revision');
+    }
+  }
+  const invalidated: string[] = [];
+  for (const id of affected) {
+    const state = project.steps[id];
+    if (!state) continue;
+    if (['done', 'review', 'failed'].includes(state.state)) {
+      state.state = 'blocked';
+      delete state.runId; delete state.startedAt;
+      delete state.approvedArtifactId;
+      delete project.decisions[id];
+      for (const req of project.humanRequests ?? []) {
+        if (req.stepId === id) req.invalidatedAt ??= now();
+      }
+      for (const artifact of project.artifacts) {
+        if (artifact.kind === 'agent_output' && artifact.ownerId === id) {
+          artifact.invalidatedAt ??= now();
+        }
+      }
+      recordEvent(project, 'work.invalidated', id, 'Adopted upstream output revised: ' + sourceStepId);
+      invalidated.push(id);
+    }
+  }
+  reconcile(project);
+  return invalidated;
+}
+
 const conditionMentionsStep = (condition: Condition | undefined, stepIds: Set<string>): boolean => {
   if (!condition) return false;
   if (condition.type === 'decision' || condition.type === 'work_done') return stepIds.has(condition.stepId);
@@ -211,6 +286,7 @@ export function invalidateMaterialDependents(p: ProjectState, materialId: string
     if (state.state === 'done' || state.state === 'review' || state.state === 'failed') {
       state.state = 'blocked';
       delete state.runId; delete state.startedAt;
+      delete state.approvedArtifactId;
       delete p.decisions[stepId];
       for (const request of p.humanRequests ?? []) {
         if (request.stepId === stepId) request.invalidatedAt ??= now();
@@ -288,7 +364,10 @@ export function reserveAgent(project: ProjectState, stepId: string): string {
   if (!def || !state || state.state !== 'ready' || !isAgentStep(def.kind)) throw new Error('Agent work item is not ready');
   const runId = freshId();
   state.state = 'running'; state.runId = runId; state.startedAt = now();
-  project.runs.push({ id: runId, stepId, status: 'running', startedAt: now() });
+  const run: RuntimeRun = { id: runId, stepId, status: 'running', startedAt: now() };
+  project.runs.push(run);
+  // Snapshot the exact readable input refs at reservation time.
+  run.inputArtifactIds = createTaskPacket(project, stepId, runId).readableInputs.map(x => x.artifactId);
   recordEvent(project, 'run.started', stepId, runId);
   return runId;
 }
@@ -303,6 +382,11 @@ export function finishAgent(project: ProjectState, stepId: string, runId: string
   if (result.outcome !== 'submitted_for_review' || !result.producedArtifacts.some(a => a.artifactRef === artifact.id)) {
     throw new Error('The current adapter must submit a verifiable candidate artifact');
   }
+  const inputIds = createTaskPacket(project, stepId, runId).readableInputs.map(x => x.artifactId);
+  if (run.inputArtifactIds && JSON.stringify(inputIds) !== JSON.stringify(run.inputArtifactIds)) {
+    throw new Error('Run input revisions changed; stale output cannot be submitted');
+  }
+  artifact.inputArtifactIds = [...(run.inputArtifactIds ?? inputIds)];
   project.artifacts.push(artifact);
   run.status = 'review'; run.endedAt = now(); run.result = result;
   state.state = 'review';
@@ -423,6 +507,12 @@ export function reviewAgent(project: ProjectState, stepId: string, approved: boo
     throw new Error('Unresolved method checks require explicit Human approval rationale');
   }
   state.state = approved ? 'done' : 'ready';
+  if (approved) {
+    if (!current || current.invalidatedAt) throw new Error('No valid candidate to adopt');
+    state.approvedArtifactId = current.id;
+  } else {
+    delete state.approvedArtifactId;
+  }
   recordEvent(project, approved ? 'work.approved' : 'work.rejected', stepId, feedback.slice(0, 1000));
   reconcile(project);
 }
@@ -475,6 +565,63 @@ export function amendAndApproveAgent(project: ProjectState, stepId: string, rawC
   reviewAgent(project, stepId, true, note);
 }
 
+/** Revise an ALREADY approved result. Human authority is recorded, never silent overwrite.
+ * Caller must present HEAD observed by the user (compare-and-swap).
+ */
+export function reviseApprovedOutput(project: ProjectState, stepId: string, expectedHead: string,
+  rawContent: string, rationale: string): string[] {
+  const head = currentApprovedOutput(project, stepId);
+  if (!head || project.steps[stepId]?.state !== 'done') {
+    throw new Error('Only an already approved result can be revised');
+  }
+  if (!expectedHead || head.id !== expectedHead) {
+    throw new Error('Approved output HEAD changed; refresh and review the latest version');
+  }
+  const note = rationale.trim();
+  if (!note || note.length > 1000) throw new Error('Human revision requires a 1–1000 character rationale');
+  const content = rawContent.trim();
+  if (!content || content.length > 120000) throw new Error('Human revision must contain 1–120000 characters');
+  if (content === head.content?.trim()) throw new Error('Revision does not change the approved content');
+  const definition = project.package.steps.find(step => step.id === stepId);
+  const contract = project.package.outputs.find(out => out.id === definition?.outputContractId);
+  if (!contract || !['markdown', 'json'].includes(contract.format)) {
+    throw new Error('Human text revision supports only JSON or Markdown outputs');
+  }
+  if (contract.format === 'json') {
+    try { JSON.parse(content); } catch { throw new Error('Revised output must be valid JSON'); }
+  }
+  // A running dependent cannot be silently reinterpreted against a new upstream.
+  const affected = affectedStepsForOutput(project, stepId);
+  for (const id of affected) {
+    if (['running', 'waiting_input'].includes(project.steps[id]?.state)) {
+      throw new Error('Dependent Agent work is active; finish or cancel it before accepting a revision');
+    }
+  }
+  const revisedAt = now();
+  const methodChecks: MethodCheckResult[] | undefined = definition?.method?.checks.map(check => ({
+    checkId: check.id, status: 'unverified',
+    explanation: 'Human revised an already approved result; prior Agent checks are not inherited.',
+    evidenceRefs: []
+  }));
+  const revised: RuntimeArtifact = {
+    id: freshId(), kind: 'agent_output', name: head.name, content, ownerId: stepId,
+    revision: project.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === stepId).length + 1,
+    createdAt: revisedAt, humanCorrection: {
+      basedOnArtifactId: head.id, rationale: note, correctedAt: revisedAt
+    },
+    ...(head.inputArtifactIds ? { inputArtifactIds: [...head.inputArtifactIds] } : {}),
+    ...(methodChecks ? { methodChecks } : {})
+  };
+  project.artifacts.push(revised);
+  project.steps[stepId].approvedArtifactId = revised.id;
+  const invalidated = invalidateOutputDependents(project, stepId);
+  recordEvent(project, 'work.human_revised_after_approval', stepId, JSON.stringify({
+    actor: 'human', fromArtifactId: head.id, toArtifactId: revised.id,
+    rationale: note, invalidatedSteps: invalidated
+  }));
+  return invalidated;
+}
+
 export function failAgent(project: ProjectState, stepId: string, runId: string, error: string): void {
   const state = project.steps[stepId]; const run = project.runs.find(r => r.id === runId);
   if (state?.state !== 'running' || state.runId !== runId || !run) return;
@@ -518,8 +665,10 @@ export function createTaskPacket(project: ProjectState, stepId: string, runId: s
     project.materials[id]?.state === 'accepted'
       ? [acceptedMaterialArtifact(project, id)].filter((a): a is RuntimeArtifact => Boolean(a))
       : []);
-  const upstreamOutputs = def.dependsOn.flatMap(id => project.steps[id]?.state === 'done'
-    ? project.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === id).slice(-1) : []);
+  const upstreamOutputs = def.dependsOn.flatMap(id => {
+    const approved = currentApprovedOutput(project, id);
+    return approved ? [approved] : [];
+  });
   const inputs = [...materials, ...upstreamOutputs];
   return {
     protocol: 'hh.task/1', runId, projectId: project.id, workItemId: stepId,
