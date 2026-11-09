@@ -377,6 +377,13 @@ test('EIA A→B→C template keeps stage roles separate and produces a downloade
   await page.getByRole('button', { name: '查看项目资料' }).click();
   const finalResult = page.locator('.project-deliverable').filter({ hasText: '最终内部报告' }).first();
   await finalResult.locator('summary').click();
-  await expect(finalResult.getByRole('link', { name: '下载已审核成果' })).toBeVisible();
+  const downloadLink = finalResult.getByRole('link', { name: '下载已审核成果' });
+  await expect(downloadLink).toBeVisible();
+  const url = await downloadLink.getAttribute('href');
+  expect(url).toBeTruthy();
+  const fetched = await page.request.get(url!);
+  expect(fetched.ok()).toBeTruthy();
+  expect(fetched.headers()['content-disposition']).toContain('eia-internal-final.md');
+  expect(await fetched.text()).toContain('演示结果');
   await page.screenshot({ path: 'test-results/human-harness-abc-c-output.png', fullPage: true });
 });
