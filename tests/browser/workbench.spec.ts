@@ -237,3 +237,61 @@ test('template-defined method checks reach the Human reviewer without implying a
   await expect(source).toContainText('提取：');
   await page.screenshot({ path: 'test-results/human-harness-template-methods.png', fullPage: true });
 });
+
+
+test('EIA pilot template appears in dual Todos and never grants Demo professional approval', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await expect(page.locator('#package-select')).toContainText('环评素材来源与半成品复核');
+  await page.locator('#package-select').selectOption('eia-source-replay');
+  await page.getByLabel('本次项目名称').fill('环评真实素材回放流程（模拟录入）' + Date.now());
+  await page.getByRole('button', { name: /创建项目/ }).click();
+
+  const human = page.getByRole('region', { name: '人类 TodoList' });
+  const agent = page.getByRole('region', { name: 'Agent TodoList' });
+  await expect(agent.locator('.agent-folder')).toHaveCount(3);
+  await expect(agent.locator('.agent-folder').nth(0)).toContainText('企业资料');
+  await expect(agent.locator('.agent-folder').nth(1)).toContainText('质控图件');
+  await expect(agent.locator('.agent-folder').nth(2)).toContainText('交付边界');
+
+  // Fixed *synthetic* user inputs: real source bytes are intentionally absent from CI and GitHub.
+  const plain = [
+    ['enterprise-original', /企业来源原文/, 'SOURCE: synthetic enterprise statement'],
+    ['enterprise-extracted', /企业字段候选分析/, '{"schema":"synthetic-review"}'],
+    ['frozen-analysis', /封存分析成果快照/, '{"source_manifest":[]}']
+  ] as const;
+  for (const [id, title, contents] of plain) {
+    await human.getByRole('button', { name: title }).click();
+    await page.locator('#material-text-' + id).fill(contents);
+    await page.getByRole('button', { name: '提交资料，等待人工核验' }).click();
+    await page.getByRole('button', { name: '确认接受材料' }).click();
+  }
+  const binary = [
+    ['qc-scan', /质控报告扫描PDF/, 'synthetic.pdf', 'application/pdf'],
+    ['word-candidate', /处理后Word单节半成品/, 'synthetic.docx',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+  ] as const;
+  for (const [id, title, filename, mimeType] of binary) {
+    await human.getByRole('button', { name: title }).click();
+    await page.locator('#material-file-' + id).setInputFiles({
+      name: filename, mimeType, buffer: Buffer.from('TEST FIXTURE ONLY - no real parsing')
+    });
+    await page.getByRole('button', { name: '提交资料，等待人工核验' }).click();
+    await page.getByRole('button', { name: '确认接受材料' }).click();
+  }
+
+  await human.getByRole('button', { name: /企业源文与候选字段一致性复核/ }).click();
+  await expect(page.getByText('模板检查项（Agent 自检，须人工复核）')).toBeVisible();
+  await expect(page.getByText('Demo 未运行模型、专业 Skill 或实际验证方法', {
+    exact: false
+  }).first()).toBeVisible();
+  const approve = page.getByRole('button', { name: '批准并交接下游' });
+  await expect(approve).toBeDisabled();
+  await page.screenshot({ path: 'test-results/human-harness-eia-pilot.png', fullPage: true });
+
+  await page.getByRole('button', { name: '查看项目资料' }).click();
+  const library = page.locator('.library-material').filter({ hasText: '质控报告扫描PDF' }).first();
+  await library.getByText('查看模板的资料获取、信息提取与核验方法').click();
+  await expect(library).toContainText('视觉');
+  await page.screenshot({ path: 'test-results/human-harness-eia-material-methods.png', fullPage: true });
+});
