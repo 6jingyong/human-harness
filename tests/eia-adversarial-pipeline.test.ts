@@ -202,21 +202,25 @@ test('A and B can each produce plausible-looking but false self-checks; Human re
     a.ownerId === 'b-enterprise-analysis').length, 2);
 });
 
-test('a deliberately false but correctly formatted A result CAN spread after a mistaken Human approval (known gap)', async () => {
-  const id = project('Adversarial blind approval gap');
+test('EXPECTED: approved irrelevant A result contaminates B, bogus B conclusion contaminates C and is downloadable after signoff', async () => {
+  const id = project('Intentional contamination validates stage isolation');
   await executeOneAgentTask(id, 'a-enterprise-results', wrongA);
-  // These are intentionally bad operator choices. There is no deterministic
-  // fact checker in the platform today; this test documents that limitation.
+  // The Human choice is intentionally to ACCEPT an unrelated artifact for this
+  // stage-isolation exercise. There is no cross-stage source revalidation.
   store.reviewAgentOutput(id, 'a-enterprise-results', true,
-    'BLIND APPROVAL TEST: intentionally approve irrelevant valid JSON');
+    'INTENTIONAL HANDOFF: accept irrelevant valid JSON without semantic revalidation');
   const p = store.getProject(id);
   assert.equal(p.steps['b-enterprise-analysis'].state, 'ready');
   await executeOneAgentTask(id, 'b-enterprise-analysis', {
     id: 'observes-upstream-poison',
     async execute(task) {
       assert.equal(task.evidence.length, 1);
+      assert.deepEqual(task.evidence.map(e => e.role), ['approved_derived']);
+      assert.equal(task.evidence[0].name, 'enterprise-results.json');
       assert.match(task.evidence[0].content ?? '', /UNRELATED_A_PAYLOAD/,
-        'incorrectly approved A becomes actual input for B');
+        'approved unrelated A result is the sole input for B');
+      assert.equal(task.evidence.some(e => /enterprise\.json|qc\.pdf|partial\.docx/.test(e.name)), false,
+        'B must not reread source files even to disprove a bad A result');
       return { body: '胡扯分析：从土豆配方推导地块的污染全部消失。',
         limitations: [], materialRequests: [], methodChecks: claimedPass(task) };
     }
@@ -225,9 +229,9 @@ test('a deliberately false but correctly formatted A result CAN spread after a m
   assert.equal(store.getProject(id).steps['c-final-output'].state, 'blocked',
     'at least B still needs Human approval');
 
-  // Demonstrate the full failure chain if Human mistakenly approves B too.
+  // Continue the intentionally contaminated but correctly delegated pipeline.
   store.reviewAgentOutput(id, 'b-enterprise-analysis', true,
-    'BLIND APPROVAL TEST: intentionally approve a nonsensical B conclusion');
+    'INTENTIONAL HANDOFF: accept nonsensical B conclusion as next stage input');
   await executeOneAgentTask(id, 'a-qc-results', {
     id: 'qc-source-fixture',
     async execute(task) {
@@ -245,17 +249,22 @@ test('a deliberately false but correctly formatted A result CAN spread after a m
   });
   store.reviewAgentOutput(id, 'b-qc-analysis', true, 'QC limitation kept');
   store.completeHuman(id, 'human-conclusion-review',
-    'BLIND APPROVAL TEST: mistakenly accept both B conclusions despite unsupported enterprise analysis.');
+    'INTENTIONAL HANDOFF: continue with B conclusions without rereading A or source files.');
   assert.equal(store.getProject(id).steps['c-final-output'].state, 'ready');
 
   await executeOneAgentTask(id, 'c-final-output', {
     id: 'c-sees-poison-fixture',
     async execute(task) {
       assert.equal(task.evidence.length, 2);
+      assert.ok(task.evidence.every(e => e.role === 'approved_derived'));
+      assert.deepEqual(task.evidence.map(e => e.name).sort(),
+        ['enterprise-conclusion.md', 'qc-conclusion.md']);
       assert.ok(task.evidence.some(e => (e.content ?? '').includes('土豆配方')),
-        'C actually receives the incorrectly approved B conclusion');
+        'C actually receives B\'s nonsensical approved conclusion');
+      assert.ok(task.evidence.every(e => !/\.json$|\.pdf$|\.docx$/.test(e.name)),
+        'C must never reread A results or original source files');
       return {
-        body: '# 恶意演练结果（禁止交付）\n污染被土豆配方消除。POISONED_C_CANDIDATE',
+        body: '# 恶化流水线验收样稿\n污染被土豆配方消除。POISONED_C_CANDIDATE',
         limitations: [], materialRequests: [], methodChecks: claimedPass(task)
       };
     }
@@ -267,6 +276,16 @@ test('a deliberately false but correctly formatted A result CAN spread after a m
   assert.equal((await exportOutput(new Request('http://localhost/adversarial'),
     { params: Promise.resolve({ id, artifactId: candidate.id }) })).status, 409,
     'even corrupted C output still requires final Human approval');
-  // If C were mistakenly approved too, the existing export gate would allow it.
-  // Keep this intentionally malicious scenario unapproved.
+  // Approval is a Human workflow decision, NOT a semantic truth certification.
+  // The intended test is successful handoff of incorrect content across stages.
+  store.reviewAgentOutput(id, 'c-final-output', true,
+    'INTENTIONAL PIPELINE TEST: authorize publishing the knowingly incorrect fixture');
+  const final = await exportOutput(new Request('http://localhost/adversarial'),
+    { params: Promise.resolve({ id, artifactId: candidate.id }) });
+  assert.equal(final.status, 200, 'C file is downloadable after explicit final signoff');
+  assert.match(final.headers.get('Content-Disposition') ?? '', /eia-internal-final\.md/);
+  const contents = await final.text();
+  assert.match(contents, /POISONED_C_CANDIDATE/);
+  assert.match(contents, /污染被土豆配方消除/);
+  assert.equal(store.getProject(id).steps['c-final-output'].state, 'done');
 });
