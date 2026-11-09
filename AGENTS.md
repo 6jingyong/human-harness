@@ -76,6 +76,7 @@ Read only the material relevant to the current task. Keep changes focused; avoid
 - See `docs/codex-native-plugins.md` for verified inventory APIs, plugin readiness checks and current limitations.
 - Preserve template-owned field/validation requirements; reuse plugin-provided methods, and turn unresolved problems into a Human WorkItem.
 - Existing `experiments/document-methods/` is a historical contract test, **not the primary parser roadmap**.
+- For stage A/B/C live model experiments, use `npm run codex:abc:live -- --scenario=real|poison-a|poison-ab` on an authenticated Codex machine. Only the named `codex-live` stages invoke models; synthetic QC/fault injection stages are explicitly marked. Report the observed semantics separately from hard evidence-scope checks. See `docs/eia-codex-live-stage-eval.md`. Text-only observed tool calls fail closed, but do NOT claim absolute filesystem-read isolation on all Codex versions.
 - Codex plugin discovery and installation are not integrated. Live Codex model execution requires an explicit `npm run codex:smoke` on a configured local host; CI uses a synthetic app-server fixture.
 
 ## Development direction
