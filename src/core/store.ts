@@ -78,13 +78,24 @@ export function importPackage(raw: unknown) {
 }
 
 export function inspectReadiness(pkg: HumanHarnessPackage): { errors: string[] } {
-  const allowed = new Set(['mastra.agent']);
+  const allowed = new Set(['mastra.agent', 'hh.render.markdown']);
   const errors: string[] = [];
   for (const cap of pkg.capabilities) {
     if (!allowed.has(cap.id)) errors.push(cap.id + ': capability not installed');
   }
   if (pkg.assets.length) errors.push('Asset bundles are not installed by the current JSON-only runtime');
-  if (pkg.steps.some(s => s.kind === 'script')) errors.push('Script steps are not wired to Protocol 1.0 yet');
+  for (const step of pkg.steps.filter(s => s.kind === 'script')) {
+    if (step.capabilityId !== 'hh.render.markdown') {
+      errors.push(step.id + ': unsupported deterministic script capability');
+    }
+    const output = pkg.outputs.find(o => o.id === step.outputContractId);
+    if (!output || output.format !== 'markdown' || output.audience !== 'internal') {
+      errors.push(step.id + ': Markdown assembly only supports an internal Markdown output contract');
+    }
+    if (step.needsMaterials.length) {
+      errors.push(step.id + ': deterministic Markdown assembly only accepts approved upstream outputs');
+    }
+  }
   if (pkg.outputs.some(o => !['markdown', 'json'].includes(o.format))) errors.push('DOCX/PDF renderer not installed');
   return { errors };
 }
