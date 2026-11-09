@@ -6,6 +6,7 @@ import builtin from '../../examples/land-investigation.hh.json';
 import documentHandoff from '../../examples/document-handoff.hh.json';
 import technicalSpecReview from '../../examples/technical-spec-review.hh.json';
 import eiaSourceReplay from '../../examples/eia-source-replay.hh.json';
+import eiaAbcPipeline from '../../examples/eia-abc-pipeline.hh.json';
 import { packageSchema, taskPacketSchema, taskResultSchema, type HumanHarnessPackage, type HumanHarnessTaskResult } from '../protocol/v1';
 import type { SemanticNote } from '../protocol/semantics';
 import type { MethodCheckResult } from '../executors/contracts';
@@ -31,7 +32,7 @@ db.exec([
 ].join(';') + ';');
 
 const builtinPackage = packageSchema.parse(builtin);
-const builtinPackages = [builtinPackage, packageSchema.parse(documentHandoff), packageSchema.parse(technicalSpecReview), packageSchema.parse(eiaSourceReplay)];
+const builtinPackages = [builtinPackage, packageSchema.parse(documentHandoff), packageSchema.parse(technicalSpecReview), packageSchema.parse(eiaSourceReplay), packageSchema.parse(eiaAbcPipeline)];
 const digest = (value: unknown) => 'sha256:' + createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const asError = (e: unknown) => e instanceof Error ? e : new Error(String(e));
 
