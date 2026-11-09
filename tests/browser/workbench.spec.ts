@@ -253,16 +253,24 @@ test('EIA pilot template appears in dual Todos and never grants Demo professiona
   await expect(agent.locator('.agent-folder').nth(0)).toContainText('企业资料');
   await expect(agent.locator('.agent-folder').nth(1)).toContainText('质控图件');
   await expect(agent.locator('.agent-folder').nth(2)).toContainText('交付边界');
+  await expect(human.getByRole('button')).toHaveCount(5);
+  await expect(human.getByRole('button', { name: /补证/ })).toHaveCount(0);
 
-  // Fixed *synthetic* user inputs: real source bytes are intentionally absent from CI and GitHub.
+  // CI uploads real text/JSON *file bytes*, not pasted strings; contents are synthetic,
+  // never private EIA source files. Exercise the same upload workflow used by the operator.
   const plain = [
-    ['enterprise-original', /企业来源原文/, 'SOURCE: synthetic enterprise statement'],
-    ['enterprise-extracted', /企业字段候选分析/, '{"schema":"synthetic-review"}'],
-    ['frozen-analysis', /封存分析成果快照/, '{"source_manifest":[]}']
+    ['enterprise-original', /企业来源原文/, 'original.txt', 'text/plain',
+      'SOURCE: synthetic enterprise statement'],
+    ['enterprise-extracted', /企业字段候选分析/, 'candidate.json', 'application/json',
+      '{"schema":"synthetic-review","last_field":"REACHED_JSON_END"}'],
+    ['frozen-analysis', /封存分析成果快照/, 'frozen.json', 'application/json',
+      '{"source_manifest":[],"kind":"internal-synthetic"}']
   ] as const;
-  for (const [id, title, contents] of plain) {
+  for (const [id, title, filename, mimeType, contents] of plain) {
     await human.getByRole('button', { name: title }).click();
-    await page.locator('#material-text-' + id).fill(contents);
+    await page.locator('#material-file-' + id).setInputFiles({
+      name: filename, mimeType, buffer: Buffer.from(contents)
+    });
     await page.getByRole('button', { name: '提交资料，等待人工核验' }).click();
     await page.getByRole('button', { name: '确认接受材料' }).click();
   }
