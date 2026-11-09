@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import {
-  answerRequestedInput, getProject, completeHuman, recoverAbandonedAgent, retryFailedAgent, reviewAgentOutput, reviewReceivedMaterial,
+  approveHumanCorrectedOutput, answerRequestedInput, getProject, completeHuman, recoverAbandonedAgent, retryFailedAgent, reviewAgentOutput, reviewReceivedMaterial,
   RuntimeError, submitMaterial, setExecutionPolicy
 } from '@/core/store';
 import { ensureLocalScheduler } from '@/executors/scheduler';
@@ -49,6 +49,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         { replaceAccepted: true });
     } else if (action === 'accept_material' || action === 'reject_material') {
       project = reviewReceivedMaterial(id, materialId, action === 'accept_material', feedback);
+    } else if (action === 'amend_agent') {
+      project = approveHumanCorrectedOutput(id, stepId, value, feedback);
     } else if (action === 'approve_agent' || action === 'reject_agent') {
       project = reviewAgentOutput(id, stepId, action === 'approve_agent', feedback);
     } else if (action === 'retry_agent') {
