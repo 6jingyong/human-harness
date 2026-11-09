@@ -88,9 +88,21 @@ test('Agent candidate review and completed download are handled in the same deta
   assert.match(html, /候选字段及来源/);
   assert.match(html, /批准并交接下游/);
   assert.match(html, /退回 Agent 重做/);
+  assert.match(html, /人工直接修订候选结果/);
+  assert.match(html, /将候选稿复制到编辑区/);
+  assert.match(html, /保存人工修订版、批准并交接下游/);
   assert.doesNotMatch(html, /下载已审核成果/);
 
   p.steps.extract.state = 'done';
+  p.artifacts.push({
+    id: 'candidate-human-2', kind: 'agent_output', name: 'extraction.md',
+    content: '人工订正后的结果', ownerId: 'extract', revision: 2,
+    createdAt: '2026-11-09T00:00:00Z',
+    humanCorrection: {
+      basedOnArtifactId: 'candidate-1', rationale: 'Corrected source value',
+      correctedAt: '2026-11-09T00:00:00Z'
+    }
+  });
   const done = markup(p, 'step:extract');
   assert.doesNotMatch(done, /下载已审核成果/);
   assert.doesNotMatch(done, /批准并交接下游/);
@@ -101,6 +113,7 @@ test('Agent candidate review and completed download are handled in the same deta
   }));
   assert.match(library, /套用项目模板后的资料说明/);
   assert.match(library, /候选字段及来源/);
+  assert.match(library, /人工订正后的结果/);
   assert.match(library, /下载已审核成果/);
 });
 

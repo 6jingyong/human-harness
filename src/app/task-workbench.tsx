@@ -312,6 +312,10 @@ export function TaskWorkbench({
                 {outputRevisions.map((artifact, index) =>
                   <details key={artifact.id} className="output" open={index === 0}>
                     <summary>v{artifact.revision} · {artifact.name}{index === 0 ? '（最新）' : ''}</summary>
+                    {artifact.humanCorrection && <p className="dispatch-hint">
+                      人工修订稿 · 基于 {artifact.humanCorrection.basedOnArtifactId.slice(0, 8)} ·
+                      修订说明：{artifact.humanCorrection.rationale}
+                    </p>}
                     {currentStepState.state === 'done' && index === 0 &&
                       <a className="file-download" href={'/api/v1/projects/' +
                         encodeURIComponent(project.id) + '/outputs/' + encodeURIComponent(artifact.id)}>
@@ -346,6 +350,24 @@ export function TaskWorkbench({
                   <button type="button" disabled={disabled || !note.trim()}
                     onClick={() => onAction('reject_agent', { stepId: key })}>退回 Agent 重做</button>
                 </div>
+                <details className="template-work-method">
+                  <summary>人工直接修订候选结果（不重新调用模型）</summary>
+                  <p>保留原始 Agent 候选；修订内容作为新的人工版本保存。上游自检结论不会自动继承，必须说明人工判断依据。</p>
+                  <button type="button" disabled={disabled || !outputRevisions[0]?.content}
+                    onClick={() => onValue(key, outputRevisions[0]?.content ?? '')}>
+                    将候选稿复制到编辑区
+                  </button>
+                  <label htmlFor={'human-amend-' + key}>完整修订稿（Markdown 或 JSON，必须符合模板输出格式）</label>
+                  <textarea id={'human-amend-' + key} rows={10} value={pending}
+                    onChange={event => onValue(key, event.target.value)}
+                    placeholder="先复制候选稿，再直接修改需要调整的内容" />
+                  <button type="button" className="primary"
+                    disabled={disabled || !pending.trim() || !note.trim() ||
+                      pending.trim() === outputRevisions[0]?.content?.trim()}
+                    onClick={() => onAction('amend_agent', { stepId: key })}>
+                    保存人工修订版、批准并交接下游
+                  </button>
+                </details>
               </section>}
             </>}
             {currentStepState.state === 'done' && <section className="inspector-section">
