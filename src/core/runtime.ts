@@ -10,6 +10,7 @@ export type RuntimeMaterial = { state: RequirementState; artifactIds: string[]; 
 export type RuntimeArtifact = {
   id: string; kind: 'material' | 'agent_output'; name: string; content: string | null;
   ownerId: string; revision: number; filePath?: string; createdAt: string;
+  submissionNote?: string;
   semanticNotes?: SemanticNote[];
   methodChecks?: MethodCheckResult[];
   invalidatedAt?: string;
