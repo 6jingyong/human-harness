@@ -227,3 +227,10 @@ test('Codex adapter can return explicit unverified method checks without pretend
   assert.equal(result.methodChecks?.[0]?.checkId, 'source-trace');
   assert.equal(result.methodChecks?.[0]?.status, 'unverified');
 });
+
+
+test('text-only Codex run rejects observed tool execution even when JSON candidate looks valid', async () => {
+  await assert.rejects(() => runCodexTask(task, {
+    startProcess: start('text-tool-attempt'), timeoutMs: 3000
+  }), /Text-only task attempted unauthorized tool use: commandExecution/);
+});
