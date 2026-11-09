@@ -19,6 +19,8 @@ export type AuthorizedEvidence = Readonly<{
 export type ExecutorTask = Readonly<{
   packet: HumanHarnessTaskPacket;
   stepTitle: string;
+  /** Trusted capability binding resolved from the pinned step definition. */
+  executionCapabilityId?: string;
   /** Immutable, pinned template method for this exact step only. */
   workMethod?: HumanHarnessPackage['steps'][number]['method'];
   /** Methods for this step's authorized or requestable material IDs only. */
