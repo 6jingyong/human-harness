@@ -10,6 +10,8 @@ export type AuthorizedEvidence = Readonly<{
   name: string;
   /** Null means the original file is stored but its contents have not been parsed. */
   content: string | null;
+  /** User-provided context about a source, never confused with original contents. */
+  submissionNote?: string;
   /** A copy of an accepted original, never the private storage path. Codex stages these bytes per run. */
   originalFile?: Readonly<{ bytes: Uint8Array; sha256: string }>;
 }>;
@@ -79,7 +81,9 @@ export function renderTextContext(task: ExecutorTask): string {
     const body = evidence.content === null
       ? '[Binary document stored but not parsed. Its contents are unavailable.]'
       : evidence.content;
-    const text = ('Artifact ' + evidence.artifactId + ' / ' + evidence.name + ' / ' + evidence.role + ':\n' + body)
+    const sourceNote = evidence.submissionNote
+      ? '\n[Human source note, not original content]: ' + evidence.submissionNote.slice(0, 1000) : '';
+    const text = ('Artifact ' + evidence.artifactId + ' / ' + evidence.name + ' / ' + evidence.role + ':\n' + body + sourceNote)
       .slice(0, Math.min(remaining, 4500));
     chunks.push(text);
     remaining -= text.length;
