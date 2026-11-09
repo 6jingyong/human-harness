@@ -77,9 +77,17 @@ export function reconcile(project: ProjectState): ProjectState {
     for (const def of project.package.materials) {
       const state = project.materials[def.id];
       if (!state || ['received', 'accepted', 'rejected'].includes(state.state)) continue;
+      // An on-demand material does not burden Human Todo before an Agent asks.
+      // Once every clarification has been answered without an uploaded source,
+      // the optional requirement falls back to "expected" (not actionable).
+      const activeQuestion = def.onDemand && (project.humanRequests ?? []).some(question =>
+        question.materialId === def.id && !question.invalidatedAt &&
+        question.status !== 'answered');
       const required = evaluateCondition(def.requiredWhen, project);
       const requested = evaluateCondition(def.requestWhen, project);
-      const next: RequirementState = required === false ? 'not_applicable'
+      const next: RequirementState = def.onDemand
+        ? (activeQuestion ? 'requested' : 'expected')
+        : required === false ? 'not_applicable'
         : required === 'unknown' ? 'dormant'
         : requested === true ? 'requested' : requested === 'unknown' ? 'expected' : 'expected';
       if (state.state !== next) {
