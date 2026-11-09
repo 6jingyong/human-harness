@@ -118,6 +118,12 @@ test('no arbitrary source-code execution capability or raw-source script input c
   untrusted.steps.find((s: any) => s.id === 'assemble').capabilityId = 'unsafe.shell';
   assert.throws(() => store.importPackage(untrusted), /capability not installed|unsupported deterministic script/);
 
+  const spoofedKind: any = structuredClone(original);
+  spoofedKind.capabilities.find((c: any) => c.id === 'hh.render.markdown').kind = 'agent';
+  spoofedKind.steps.find((s: any) => s.id === 'assemble').kind = 'agent';
+  assert.throws(() => store.importPackage(spoofedKind),
+    /capability not installed or declared with incorrect kind/);
+
   const rawSource: any = structuredClone(original);
   rawSource.steps.find((s: any) => s.id === 'assemble').needsMaterials = ['input-01'];
   assert.throws(() => store.importPackage(rawSource), /only accepts approved upstream outputs/);
