@@ -1,0 +1,431 @@
+{
+  "protocol": "hh.package/1",
+  "id": "eia-abc-pipeline",
+  "version": "1.0.0",
+  "title": "环评 A→B→C 分阶段并行流水线（内部验收）",
+  "description": "以既有环评原件和半成品验证功能：Agent A 从资料形成结构化结果；Agent B 仅依据A的已审结果形成分析结论；Agent C 仅依据B的已审结论与人类意见形成可下载内部成果。多资料分支采用流水线并行，不允许绕过人工审核。",
+  "stages": [
+    {
+      "id": "source",
+      "title": "素材导入与已有成果",
+      "description": "原件和既有半成品按输入分组，避免重复解析"
+    },
+    {
+      "id": "results",
+      "title": "A · 资料→结果",
+      "description": "企业与质控两条任务可并行，产出结构化事实或结果"
+    },
+    {
+      "id": "analysis",
+      "title": "B · 结果→分析结论",
+      "description": "只读取相应分支A的已审结果，不直接读取原件"
+    },
+    {
+      "id": "final",
+      "title": "C · 结论→最终成果",
+      "description": "汇总已审结论和人工意见，输出可下载的内部成果文件"
+    }
+  ],
+  "agents": [
+    {
+      "id": "agent-a",
+      "title": "Agent A · 结果提取",
+      "description": "只把输入资料转成可复用的结构化结果，不写综合判断"
+    },
+    {
+      "id": "agent-b",
+      "title": "Agent B · 分析结论",
+      "description": "只分析A产出且人工已批准的结果，不直接读取原件"
+    },
+    {
+      "id": "agent-c",
+      "title": "Agent C · 最终成果",
+      "description": "只使用B已批准的结论和人工处理意见，生成可交付的内部文件"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "mastra.agent",
+      "kind": "agent",
+      "description": "通过现有可替换Agent执行接口执行；扫描PDF需已安装并实际验证的文档视觉Skill"
+    }
+  ],
+  "assets": [],
+  "materials": [
+    {
+      "id": "enterprise-original",
+      "title": "企业陈述原文",
+      "producer": "human",
+      "formats": [
+        "text/plain"
+      ],
+      "description": "输入已有企业原始陈述文本；不能擅自确认主体名称和红线位置。",
+      "method": {
+        "acquisition": "沿用环评 Agent 已收集的企业陈述原文，记录实际来源。",
+        "extraction": "提取原文确实写到的经营、工艺、排污及其他事实字段。",
+        "verification": [
+          "抽取与原文一致",
+          "不将企业陈述等同于独立政府证明"
+        ]
+      },
+      "acceptance": [
+        "人工确认属于当前项目且可供内部使用"
+      ]
+    },
+    {
+      "id": "enterprise-half-result",
+      "title": "企业字段提取半成品",
+      "producer": "human",
+      "formats": [
+        "text/plain",
+        "application/json"
+      ],
+      "description": "可选重用原环评Agent生成的字段候选JSON；作为输入半成品，不能冒充独立原件。",
+      "method": {
+        "acquisition": "从现有字段审查成果导入。",
+        "extraction": "从既有记录获取field_id、原文引用和审核状态。",
+        "verification": [
+          "不得把AI代审状态变成专业审核",
+          "确认证据来自原始陈述"
+        ]
+      },
+      "acceptance": [
+        "明确是已有结果半成品而非第二份原件"
+      ]
+    },
+    {
+      "id": "qc-scan",
+      "title": "检测质控扫描PDF",
+      "producer": "human",
+      "formats": [
+        "application/pdf"
+      ],
+      "description": "实际扫描图像，若视觉Skill不可用可使用已有封存结果，但必须说明未重识读。",
+      "method": {
+        "acquisition": "从原环评资料库导入质控扫描件。",
+        "extraction": "识读表格和样品参数，或复用已封存质控字段。",
+        "verification": [
+          "未识读时明确不能核实数字",
+          "保留每项数值的来源页"
+        ]
+      },
+      "acceptance": [
+        "人工确认输入是已提供的原始扫描资料"
+      ]
+    },
+    {
+      "id": "qc-frozen-result",
+      "title": "质控封存分析半成品",
+      "producer": "human",
+      "formats": [
+        "text/plain",
+        "application/json"
+      ],
+      "description": "复用已有质控结果、图件和事实表，不再重复造数据。",
+      "method": {
+        "acquisition": "导入原环评Agent的封存JSON。",
+        "extraction": "使用既有facts、结果、图件说明及局限性。",
+        "verification": [
+          "区分结果与分析结论",
+          "已有结果缺口不靠模型猜测补足"
+        ]
+      },
+      "acceptance": [
+        "保留来源和已有审核状态的局限"
+      ]
+    },
+    {
+      "id": "word-reference",
+      "title": "已有Word半成品（参考）",
+      "producer": "human",
+      "formats": [
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      ],
+      "description": "只供A阶段核对已有资料处理结果，不作为B或C直接阅读的依据。",
+      "acceptance": [
+        "确认属于既有半成品而非最终批准报告"
+      ]
+    },
+    {
+      "id": "extra-enterprise",
+      "title": "企业资料补充（仅被询问时）",
+      "producer": "human",
+      "formats": [
+        "text/plain"
+      ],
+      "onDemand": true,
+      "description": "需要时由人类补充企业身份、来源或空间关系；可说明暂无法取得。",
+      "acceptance": [
+        "明确来源与待确认项"
+      ]
+    },
+    {
+      "id": "extra-qc",
+      "title": "质控资料补充（仅被询问时）",
+      "producer": "human",
+      "formats": [
+        "text/plain"
+      ],
+      "onDemand": true,
+      "description": "需要时由人类说明检测资料版本或未确认的数据。",
+      "acceptance": [
+        "不能以口头说明伪造检测结果"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "id": "a-enterprise-results",
+      "stageId": "results",
+      "agentId": "agent-a",
+      "kind": "agent",
+      "title": "A1 · 企业资料转换成事实结果",
+      "instructions": "只抽取结构化企业事实结果，原文与既有半成品冲突时标注不同来源，不写污染风险或环境合规分析。将结果输出为合法JSON对象。",
+      "dependsOn": [],
+      "needsMaterials": [
+        "enterprise-original",
+        "enterprise-half-result"
+      ],
+      "requestableMaterialIds": [
+        "extra-enterprise"
+      ],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "enterprise-results",
+      "requiresReview": true,
+      "method": {
+        "procedure": [
+          "读取企业原文和已整理字段半成品",
+          "优先复用可信的已有提取结果，并将未确认项保留",
+          "输出仅含观察结果及引用的JSON"
+        ],
+        "checks": [
+          {
+            "id": "a1-fact",
+            "criterion": "JSON只有结构化事实、来源和局限，不做分析判断"
+          },
+          {
+            "id": "a1-source",
+            "criterion": "每项结果必须能回溯当前输入或明确标为缺失"
+          }
+        ],
+        "onMissing": "request_human"
+      }
+    },
+    {
+      "id": "a-qc-results",
+      "stageId": "results",
+      "agentId": "agent-a",
+      "kind": "agent",
+      "title": "A2 · 质控资料转换成检测结果",
+      "instructions": "仅将质控扫描PDF、封存JSON及Word候选中的可复用内容转为结构化质控结果，不写合规判断。没有成功视觉识读就明确沿用已有封存结果。JSON输出。",
+      "dependsOn": [],
+      "needsMaterials": [
+        "qc-scan",
+        "qc-frozen-result",
+        "word-reference"
+      ],
+      "requestableMaterialIds": [
+        "extra-qc"
+      ],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "qc-results",
+      "requiresReview": true,
+      "method": {
+        "procedure": [
+          "复用封存成果，不再重复发明检测结果",
+          "若视觉Skill可用，核对扫描页与已有字段",
+          "输出仅包含结果、来源与未核实项的JSON"
+        ],
+        "checks": [
+          {
+            "id": "a2-result",
+            "criterion": "只陈述检测观察结果及来源，不直接判定监管合格"
+          },
+          {
+            "id": "a2-missing",
+            "criterion": "未解析的扫描PDF、版本问题和缺失项均明确标识"
+          }
+        ],
+        "onMissing": "request_human"
+      }
+    },
+    {
+      "id": "b-enterprise-analysis",
+      "stageId": "analysis",
+      "agentId": "agent-b",
+      "kind": "agent",
+      "title": "B1 · 企业结果形成风险分析结论",
+      "instructions": "仅据A1已审核JSON结果形成专业分析草稿，严格分开观察结果、推论及局限；不读取企业原文、扫描资料或其他原件。",
+      "dependsOn": [
+        "a-enterprise-results"
+      ],
+      "needsMaterials": [],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "enterprise-conclusion",
+      "requiresReview": true,
+      "method": {
+        "procedure": [
+          "读取A1已审核的结构化结果",
+          "围绕已给事实推导有限的风险分析",
+          "明确哪些结论必须进一步核实"
+        ],
+        "checks": [
+          {
+            "id": "b1-grounded",
+            "criterion": "分析结论仅依赖A1已审核结果，不引用未授权原件"
+          },
+          {
+            "id": "b1-limit",
+            "criterion": "事实与分析及不确定性清楚分开"
+          }
+        ],
+        "onMissing": "record_limitation"
+      }
+    },
+    {
+      "id": "b-qc-analysis",
+      "stageId": "analysis",
+      "agentId": "agent-b",
+      "kind": "agent",
+      "title": "B2 · 检测结果形成质控分析结论",
+      "instructions": "仅据A2已审核JSON结果形成质控分析草稿，不直接读取PDF、Word或封存JSON原始输入。未确认信息只能写为限制。",
+      "dependsOn": [
+        "a-qc-results"
+      ],
+      "needsMaterials": [],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "qc-conclusion",
+      "requiresReview": true,
+      "method": {
+        "procedure": [
+          "读取A2已审核的结构化质控结果",
+          "只在证据允许范围分析质控支持程度",
+          "注明无法证明合规的原因"
+        ],
+        "checks": [
+          {
+            "id": "b2-grounded",
+            "criterion": "仅从A2的已审结果推导，不直读扫描原件"
+          },
+          {
+            "id": "b2-limit",
+            "criterion": "不将未核实资料写作正式检测或质控通过结论"
+          }
+        ],
+        "onMissing": "record_limitation"
+      }
+    },
+    {
+      "id": "human-conclusion-review",
+      "stageId": "final",
+      "kind": "human_action",
+      "title": "Human · 确认两路分析结论的采用与修改意见",
+      "instructions": "审核B1/B2两个分析结论，确认可写入内部成果的内容；不能直接以未核实结论作为正式签发。可以明确说明不采纳某项分析。",
+      "dependsOn": [
+        "b-enterprise-analysis",
+        "b-qc-analysis"
+      ],
+      "needsMaterials": []
+    },
+    {
+      "id": "c-final-output",
+      "stageId": "final",
+      "agentId": "agent-c",
+      "kind": "agent",
+      "title": "C · 已审核结论生成最终内部成果",
+      "instructions": "只用B1/B2经人工批准的分析结论和紧邻的人类审核意见，形成一份可下载的内部报告Markdown。不得直接读取源资料或自行重新提取事实。正文不纳入仅供内部处理的证据疑问与Todo；重要的专业限制可按技术文风表述。",
+      "dependsOn": [
+        "b-enterprise-analysis",
+        "b-qc-analysis",
+        "human-conclusion-review"
+      ],
+      "needsMaterials": [],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "final-internal-output",
+      "requiresReview": true,
+      "method": {
+        "procedure": [
+          "读取B阶段已审核分析结论",
+          "按人类采用意见组织正文与结论",
+          "生成真实可下载的内部Markdown报告候选，待最终人工批准"
+        ],
+        "checks": [
+          {
+            "id": "c-consumes-b",
+            "criterion": "只用B阶段的已审结论及Human交接意见"
+          },
+          {
+            "id": "c-delivery",
+            "criterion": "包含可交付的报告正文，不混入待办清单或虚构专业结论"
+          }
+        ],
+        "onMissing": "record_limitation"
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "id": "enterprise-results",
+      "title": "企业结构化结果",
+      "audience": "internal",
+      "fileName": "enterprise-results.json",
+      "format": "json",
+      "producingStepId": "a-enterprise-results",
+      "acceptance": [
+        "仅结果无风险结论",
+        "JSON合法且来源清楚"
+      ],
+      "humanSignoff": true
+    },
+    {
+      "id": "qc-results",
+      "title": "质控结构化结果",
+      "audience": "internal",
+      "fileName": "qc-results.json",
+      "format": "json",
+      "producingStepId": "a-qc-results",
+      "acceptance": [
+        "只有结果与未验证项",
+        "不擅自做监管判断"
+      ],
+      "humanSignoff": true
+    },
+    {
+      "id": "enterprise-conclusion",
+      "title": "企业风险分析草稿",
+      "audience": "internal",
+      "fileName": "enterprise-conclusion.md",
+      "format": "markdown",
+      "producingStepId": "b-enterprise-analysis",
+      "acceptance": [
+        "仅从A1已审结果出发"
+      ],
+      "humanSignoff": true
+    },
+    {
+      "id": "qc-conclusion",
+      "title": "质控分析草稿",
+      "audience": "internal",
+      "fileName": "qc-conclusion.md",
+      "format": "markdown",
+      "producingStepId": "b-qc-analysis",
+      "acceptance": [
+        "仅从A2已审结果出发"
+      ],
+      "humanSignoff": true
+    },
+    {
+      "id": "final-internal-output",
+      "title": "最终内部报告",
+      "audience": "internal",
+      "fileName": "eia-internal-final.md",
+      "format": "markdown",
+      "producingStepId": "c-final-output",
+      "acceptance": [
+        "仅消费B已审核结论",
+        "最终人工确认方可下载"
+      ],
+      "humanSignoff": true
+    }
+  ]
+}
