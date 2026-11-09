@@ -45,9 +45,9 @@ const fake: TaskExecutor = {
 };
 const codexRpcFixture = (mode: string): TaskExecutor => ({
   id: 'codex-stdio-rpc-fixture-' + mode,
-  execute(task) {
+  execute(task, onEvent, signal) {
     return runCodexTask(task, {
-      timeoutMs: 6000,
+      timeoutMs: 6000, onEvent, signal,
       startProcess: () => spawn(process.execPath, [fixture, mode], { stdio: 'pipe' })
     });
   }
