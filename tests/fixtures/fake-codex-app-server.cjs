@@ -61,18 +61,42 @@ createInterface({ input: process.stdin }).on('line', line => {
       } });
     }
     const id = mode === 'wrong-turn' ? 'turn-foreign' : 'turn-fixture';
+    let scenarioOutput;
+    if (mode === 'role-b' || mode === 'role-c') {
+      const taskText = (msg.params.input || []).filter(i => i.type === 'text').map(i => i.text).join('\n');
+      const isB = mode === 'role-b';
+      const mustContain = isB ? 'UNRELATED_A_PAYLOAD' : 'UNFOUNDED_B_PAYLOAD';
+      const forbidden = isB ? 'PRIVATE_SOURCE_CANARY' : 'UNRELATED_A_PAYLOAD';
+      const expectedRole = isB ? 'b-enterprise-analysis' : 'c-final-output';
+      if (!taskText.includes(mustContain) || taskText.includes(forbidden) ||
+          !taskText.includes(expectedRole)) {
+        send({ id: msg.id, error: { code: -32602, message: 'Agent role context leaked or missing upstream result' } });
+        return;
+      }
+      scenarioOutput = {
+        body: isB
+          ? '## 企业结论\n由土豆菜谱推出污染自动消失。UNFOUNDED_B_PAYLOAD'
+          : '# 模拟交付\n根据已经审核的结论，土豆菜谱能消除污染。UNFOUNDED_B_PAYLOAD',
+        limitations: ['Intentional CI fixture, not model reasoning'],
+        materialRequests: [],
+        methodChecks: (isB ? ['b1-grounded', 'b1-limit'] : ['c-consumes-b', 'c-delivery'])
+          .map(checkId => ({ checkId, status: 'unverified',
+            explanation: 'Simulated Codex protocol output; not professional validation',
+            evidenceRefs: [] }))
+      };
+    }
     if (mode !== 'failed') {
       send({ method: 'item/completed', params: {
         threadId: 'thread-fixture', turnId: id,
         item: { type: 'agentMessage', text: mode === 'bad-json' ? 'not json' :
-          JSON.stringify(mode === 'human-request'
+          JSON.stringify(scenarioOutput ?? (mode === 'human-request'
             ? { body: 'Original edition not stated', limitations: ['edition unknown'],
               materialRequests: [{ materialId: 'input-01', reason: '请确认资料版次' }] }
             : mode === 'method-checks'
               ? { body: 'Checks returned as candidate', limitations: [], materialRequests: [],
                 methodChecks: [{ checkId: 'source-trace', status: 'unverified',
                   explanation: 'Fixture cannot verify real source', evidenceRefs: [] }] }
-              : { body: 'Real protocol fixture answer', limitations: [], materialRequests: [] }) }
+              : { body: 'Real protocol fixture answer', limitations: [], materialRequests: [] })) }
       } });
     }
     send({ method: 'turn/completed', params: {
