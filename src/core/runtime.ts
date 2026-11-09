@@ -14,6 +14,8 @@ export type RuntimeArtifact = {
   semanticNotes?: SemanticNote[];
   methodChecks?: MethodCheckResult[];
   invalidatedAt?: string;
+  /** Approved Human replacement of an Agent candidate; its predecessor is retained. */
+  humanCorrection?: { basedOnArtifactId: string; rationale: string; correctedAt: string };
 };
 export type RuntimeRun = { id: string; stepId: string; status: 'running' | 'needs_input' | 'review' | 'failed'; startedAt: string; endedAt?: string; result?: HumanHarnessTaskResult; error?: string; codexThreadId?: string; codexTurnId?: string; lastExecutorEvent?: string };
 /** Runtime-only Human Todo spawned by a material question against a template-declared input.
@@ -423,6 +425,54 @@ export function reviewAgent(project: ProjectState, stepId: string, approved: boo
   state.state = approved ? 'done' : 'ready';
   recordEvent(project, approved ? 'work.approved' : 'work.rejected', stepId, feedback.slice(0, 1000));
   reconcile(project);
+}
+
+/** Human Todo may correct a candidate instead of spending model tokens on a redo.
+ * This is a NEW attributed revision, not a rewrite of the Agent's original output.
+ * Downstream tasks see only the Human-approved latest revision.
+ */
+export function amendAndApproveAgent(project: ProjectState, stepId: string, rawContent: string, rationale: string): void {
+  const state = project.steps[stepId];
+  if (state?.state !== 'review') throw new Error('Only a pending Agent candidate can be corrected');
+  const note = rationale.trim();
+  if (!note || note.length > 1000) throw new Error('Human correction requires a 1–1000 character rationale');
+  const content = rawContent.trim();
+  if (!content || content.length > 120000) throw new Error('Human correction must contain 1–120000 characters');
+  const definition = project.package.steps.find(step => step.id === stepId);
+  if (!definition || (definition.kind !== 'agent' && definition.kind !== 'script')) {
+    throw new Error('Only Agent or script outputs can be corrected');
+  }
+  const contract = project.package.outputs.find(output => output.id === definition.outputContractId);
+  if (!contract || !['json', 'markdown'].includes(contract.format)) {
+    throw new Error('Human text correction supports only JSON or Markdown outputs');
+  }
+  if (contract.format === 'json') {
+    try { JSON.parse(content); } catch { throw new Error('Corrected output must be valid JSON'); }
+  }
+  const previous = project.artifacts.filter(artifact =>
+    artifact.kind === 'agent_output' && artifact.ownerId === stepId).at(-1);
+  if (!previous || previous.content === null || previous.invalidatedAt) {
+    throw new Error('No current Agent candidate available for correction');
+  }
+  if (content === previous.content.trim()) throw new Error('Correction does not change the candidate content');
+  // Previous Agent semantic notes and self-check verdicts cannot certify the edited text.
+  const methodChecks: MethodCheckResult[] | undefined = definition.method?.checks.map(check => ({
+    checkId: check.id, status: 'unverified',
+    explanation: 'Human changed the candidate; original Agent self-check does not cover this revision.',
+    evidenceRefs: []
+  }));
+  const correctedAt = now();
+  const replacement: RuntimeArtifact = {
+    id: freshId(), kind: 'agent_output', name: previous.name, content,
+    ownerId: stepId,
+    revision: project.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === stepId).length + 1,
+    createdAt: correctedAt,
+    humanCorrection: { basedOnArtifactId: previous.id, rationale: note, correctedAt },
+    ...(methodChecks ? { methodChecks } : {})
+  };
+  project.artifacts.push(replacement);
+  recordEvent(project, 'work.human_corrected', stepId, previous.id + ' -> ' + replacement.id);
+  reviewAgent(project, stepId, true, note);
 }
 
 export function failAgent(project: ProjectState, stepId: string, runId: string, error: string): void {
