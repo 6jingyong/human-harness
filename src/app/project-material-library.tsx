@@ -164,6 +164,10 @@ export function ProjectMaterialLibrary({ project, onBack, onReplace, onRevise, v
         const head = currentApprovedOutput(project, contract.producingStepId);
         const accepted = Boolean(head);
         const revisionKey = 'revision:' + contract.producingStepId;
+        const observedHeadKey = 'revision-head:' + contract.producingStepId;
+        const expectedHead = values[observedHeadKey] || head?.id || '';
+        const headChangedDuringEdit = Boolean(head && values[observedHeadKey] &&
+          head.id !== expectedHead);
         const impact = affectedStepsForOutput(project, contract.producingStepId);
         const activeDependents = [...impact].filter(id =>
           ['running', 'waiting_input'].includes(project.steps[id]?.state));
@@ -199,7 +203,10 @@ export function ProjectMaterialLibrary({ project, onBack, onReplace, onRevise, v
               {a.inputArtifactIds?.length ? <p>输入版本：{a.inputArtifactIds.join('、')}</p> : null}
               <pre className="result">{a.content}</pre>
               {head && a.id !== head.id && <button type="button"
-                onClick={() => onValue(revisionKey, a.content ?? '')}>
+                onClick={() => {
+                  onValue(observedHeadKey, head.id);
+                  onValue(revisionKey, a.content ?? '');
+                }}>
                 将此版本内容复制到修订区（恢复时也会产生新版本）
               </button>}
             </div>)}
@@ -212,23 +219,32 @@ export function ProjectMaterialLibrary({ project, onBack, onReplace, onRevise, v
             {activeDependents.length > 0 && <p className="error-text">
               当前有 {activeDependents.length} 项下游任务正在运行或等待补充信息。须先完成或取消，不能静默覆盖其输入。
             </p>}
-            <button type="button" onClick={() => onValue(revisionKey, head.content ?? '')}>
+            <button type="button" onClick={() => {
+              onValue(observedHeadKey, head.id);
+              onValue(revisionKey, head.content ?? '');
+            }}>
               复制当前 HEAD 到编辑区
             </button>
             <label htmlFor={'result-revision-' + contract.producingStepId}>新的完整成果内容</label>
             <textarea id={'result-revision-' + contract.producingStepId}
               rows={8} value={changeText}
-              onChange={event => onValue(revisionKey, event.target.value)} />
+              onChange={event => {
+                if (!values[observedHeadKey]) onValue(observedHeadKey, head.id);
+                onValue(revisionKey, event.target.value);
+              }} />
             <label htmlFor={'revision-reason-' + contract.producingStepId}>修改或恢复原因（必填）</label>
             <textarea id={'revision-reason-' + contract.producingStepId}
               rows={3} value={changeReason}
               onChange={event => onFeedback(revisionKey, event.target.value)} />
-            <p className="muted">提交时会核对当前 HEAD 未发生变化，并按依赖关系重新开放受影响任务。</p>
+            <p className="muted">编辑基于 HEAD {expectedHead.slice(0, 8)}。提交时会核对该版本是否仍有效，并按依赖关系重新开放受影响任务。</p>
+            {headChangedDuringEdit && <p className="error-text">
+              当前 HEAD 已更新，请重新查看并复制最新版本后再修订；旧稿不会被静默套用到新版本。
+            </p>}
             <button type="button" className="primary"
-              disabled={isPending(contract.producingStepId) || activeDependents.length > 0 ||
-                !changeText.trim() || !changeReason.trim() ||
+              disabled={isPending(revisionKey) || activeDependents.length > 0 ||
+                headChangedDuringEdit || !changeText.trim() || !changeReason.trim() ||
                 changeText.trim() === head.content?.trim()}
-              onClick={() => onRevise(contract.producingStepId, head.id)}>
+              onClick={() => onRevise(contract.producingStepId, expectedHead)}>
               记录修订、更新 HEAD 并重开受影响任务
             </button>
           </details>}
