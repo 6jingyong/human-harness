@@ -1,0 +1,185 @@
+{
+  "protocol": "hh.package/1",
+  "id": "approved-conclusions-assembly",
+  "version": "1.0.0",
+  "title": "已审核结论的确定性组装（零额外模型调用）",
+  "description": "两组资料分别由 Agent 形成结论，经 Human 审核后交给受控脚本 C 原样组装内部 Markdown 成果，不重新解析源数据。",
+  "stages": [
+    {
+      "id": "intake",
+      "title": "提供输入",
+      "description": "两组独立素材由用户提供"
+    },
+    {
+      "id": "analysis",
+      "title": "并行分析",
+      "description": "两个 Agent 独立处理自己授权的输入"
+    },
+    {
+      "id": "review",
+      "title": "审核结论",
+      "description": "Human 确认可以进入后续组装"
+    },
+    {
+      "id": "output",
+      "title": "确定性输出",
+      "description": "仅复用已批准结果组装，不再花费模型额度"
+    }
+  ],
+  "agents": [
+    {
+      "id": "agent-a",
+      "title": "Agent A · 第一组",
+      "description": "只处理资料A"
+    },
+    {
+      "id": "agent-b",
+      "title": "Agent B · 第二组",
+      "description": "只处理资料B"
+    },
+    {
+      "id": "agent-c",
+      "title": "Agent C · 确定性组装",
+      "description": "只复制已审核结论与人工交接，不调用模型"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "mastra.agent",
+      "kind": "agent",
+      "description": "现有 Agent 执行适配器"
+    },
+    {
+      "id": "hh.render.markdown",
+      "kind": "script",
+      "description": "Human Harness 内置、安全登记的只读 Markdown 组装器"
+    }
+  ],
+  "assets": [],
+  "materials": [
+    {
+      "id": "source-a",
+      "title": "第一组资料",
+      "description": "真实或测试文本，供 A 阶段消费",
+      "producer": "human",
+      "formats": [
+        "text/plain"
+      ],
+      "acceptance": [
+        "确认用户提供的本阶段输入"
+      ]
+    },
+    {
+      "id": "source-b",
+      "title": "第二组资料",
+      "description": "真实或测试文本，供 B 阶段消费",
+      "producer": "human",
+      "formats": [
+        "text/plain"
+      ],
+      "acceptance": [
+        "确认用户提供的本阶段输入"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "id": "analyze-a",
+      "stageId": "analysis",
+      "agentId": "agent-a",
+      "kind": "agent",
+      "title": "独立分析 A 资料",
+      "instructions": "只读取资料A，形成一段内部分析结论。不得读取其他来源。",
+      "dependsOn": [],
+      "needsMaterials": [
+        "source-a"
+      ],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "conclusion-a",
+      "requiresReview": true
+    },
+    {
+      "id": "analyze-b",
+      "stageId": "analysis",
+      "agentId": "agent-b",
+      "kind": "agent",
+      "title": "独立分析 B 资料",
+      "instructions": "只读取资料B，形成一段内部分析结论。不得读取其他来源。",
+      "dependsOn": [],
+      "needsMaterials": [
+        "source-b"
+      ],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "conclusion-b",
+      "requiresReview": true
+    },
+    {
+      "id": "human-release",
+      "stageId": "review",
+      "kind": "human_action",
+      "title": "确认两项结论用于组装",
+      "instructions": "确认两项已审核结论可以原文拼接；若有事实问题，应退回对应上游步骤，不由组装器自行判断。",
+      "dependsOn": [
+        "analyze-a",
+        "analyze-b"
+      ],
+      "needsMaterials": []
+    },
+    {
+      "id": "assemble",
+      "stageId": "output",
+      "agentId": "agent-c",
+      "kind": "script",
+      "title": "C · 原样组装为内部 Markdown",
+      "instructions": "只将两项已审结论和 Human 交接文字按顺序组装为内部 Markdown，不读取原始资料，不重新生成语义内容。",
+      "dependsOn": [
+        "analyze-a",
+        "analyze-b",
+        "human-release"
+      ],
+      "needsMaterials": [],
+      "capabilityId": "hh.render.markdown",
+      "outputContractId": "assembled-markdown",
+      "requiresReview": true
+    }
+  ],
+  "outputs": [
+    {
+      "id": "conclusion-a",
+      "title": "分析结论 A",
+      "audience": "internal",
+      "fileName": "conclusion-a.md",
+      "format": "markdown",
+      "producingStepId": "analyze-a",
+      "acceptance": [
+        "已人工审核"
+      ],
+      "humanSignoff": true
+    },
+    {
+      "id": "conclusion-b",
+      "title": "分析结论 B",
+      "audience": "internal",
+      "fileName": "conclusion-b.md",
+      "format": "markdown",
+      "producingStepId": "analyze-b",
+      "acceptance": [
+        "已人工审核"
+      ],
+      "humanSignoff": true
+    },
+    {
+      "id": "assembled-markdown",
+      "title": "确定性合并成果",
+      "audience": "internal",
+      "fileName": "assembled.md",
+      "format": "markdown",
+      "producingStepId": "assemble",
+      "acceptance": [
+        "上游结论原文保留",
+        "没有未经许可的新增资料"
+      ],
+      "humanSignoff": true
+    }
+  ]
+}
