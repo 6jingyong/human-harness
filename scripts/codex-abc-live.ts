@@ -16,7 +16,7 @@
  *   It is not proof of OS-level filesystem-read isolation on all Codex versions.
  */
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import type { ExecutorOutput, ExecutorTask, TaskExecutor } from '../src/executors/contracts';
@@ -35,11 +35,12 @@ const resultPath = join(outdir, 'report.json');
 const report: {
   scenario: Scenario; status: 'started' | 'complete' | 'failed';
   authenticity: string; projectId?: string; stages: unknown[];
-  assertions: string[]; failure?: string;
+  assertions: string[]; observations: Record<string, boolean | string | number>;
+  failure?: string;
 } = {
   scenario, status: 'started',
   authenticity: 'Only stages explicitly labeled codex are live authenticated model calls; remaining stages are declared fault-injection fixtures.',
-  stages: [], assertions: []
+  stages: [], assertions: [], observations: {}
 };
 const save = () => writeFileSync(resultPath, JSON.stringify(report, null, 2) + '\n');
 save();
@@ -181,8 +182,20 @@ async function main() {
   const result = await response.text();
   writeFileSync(join(outdir, 'eia-internal-final.md'), result);
   report.assertions.push('Approved C output was actually downloadable (HTTP 200)');
-  report.assertions.push('C output contains A marker? ' + result.includes('UNRELATED_A_PAYLOAD'));
-  report.assertions.push('C output contains B marker? ' + result.includes('UNFOUNDED_B_PAYLOAD'));
+  const b1 = (report.stages as Array<{ stepId: string; outputBody: string }>)
+    .filter(stage => stage.stepId === 'b-enterprise-analysis').at(-1)?.outputBody || '';
+  report.observations = {
+    aInjected: scenario !== 'real',
+    bInjected: scenario === 'poison-ab',
+    bResultMentionsPoisonA: /UNRELATED_A_PAYLOAD|菜谱|土豆|巧克力/.test(b1),
+    cResultMentionsBogusB: /UNFOUNDED_B_PAYLOAD|土豆|污染.{0,15}消失/.test(result),
+    cContainsExactBMarker: result.includes('UNFOUNDED_B_PAYLOAD'),
+    cContainsExactAMarker: result.includes('UNRELATED_A_PAYLOAD'),
+    finalBytes: Buffer.byteLength(result, 'utf8')
+  };
+  // Whether a real model preserves nonsensical content is an *observation*, not
+  // an invariant. A model may restate an unsupported B claim as uncertainty
+  // without reopening any forbidden source; scope is checked separately.
   report.status = 'complete';
   save();
   process.stdout.write('LIVE STAGE DRILL COMPLETED\nreport: ' + resultPath +
