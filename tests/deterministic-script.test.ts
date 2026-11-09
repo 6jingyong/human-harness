@@ -150,3 +150,44 @@ test('local scheduler automatically dispatches eligible script step after Human 
     await scheduler.waitUntilIdle();
   }
 });
+
+
+test('importable two-branch A/B template joins at Human approval then deterministic C runs without tokens', async () => {
+  const example = (await import('../examples/approved-conclusions-assembly.hh.json')).default;
+  const parsed = packageSchema.parse(example);
+  assert.deepEqual(parsed.steps.filter(s => s.kind === 'script').map(s => s.id), ['assemble']);
+  store.importPackage(parsed);
+  const p = store.createProject(parsed.id, 'Zero-token C script template');
+  store.setExecutionPolicy(p.id, false, 2);
+  for (const id of ['source-a', 'source-b']) {
+    store.submitMaterial(p.id, id, id + ' fact input');
+    store.reviewReceivedMaterial(p.id, id, true, 'Synthetic fixture');
+  }
+  const fake: TaskExecutor = {
+    id: 'source-analysis-fixture',
+    async execute(task) {
+      const id = task.packet.workItemId;
+      assert.equal(task.evidence.length, 1, 'A/B may only see their own source');
+      return {
+        body: '结论 ' + id + '：保持上游断言原文。INTENTIONAL_WRONG_CONCLUSION',
+        limitations: [], materialRequests: []
+      };
+    }
+  };
+  await Promise.all([
+    executeOneAgentTask(p.id, 'analyze-a', fake),
+    executeOneAgentTask(p.id, 'analyze-b', fake)
+  ]);
+  assert.equal(store.getProject(p.id).steps.assemble.state, 'blocked');
+  store.reviewAgentOutput(p.id, 'analyze-a', true, 'A approved for assembly only');
+  store.reviewAgentOutput(p.id, 'analyze-b', true, 'B approved for assembly only');
+  store.completeHuman(p.id, 'human-release', '不执行内容纠错，允许有意错误完整进入 C 输出。');
+  // No override, no Codex, no model quota: the script executor is built in.
+  await executeOneAgentTask(p.id, 'assemble');
+  const draft = store.getProject(p.id).artifacts.filter(a => a.ownerId === 'assemble').at(-1)!;
+  assert.equal(draft.content?.match(/INTENTIONAL_WRONG_CONCLUSION/g)?.length, 2);
+  assert.match(draft.content ?? '', /不执行内容纠错/);
+  assert.doesNotMatch(draft.content ?? '', /source-a fact input|source-b fact input/);
+  store.reviewAgentOutput(p.id, 'assemble', true, '仅执行已审结论的确定性合并');
+  assert.equal((await read(p.id, draft.id)).status, 200);
+});
