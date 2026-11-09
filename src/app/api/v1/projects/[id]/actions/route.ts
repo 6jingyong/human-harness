@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import {
-  approveHumanCorrectedOutput, answerRequestedInput, getProject, completeHuman, recoverAbandonedAgent, retryFailedAgent, reviewAgentOutput, reviewReceivedMaterial,
+  approveHumanCorrectedOutput, reviseHumanApprovedOutput, answerRequestedInput, getProject, completeHuman, recoverAbandonedAgent, retryFailedAgent, reviewAgentOutput, reviewReceivedMaterial,
   RuntimeError, submitMaterial, setExecutionPolicy
 } from '@/core/store';
 import { ensureLocalScheduler } from '@/executors/scheduler';
@@ -49,6 +49,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         { replaceAccepted: true });
     } else if (action === 'accept_material' || action === 'reject_material') {
       project = reviewReceivedMaterial(id, materialId, action === 'accept_material', feedback);
+    } else if (action === 'revise_approved_agent') {
+      project = reviseHumanApprovedOutput(id, stepId,
+        String(form.get('expectedArtifactId') ?? ''), value, feedback);
     } else if (action === 'amend_agent') {
       project = approveHumanCorrectedOutput(id, stepId, value, feedback);
     } else if (action === 'approve_agent' || action === 'reject_agent') {
@@ -75,7 +78,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   } catch (error) {
     const text = error instanceof ZodError ? error.issues.slice(0, 5).map(e => e.message).join('; ')
       : error instanceof Error ? error.message : 'Unknown runtime error';
-    const conflict = /Dependent Agent work is active/.test(text);
+    const conflict = /Dependent Agent work is active|Approved output HEAD changed/.test(text);
     const known = conflict || error instanceof RuntimeError || error instanceof ZodError ||
       /not (ready|actionable|requested|pending)|Only |required|mismatch|cannot|invalid|does not|Decision|rejection/i.test(text);
     if (!known) console.error('Action error', error);

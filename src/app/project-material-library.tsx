@@ -1,6 +1,6 @@
 'use client';
 
-import type { ProjectState } from '@/core/runtime';
+import { affectedStepsForOutput, currentApprovedOutput, type ProjectState } from '@/core/runtime';
 
 const materialStates: Record<string, string> = {
   requested: '等待提供', received: '待审核', accepted: '已接受', rejected: '退回补充',
@@ -11,11 +11,15 @@ const materialStates: Record<string, string> = {
  * File/semantic workspace is intentionally separate from the two-row Todo home.
  * Original file, template intent and reviewed Agent interpretation are distinct.
  */
-export function ProjectMaterialLibrary({ project, onBack, onReplace, values, files, onValue, onFile, isPending }: {
+export function ProjectMaterialLibrary({ project, onBack, onReplace, onRevise, values, feedback,
+  files, onValue, onFeedback, onFile, isPending }: {
   project: ProjectState;
   onBack: () => void;
   onReplace: (materialId: string) => void;
+  onRevise: (stepId: string, expectedArtifactId: string) => void;
   values: Record<string, string>;
+  feedback: Record<string, string>;
+  onFeedback: (id: string, value: string) => void;
   files: Record<string, File | undefined>;
   onValue: (id: string, value: string) => void;
   onFile: (id: string, file: File | undefined) => void;
@@ -43,7 +47,7 @@ export function ProjectMaterialLibrary({ project, onBack, onReplace, values, fil
         const interpretations = linkedSteps.flatMap(step =>
           project.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === step.id)
             .sort((a, b) => b.revision - a.revision).map((artifact, index) => ({
-              step, artifact, verified: index === 0 && !artifact.invalidatedAt && project.steps[step.id]?.state === 'done'
+              step, artifact, verified: currentApprovedOutput(project, step.id)?.id === artifact.id
             }))
         );
         const structured = interpretations.flatMap(({ step, artifact, verified }) =>
@@ -157,8 +161,18 @@ export function ProjectMaterialLibrary({ project, onBack, onReplace, values, fil
           artifact.kind === 'agent_output' && artifact.ownerId === contract.producingStepId)
           .sort((a, b) => b.revision - a.revision);
         const latest = artifacts[0];
-        const accepted = Boolean(latest && !latest.invalidatedAt &&
-          project.steps[contract.producingStepId]?.state === 'done');
+        const head = currentApprovedOutput(project, contract.producingStepId);
+        const accepted = Boolean(head);
+        const revisionKey = 'revision:' + contract.producingStepId;
+        const observedHeadKey = 'revision-head:' + contract.producingStepId;
+        const expectedHead = values[observedHeadKey] || head?.id || '';
+        const headChangedDuringEdit = Boolean(head && values[observedHeadKey] &&
+          head.id !== expectedHead);
+        const impact = affectedStepsForOutput(project, contract.producingStepId);
+        const activeDependents = [...impact].filter(id =>
+          ['running', 'waiting_input'].includes(project.steps[id]?.state));
+        const changeText = values[revisionKey] ?? '';
+        const changeReason = feedback[revisionKey] ?? '';
         return <details className="project-deliverable" key={contract.id}>
           <summary>{contract.title} · {contract.fileName}
             <span className="task-state">
@@ -169,14 +183,71 @@ export function ProjectMaterialLibrary({ project, onBack, onReplace, values, fil
           <p>产出任务：{producer?.title ?? contract.producingStepId}</p>
           <p>格式：{contract.format.toUpperCase()} · 验收要求：{contract.acceptance.join('；')}</p>
           {latest && <pre className="result">{latest.content}</pre>}
-          {accepted && latest && ['markdown', 'json'].includes(contract.format) &&
+          {head && <p className="source-revision">
+            当前有效版本 HEAD：v{head.revision} · {head.id.slice(0, 8)}
+            {head.humanCorrection ? ' · 人工修订采用' : ' · 已批准采用'}
+          </p>}
+          {head && ['markdown', 'json'].includes(contract.format) &&
             <a className="file-download" href={'/api/v1/projects/' +
-              encodeURIComponent(project.id) + '/outputs/' + encodeURIComponent(latest.id)}>
+              encodeURIComponent(project.id) + '/outputs/' + encodeURIComponent(head.id)}>
               下载已审核成果
             </a>}
-          {artifacts.length > 1 && <p className="muted">
-            此任务有 {artifacts.length - 1} 个历史候选；旧版本保留记录，但不可当作当前交付文件。
-          </p>}
+          {artifacts.length > 1 && <details className="source-replacement">
+            <summary>查看完整历史版本（{artifacts.length}）</summary>
+            {artifacts.map(a => <div key={a.id} className="library-file">
+              <p>v{a.revision} · {a.createdAt.slice(0, 19).replace('T', ' ')}
+                {head?.id === a.id ? ' · HEAD' : ''}
+                {a.invalidatedAt ? ' · 已失效' : ''}</p>
+              {a.humanCorrection && <p>人类修订：{a.humanCorrection.rationale}
+                （基于 {a.humanCorrection.basedOnArtifactId.slice(0, 8)}）</p>}
+              {a.inputArtifactIds?.length ? <p>输入版本：{a.inputArtifactIds.join('、')}</p> : null}
+              <pre className="result">{a.content}</pre>
+              {head && a.id !== head.id && <button type="button"
+                onClick={() => {
+                  onValue(observedHeadKey, head.id);
+                  onValue(revisionKey, a.content ?? '');
+                }}>
+                将此版本内容复制到修订区（恢复时也会产生新版本）
+              </button>}
+            </div>)}
+          </details>}
+          {head && ['json', 'markdown'].includes(contract.format) && <details className="source-replacement">
+            <summary>人类修订当前已批准成果（保留所有历史）</summary>
+            <p>人类拥有最终采用权。修订会创建新版本，不会改变旧版。原 Agent 的自检不自动继承。</p>
+            <p>预计影响后继任务 {impact.size} 项：{[...impact].map(id =>
+              project.package.steps.find(step => step.id === id)?.title ?? id).join('、') || '无'}</p>
+            {activeDependents.length > 0 && <p className="error-text">
+              当前有 {activeDependents.length} 项下游任务正在运行或等待补充信息。须先完成或取消，不能静默覆盖其输入。
+            </p>}
+            <button type="button" onClick={() => {
+              onValue(observedHeadKey, head.id);
+              onValue(revisionKey, head.content ?? '');
+            }}>
+              复制当前 HEAD 到编辑区
+            </button>
+            <label htmlFor={'result-revision-' + contract.producingStepId}>新的完整成果内容</label>
+            <textarea id={'result-revision-' + contract.producingStepId}
+              rows={8} value={changeText}
+              onChange={event => {
+                if (!values[observedHeadKey]) onValue(observedHeadKey, head.id);
+                onValue(revisionKey, event.target.value);
+              }} />
+            <label htmlFor={'revision-reason-' + contract.producingStepId}>修改或恢复原因（必填）</label>
+            <textarea id={'revision-reason-' + contract.producingStepId}
+              rows={3} value={changeReason}
+              onChange={event => onFeedback(revisionKey, event.target.value)} />
+            <p className="muted">编辑基于 HEAD {expectedHead.slice(0, 8)}。提交时会核对该版本是否仍有效，并按依赖关系重新开放受影响任务。</p>
+            {headChangedDuringEdit && <p className="error-text">
+              当前 HEAD 已更新，请重新查看并复制最新版本后再修订；旧稿不会被静默套用到新版本。
+            </p>}
+            <button type="button" className="primary"
+              disabled={isPending(revisionKey) || activeDependents.length > 0 ||
+                headChangedDuringEdit || !changeText.trim() || !changeReason.trim() ||
+                changeText.trim() === head.content?.trim()}
+              onClick={() => onRevise(contract.producingStepId, expectedHead)}>
+              记录修订、更新 HEAD 并重开受影响任务
+            </button>
+          </details>}
         </details>;
       })}
     </section>

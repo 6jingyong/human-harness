@@ -376,7 +376,7 @@ test('EIA A→B→C template keeps stage roles separate and produces a downloade
   await page.getByRole('button', { name: '批准并交接下游' }).click();
   await page.getByRole('button', { name: '查看项目资料' }).click();
   const finalResult = page.locator('.project-deliverable').filter({ hasText: '最终内部报告' }).first();
-  await finalResult.locator('summary').click();
+  await finalResult.locator('summary').first().click();
   const downloadLink = finalResult.getByRole('link', { name: '下载已审核成果' });
   await expect(downloadLink).toBeVisible();
   const url = await downloadLink.getAttribute('href');
@@ -386,4 +386,55 @@ test('EIA A→B→C template keeps stage roles separate and produces a downloade
   expect(fetched.headers()['content-disposition']).toContain('eia-internal-final.md');
   expect(await fetched.text()).toContain('演示结果');
   await page.screenshot({ path: 'test-results/human-harness-abc-c-output.png', fullPage: true });
+});
+
+
+test('approved output can be Human-revised from the library; dependent review reopens without overwriting history', async ({ page }) => {
+  await createProject(page, '人工修订已批准成果浏览器闭环');
+  const human = page.getByRole('region', { name: '人类 TodoList' });
+  for (const item of [
+    { title: '第一份资料（PDF）', id: 'source-a', name: 'review-a.pdf', mimeType: 'application/pdf' },
+    { title: '第二份资料（DOCX）', id: 'source-b', name: 'review-b.docx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }
+  ]) {
+    await human.getByRole('button', { name: new RegExp(item.title.replace(/[()]/g, '\\$&')) }).click();
+    await page.locator('#material-file-' + item.id).setInputFiles({
+      name: item.name, mimeType: item.mimeType, buffer: Buffer.from(item.name)
+    });
+    await page.getByRole('button', { name: '提交资料，等待人工核验' }).click();
+    await page.getByRole('button', { name: '确认接受材料' }).click();
+  }
+  await human.getByRole('button', { name: /抽取两份文档中的关键事实/ }).click();
+  await expect(page.getByRole('button', { name: '批准并交接下游' })).toBeVisible();
+  await page.getByRole('button', { name: '批准并交接下游' }).click();
+  await human.getByRole('button', { name: /确认缺失信息或冲突的处理意见/ }).click();
+  await page.getByLabel('完成情况、结论或交接给 Agent 的信息').fill('人工已确认这份数据仅用于演示。');
+  await page.getByRole('button', { name: '确认完成并交接' }).click();
+  await human.getByRole('button', { name: /根据资料与人工核对生成成果/ }).click();
+  await page.getByRole('button', { name: '批准并交接下游' }).click();
+
+  await page.getByRole('button', { name: '查看项目资料' }).click();
+  const extraction = page.locator('.project-deliverable').filter({ hasText: '内部待核对信息表' }).first();
+  const final = page.locator('.project-deliverable').filter({ hasText: '最终待审信息整理稿' }).first();
+  await extraction.locator('summary').first().click();
+  await expect(extraction).toContainText('当前有效版本 HEAD：v1');
+  await extraction.getByText('人类修订当前已批准成果（保留所有历史）').click();
+  await extraction.getByRole('button', { name: '复制当前 HEAD 到编辑区' }).click();
+  const editor = extraction.getByLabel('新的完整成果内容');
+  await expect(editor).not.toHaveValue('');
+  await editor.fill((await editor.inputValue()) + '\\n人工审定补充条目。');
+  await extraction.getByLabel('修改或恢复原因（必填）').fill('人工复核后补充说明，保留旧版记录');
+  await expect(extraction).toContainText('预计影响后继任务 2 项');
+  await extraction.getByRole('button', { name: '记录修订、更新 HEAD 并重开受影响任务' }).click();
+  await expect(page.getByRole('status')).toContainText('人工成果修订已记录');
+  await expect(extraction).toContainText('当前有效版本 HEAD：v2');
+  await expect(final).toContainText('旧版已失效');
+  await expect(final.getByRole('link', { name: '下载已审核成果' })).toHaveCount(0);
+  await extraction.getByText('查看完整历史版本（2）').click();
+  await expect(extraction).toContainText('人工复核后补充说明');
+  await expect(extraction).toContainText('人工审定补充条目');
+
+  await page.getByRole('button', { name: '← 返回 Todo' }).click();
+  await expect(human.getByRole('button', { name: /确认缺失信息或冲突的处理意见/ })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Agent TodoList' })).toContainText('等待依赖');
 });

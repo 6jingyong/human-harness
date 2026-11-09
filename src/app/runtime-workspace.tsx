@@ -151,11 +151,13 @@ export function RuntimeWorkspace() {
 
   async function action(
     type: string,
-    extra: { stepId?: string; materialId?: string; requestId?: string; autoDispatch?: boolean; maxParallel?: number } = {}
+    extra: { stepId?: string; materialId?: string; requestId?: string; expectedArtifactId?: string; autoDispatch?: boolean; maxParallel?: number } = {}
   ) {
     if (!project || busy) return;
     const projectId = project.id;
-    const key = extra.requestId || extra.stepId || extra.materialId || 'execution-policy';
+    const key = type === 'revise_approved_agent'
+      ? 'revision:' + extra.stepId
+      : extra.requestId || extra.stepId || extra.materialId || 'execution-policy';
     const scopedKey = projectId + ':' + key;
     // Serialize only operations on the same WorkItem, not the entire project.
     if (pendingKeys.current.has(scopedKey)) return;
@@ -167,6 +169,7 @@ export function RuntimeWorkspace() {
     if (extra.stepId) data.append('stepId', extra.stepId);
     if (extra.materialId) data.append('materialId', extra.materialId);
     if (extra.requestId) data.append('requestId', extra.requestId);
+    if (extra.expectedArtifactId) data.append('expectedArtifactId', extra.expectedArtifactId);
     if (type === 'set_execution_policy') {
       data.append('autoDispatch', String(extra.autoDispatch));
       data.append('maxParallel', String(extra.maxParallel));
@@ -178,12 +181,19 @@ export function RuntimeWorkspace() {
       await parseResponse(await fetch('/api/v1/projects/' + encodeURIComponent(projectId) + '/actions', {
         method: 'POST', body: data
       }));
-      if (['complete_human', 'submit_material', 'answer_human_request', 'replace_material'].includes(type)) {
+      if (['complete_human', 'submit_material', 'answer_human_request', 'replace_material',
+        'revise_approved_agent'].includes(type)) {
         setValues(old => ({ ...old, [key]: '' }));
         setFiles(old => ({ ...old, [key]: undefined }));
       }
+      if (type === 'revise_approved_agent') {
+        setFeedback(old => ({ ...old, [key]: '' }));
+        setValues(old => ({ ...old, ['revision-head:' + extra.stepId]: '' }));
+      }
       await openProject(projectId, true);
-      setNotice(type === 'run_agent'
+      setNotice(type === 'revise_approved_agent'
+        ? '人工成果修订已记录并成为当前 HEAD，受影响任务将按依赖图重新处理。'
+        : type === 'run_agent'
         ? 'Agent 任务已提交后台执行；完成后仍需人工审核。'
         : type === 'set_execution_policy'
           ? '项目自动派发设置已保存。已运行的任务不受暂停影响。'
@@ -279,8 +289,11 @@ export function RuntimeWorkspace() {
         {mode === 'library' && project ? <ProjectMaterialLibrary
           project={project} onBack={() => setMode('project')}
           onReplace={materialId => action('replace_material', { materialId })}
-          values={values} files={files}
+          onRevise={(stepId, expectedArtifactId) =>
+            action('revise_approved_agent', { stepId, expectedArtifactId })}
+          values={values} feedback={feedback} files={files}
           onValue={(key, value) => setValues(old => ({ ...old, [key]: value }))}
+          onFeedback={(key, value) => setFeedback(old => ({ ...old, [key]: value }))}
           onFile={(key, file) => setFiles(old => ({ ...old, [key]: file }))}
           isPending={isPending}
           /> :
