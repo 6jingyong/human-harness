@@ -59,6 +59,7 @@
 .ledger-fields input:not([type="checkbox"]), .ledger-fields select { width: 100%; min-width: 0; }
 .ledger-note { grid-column: span 2; }
 .ledger-checkbox { display: flex; align-self: center; align-items: center; gap: 6px; }
+.ledger-checkbox input { width: auto; margin: 0; }
 .ledger-breakdown { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; margin: 0; }
 .ledger-breakdown dt { color: var(--muted); font-size: 12px; }
 .ledger-breakdown dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; }
