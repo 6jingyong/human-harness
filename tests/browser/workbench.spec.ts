@@ -459,15 +459,27 @@ test('approved output can be Human-revised from the library; dependent review re
   await expect(page.getByRole('region', { name: 'Agent TodoList' })).toContainText('等待依赖');
 });
 
-test('the local JSON import installs the optional land investigation template and starts the dual Todo', async ({ page }) => {
+test('the bundled land template is selectable and a local JSON import can still be edited and launched', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: '打开菜单' }).click();
   const packageSelect = page.locator('#package-select');
   await expect(packageSelect).toContainText('双文档信息核对与交付');
-  await expect(packageSelect).not.toContainText('环评 · 地块土壤污染状况调查');
+  await expect(packageSelect).toContainText('环评 · 地块土壤污染状况调查 · 0.5.0');
   await page.getByLabel('导入本地 JSON 模板').setInputFiles(fileURLToPath(
     new URL('../../project-templates/land-investigation/land-investigation.hh.json', import.meta.url)
   ));
+  const flow = page.getByRole('region', { name: '项目双轴流程图' });
+  await expect(flow.getByRole('heading', { name: '必须由人完成' })).toBeVisible();
+  await expect(flow.getByRole('heading', { name: '可交给 AI／程序' })).toBeVisible();
+  await page.getByLabel('查找任务').fill('调查路线');
+  const route = flow.getByRole('button', { name: /专业确认第一阶段结论及调查路线/ });
+  await expect(route).toHaveAttribute('data-lane', 'human');
+  await route.click();
+  await expect(page.getByLabel('选项 1')).toHaveValue('第一阶段结题');
+  await expect(page.getByLabel('选项 2')).toHaveValue('进入后续采样调查');
+  await page.getByLabel('查找任务').fill('组装第一阶段');
+  await expect(flow.locator('[data-flow-card="step:report-preliminary"]')).toHaveAttribute('data-lane', 'machine');
+  await expect(flow.locator('[data-flow-card="review:report-preliminary"]')).toHaveAttribute('data-lane', 'human');
   await page.getByRole('button', { name: '验证并保存模板' }).click();
   await expect(page.getByRole('status')).toContainText('land-investigation-report @ 0.5.0');
 
@@ -590,4 +602,259 @@ test('startup previews template deliverables and carries requirements into the f
   await expect(todo.getByRole('button', { name: /提前联系地测机构/ })).toBeVisible();
   await expect(todo.getByRole('button', { name: /地测机构成果及交付文件/ })).toHaveCount(0);
   await expect(page.getByRole('region', { name: '项目要求' })).toContainText('2034-11-27');
+});
+
+test('the visual template editor connects a Human prerequisite and starts a project without editing JSON', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await page.getByRole('button', { name: /新建模板/ }).click();
+  const editor = page.getByRole('region', { name: '项目模板编辑器' });
+  const graph = editor.getByRole('region', { name: '项目双轴流程图' });
+  const fields = editor.getByRole('region', { name: '流程任务属性' });
+  await editor.getByText('模板资料与阶段').click();
+  await editor.getByLabel('模板 ID').fill('workbench-visual-template');
+  await editor.getByLabel('模板名称', { exact: true }).fill('可视化模板闭环验证');
+  await editor.getByRole('button', { name: /添加任务/ }).click();
+  await fields.getByLabel('任务名称').fill('确认素材使用权');
+  await expect(graph.getByRole('button', { name: /确认素材使用权/ })).toHaveAttribute('data-lane', 'human');
+  await graph.locator('[data-flow-card="step:draft"]').click();
+  await fields.getByLabel('前置任务', { exact: true }).selectOption({ label: '确认素材使用权' });
+  await expect(fields.getByRole('button', { name: '解除 确认素材使用权' })).toBeVisible();
+  await expect(graph.locator('svg > path.dependency').first()).toBeAttached();
+  await page.screenshot({ path: 'test-results/template-flow-editor.png', fullPage: true });
+  await graph.locator('[data-flow-card="review:draft"]').click();
+  const deliveryFlag = fields.getByLabel('列入项目交付');
+  await expect(deliveryFlag).toBeChecked();
+  await deliveryFlag.uncheck();
+  await expect(deliveryFlag).not.toBeChecked();
+  await deliveryFlag.check();
+  await editor.getByRole('button', { name: '验证并保存模板' }).click();
+  await expect(page.getByRole('status')).toContainText('workbench-visual-template @ 1.0.0');
+
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await page.getByLabel('本次项目名称').fill('素材使用权试跑');
+  await page.getByRole('button', { name: /创建项目/ }).click();
+  await expect(page.getByText('确认素材使用权')).toBeVisible();
+  await page.getByRole('button', { name: '确认并启动项目' }).click();
+  const human = page.getByRole('region', { name: '人类 TodoList' });
+  await human.getByRole('button', { name: /原始资料/ }).click();
+  await page.getByLabel('资料内容 / 来源说明').fill('记录样例');
+  await page.getByRole('button', { name: '提交资料，等待人工核验' }).click();
+  await page.getByRole('button', { name: '确认接受材料' }).click();
+  await expect(human.getByRole('button', { name: /生成待审成果/ })).toHaveCount(0);
+  await human.getByRole('button', { name: /确认素材使用权/ }).click();
+  await page.getByLabel('完成情况、结论或交接给 Agent 的信息').fill('已取得授权，保留凭证');
+  await page.getByRole('button', { name: '确认完成并交接' }).click();
+  await human.getByRole('button', { name: /生成待审成果/ }).click();
+  await page.getByRole('button', { name: '批准并交接下游' }).click();
+  await expect(page.getByRole('region', { name: '项目交付' }).getByRole('link', { name: '下载交付件' })).toBeVisible();
+});
+
+test('the template editor saves Codex Skills on the selected Agent task', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await page.locator('#package-select').selectOption('general-report');
+  await page.getByRole('button', { name: '复制所选模板' }).click();
+  const editor = page.getByRole('region', { name: '项目模板编辑器' });
+  await editor.locator('[data-flow-card="step:evidence"]').click();
+  await editor.getByText('Codex Skills', { exact: true }).click();
+  await editor.getByLabel('所需 Skill（每行一个）').fill('documents@local/pdf\ndocx');
+  await editor.getByRole('button', { name: '验证并保存模板' }).click();
+  await expect(page.getByRole('status')).toContainText('general-report-custom @ 1.0.0');
+  const response = await page.request.get('/api/v1/packages?id=general-report-custom');
+  expect(response.ok()).toBe(true);
+  const { package: saved } = await response.json();
+  expect(saved.steps.find((step: { id: string }) => step.id === 'evidence').codexSkills)
+    .toEqual(['documents@local/pdf', 'docx']);
+});
+
+test('the template editor validates and preserves fixed arguments for direct Codex MCP lookups', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await page.getByRole('button', { name: /新建模板/ }).click();
+  const editor = page.getByRole('region', { name: '项目模板编辑器' });
+  await editor.getByText('模板资料与阶段').click();
+  await editor.getByLabel('模板 ID').fill('workbench-mcp-lookup');
+  await editor.locator('[data-flow-card="step:draft"]').click();
+  await editor.getByText('Codex MCP', { exact: true }).click();
+  await editor.getByLabel('调用一个只读 MCP 工具').check();
+  const toolsUrl = '/api/v1/codex/mcp-tools';
+  const denied = await page.request.post(toolsUrl, { headers: { origin: 'https://example.invalid' } });
+  expect(denied.status()).toBe(403);
+  const local = await page.request.post(toolsUrl, { headers: { origin: new URL(page.url()).origin } });
+  expect(local.ok()).toBe(true);
+  await page.route('**/api/v1/codex/mcp-tools', route => route.fulfill({
+    json: { selectors: ['registry/sample_lookup'], unavailable: 1 }
+  }));
+  await editor.getByRole('button', { name: '查看本机可用工具' }).click();
+  await expect(editor.getByRole('status')).toContainText('1 个已授权工具当前不可用');
+  await editor.getByLabel('本机可用的只读工具').selectOption('registry/sample_lookup');
+  await expect(editor.getByLabel('MCP 服务名称')).toHaveValue('registry');
+  await expect(editor.getByLabel('MCP 工具名称')).toHaveValue('sample_lookup');
+  const parameters = editor.getByLabel('MCP 固定参数（JSON 对象）');
+  await parameters.fill('{"sampleId":');
+  await editor.getByRole('button', { name: '验证并保存模板' }).click();
+  await expect(editor.getByRole('alert')).toContainText('MCP 固定参数无法解析');
+  await parameters.fill('[]');
+  await editor.getByRole('button', { name: '编辑完整 JSON' }).click();
+  await expect(editor.getByRole('alert')).toContainText('须为 JSON 对象');
+  const args = { sampleId: 'DEMO-01', options: { include: ['location'] } };
+  await parameters.fill(JSON.stringify(args));
+  await editor.locator('[data-flow-card="material:input-01"]').click();
+  await editor.locator('[data-flow-card="step:draft"]').click();
+  await expect(parameters).toHaveValue(JSON.stringify(args));
+  await editor.getByRole('button', { name: '编辑完整 JSON' }).click();
+  const jsonEditor = editor.getByLabel('Protocol 1.0 项目模板 JSON');
+  const edited = JSON.parse(await jsonEditor.inputValue());
+  expect(edited.steps.find((step: { id: string }) => step.id === 'draft').codexMcp.arguments).toEqual(args);
+  await editor.getByRole('button', { name: '应用 JSON 到流程图' }).click();
+  await editor.getByRole('button', { name: '验证并保存模板' }).click();
+  await expect(page.getByRole('status')).toContainText('workbench-mcp-lookup @ 1.0.0');
+  const response = await page.request.get('/api/v1/packages?id=workbench-mcp-lookup');
+  expect(response.ok()).toBe(true);
+  const { package: saved } = await response.json();
+  expect(saved.steps.find((step: { id: string }) => step.id === 'draft').codexMcp)
+    .toEqual({ server: 'registry', tool: 'sample_lookup', arguments: args });
+});
+
+test('the bundled land reference opens directly, exposes gated handoffs, and saves an independent template', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await page.getByRole('button', { name: '打开环评参考模板' }).click();
+  const editor = page.getByRole('region', { name: '项目模板编辑器' });
+  const graph = editor.getByRole('region', { name: '项目双轴流程图' });
+  await expect(editor).toContainText('环评 · 地块土壤污染状况调查');
+  await editor.getByLabel('查找任务').fill('确认采样和检测机构已完成工作');
+  await graph.locator('[data-flow-card="step:lab-work-complete"]').click();
+  await editor.getByRole('button', { name: '聚焦关联' }).click();
+  await expect(graph.locator('[data-flow-card="step:commission"]')).toBeVisible();
+  await expect(graph.locator('[data-flow-card="material:detection-report"]')).toBeVisible();
+  await expect(graph.locator('[data-flow-card="step:extract-project"]')).toHaveCount(0);
+  await editor.getByRole('button', { name: '验证并保存模板' }).click();
+  await expect(page.getByRole('status')).toContainText('land-investigation-report-custom @ 1.0.0');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await expect(page.locator('#package-select')).toHaveValue('land-investigation-report-custom');
+  await page.getByRole('button', { name: '打开环评参考模板' }).click();
+  await expect(editor).toContainText('v1.0.1');
+});
+
+test('project ledger records cash and task time, compares a baseline and rolls up to the company', async ({ page }) => {
+  await createProject(page, '项目账务浏览器验收');
+  const title = (await page.locator('.simple-project-title h1').textContent())!.trim();
+  await page.getByRole('button', { name: '项目账务', exact: true }).click();
+  const ledger = page.getByRole('region', { name: '项目账务', exact: true });
+  await ledger.getByText('账务设置', { exact: true }).click();
+  await ledger.getByLabel('合同约定总额').fill('3000');
+  await ledger.getByLabel('人工时薪估值').fill('100');
+  await ledger.getByRole('button', { name: '保存账务设置' }).click();
+  await expect(ledger.getByRole('region', { name: '合同未收' })).toContainText('3,000.00');
+  const record = ledger.getByRole('region', { name: '记一笔' });
+  await record.getByLabel('金额（CNY）').fill('1200');
+  await record.getByLabel('说明').fill('客户首付款');
+  await record.getByRole('button', { name: '保存记录' }).click();
+  await expect(ledger.getByRole('region', { name: '合同未收' })).toContainText('1,800.00');
+  await ledger.getByRole('button', { name: '返回项目' }).click();
+
+  const human = page.getByRole('region', { name: '人类 TodoList' });
+  await human.getByRole('button', { name: /第一份资料/ }).click();
+  await page.getByRole('button', { name: '记录本任务投入' }).click();
+  await expect(record.getByLabel('关联事项（可选）')).toHaveValue('material:source-a');
+  await record.getByLabel('账目类别').selectOption('labor:setup');
+  await record.getByLabel('投入分钟').fill('45');
+  await record.getByLabel('说明').fill('原件建档');
+  await record.getByRole('button', { name: '保存记录' }).click();
+  await expect(ledger.getByRole('region', { name: '已记成本' })).toContainText('75.00');
+  await expect(ledger.getByRole('region', { name: '账务明细' }).getByText('原件建档')).toBeVisible();
+
+  const compare = ledger.getByRole('region', { name: '对照项目' });
+  await compare.getByText('录入历史项目基线').click();
+  await compare.getByLabel('历史项目名称').fill('历史同类项目');
+  await compare.getByLabel('人工总分钟').fill('85');
+  await compare.getByLabel('接入与建档分钟').fill('55');
+  await compare.getByRole('button', { name: '保存历史基线' }).click();
+  await expect(compare.getByRole('row', { name: /人工总投入/ })).toContainText('−40 分钟');
+
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await page.getByRole('button', { name: '公司账务' }).click();
+  const company = page.getByRole('region', { name: '公司账务', exact: true });
+  await expect(company.getByRole('region', { name: 'CNY 汇总' })).toContainText('1,200.00');
+  await company.getByRole('button', { name: title, exact: true }).click();
+  await expect(ledger.getByRole('region', { name: '客户净回款' })).toContainText('1,200.00');
+
+  await createProject(page, '同模板第二单');
+  await page.getByRole('button', { name: '项目账务', exact: true }).click();
+  const selector = compare.getByLabel('选择对照');
+  const previous = selector.getByRole('option', { name: new RegExp(title) });
+  const previousId = await previous.getAttribute('value');
+  if (!previousId) throw new Error('找不到已登记账务的对照项目');
+  await selector.selectOption(previousId);
+  const minutesRow = compare.getByRole('row', { name: /人工总投入/ });
+  await expect(minutesRow).toContainText('45 分钟');
+  await expect(minutesRow.getByRole('cell').last()).toHaveText('—');
+  await record.getByLabel('账目类别').selectOption('labor:setup');
+  await record.getByLabel('投入分钟').fill('15');
+  await record.getByLabel('说明').fill('复用模板建档');
+  await record.getByRole('button', { name: '保存记录' }).click();
+  await expect(minutesRow.getByRole('cell').last()).toHaveText('−30 分钟');
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+});
+
+test('the general report can be copied, launched from the menu and delivered as Word', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  const picker = page.locator('#package-select');
+  await picker.selectOption('general-report');
+  await page.getByRole('button', { name: '复制所选模板' }).click();
+  const editor = page.getByRole('region', { name: '项目模板编辑器' });
+  await expect(editor).toContainText('通用报告撰写');
+  await expect(editor.locator('[data-flow-card="step:evidence"]')).toBeVisible();
+  await expect(editor.locator('[data-flow-card="step:outline"]')).toBeVisible();
+  await page.getByRole('button', { name: /返回项目/ }).click();
+
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await expect(picker).toHaveValue('general-report');
+  await page.getByLabel('本次项目名称').fill('报告模板浏览器试跑');
+  await page.getByRole('button', { name: /创建项目/ }).click();
+  await expect(page.getByText(/MARKDOWN \/ DOCX/)).toBeVisible();
+  await page.getByRole('button', { name: '确认并启动项目' }).click();
+
+  const human = page.getByRole('region', { name: '人类 TodoList' });
+  for (const [title, text] of [
+    ['报告要求', '供项目负责人判断方案可行性，关注工期及人员。'],
+    ['原始资料与来源索引', '项目计划 A 第 2 段记录总工期 15 天。']
+  ]) {
+    await human.getByRole('button', { name: new RegExp(title) }).click();
+    await page.getByLabel('资料内容 / 来源说明').fill(text);
+    await page.getByRole('button', { name: '提交资料，等待人工核验' }).click();
+    await page.getByRole('button', { name: '确认接受材料' }).click();
+  }
+  for (const title of ['拟定报告提纲', '整理来源证据', '用已审证据撰写报告']) {
+    await human.getByRole('button', { name: new RegExp(title) }).click();
+    await page.getByRole('button', { name: '批准并交接下游' }).click();
+  }
+  const delivery = page.getByRole('region', { name: '项目交付' });
+  await expect(delivery.getByRole('link', { name: '下载 Markdown' })).toBeVisible();
+  await expect(delivery.getByRole('link', { name: '下载 Word' })).toHaveAttribute('href', /format=docx$/);
+});
+
+test('local model settings persist on reload and the mobile home opens a selected project template', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const trigger = page.getByRole('button', { name: '选择工作模型' });
+  await trigger.click();
+  const dialog = page.getByRole('dialog', { name: '选择工作模型' });
+  await dialog.getByRole('button', { name: /Mastra/ }).click();
+  await dialog.getByLabel('服务商 / 模型 ID').fill('openai/synthetic-test-model');
+  await dialog.getByRole('button', { name: '应用设置' }).click();
+  await expect(dialog).not.toBeVisible();
+  await page.reload();
+  await expect(trigger).toContainText('openai/synthetic-test-model');
+  await trigger.click();
+  await dialog.getByRole('button', { name: /演示/ }).click();
+  await dialog.getByRole('button', { name: '应用设置' }).click();
+  await expect(trigger).toContainText('演示模式');
+  await page.getByRole('button', { name: /报告撰写.*整理证据/ }).click();
+  await expect(page.getByLabel('选择项目模板')).toHaveValue('general-report');
+  await expect(page.getByLabel('本次项目名称')).toBeFocused();
 });

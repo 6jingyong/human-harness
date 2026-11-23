@@ -271,7 +271,7 @@ Markdown 输出契约可在 `markdown.headings` 声明有序的 `{level, title}`
 
 ### 启动预览与最终交付
 
-项目模板可用 `outputs[].deliverable: true` 标记正式出现在启动与交付视图中的输出。旧模板沿用终点输出作为默认交付项。
+项目模板可用 `outputs[].deliverable: true` 标记出现在启动与交付视图中的输出。一旦声明任意交付标记，仅标为 `true` 的输出进入交付。所有输出都省略标记的模板沿用终点输出作为默认交付项。仅含人工任务的模板可声明空的 `outputs` 列表。
 
 `POST /api/v1/projects/preview` 与 `POST /api/v1/projects` 共享项目创建契约。启动请求可带 `packageVersion` 和 `setup`。后者包含实际 `planning` 与模板声明范围内的 `requirements`。预览和启动调用同一任务状态机。首次持久化时一起保存模板快照、项目设置与任务状态。
 

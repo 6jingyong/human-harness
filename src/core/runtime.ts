@@ -26,7 +26,7 @@ export type RuntimeArtifact = {
   /** Concrete artifacts consumed by this result's run, not merely template graph inputs. */
   inputArtifactIds?: string[];
 };
-export type RuntimeRun = { id: string; stepId: string; status: 'running' | 'needs_input' | 'review' | 'failed'; startedAt: string; endedAt?: string; result?: HumanHarnessTaskResult; error?: string; codexThreadId?: string; codexTurnId?: string; lastExecutorEvent?: string; inputArtifactIds?: string[] };
+export type RuntimeRun = { id: string; stepId: string; status: 'running' | 'needs_input' | 'review' | 'failed'; startedAt: string; endedAt?: string; result?: HumanHarnessTaskResult; error?: string; provider?: string; model?: string; codexThreadId?: string; codexTurnId?: string; codexSkills?: string[]; codexMcpLookup?: string; lastExecutorEvent?: string; inputArtifactIds?: string[] };
 /** Runtime-only Human Todo spawned by a material question against a template-declared input.
  * The model may request clarification, but cannot add arbitrary requirements to the template.
  */
@@ -484,13 +484,17 @@ export function answerHumanRequest(project: ProjectState, requestId: string, raw
   resumeAfterHumanAnswers(project, item.stepId);
 }
 
-export function reviewAgent(project: ProjectState, stepId: string, approved: boolean, feedback: string): void {
+export function reviewAgent(project: ProjectState, stepId: string, approved: boolean, feedback: string,
+  expectedCandidateId?: string): void {
   const state = project.steps[stepId];
   if (!state || state.state !== 'review') throw new Error('Task is not pending review');
   if (!approved && !feedback.trim()) throw new Error('Rejection requires feedback');
   const def = project.package.steps.find(step => step.id === stepId);
   const current = project.artifacts.filter(a =>
     a.kind === 'agent_output' && a.ownerId === stepId).at(-1);
+  if (expectedCandidateId && current?.id !== expectedCandidateId) {
+    throw new Error('待审稿已更新，请重新审核最新版本。');
+  }
   if (approved && def?.method && (!current?.methodChecks ||
       current.methodChecks.length !== def.method.checks.length)) {
     throw new Error('Template method checklist is missing; cannot approve');
@@ -681,6 +685,8 @@ export function createTaskPacket(project: ProjectState, stepId: string, runId: s
       role: a.kind === 'material' ? 'case_evidence' : 'approved_derived', viewId: a.id
     })),
     templateResources: [], toolsAllowed: [],
+    ...(def.codexSkills ? { codexSkills: def.codexSkills } : {}),
+    ...(def.codexMcp ? { codexMcp: def.codexMcp } : {}),
     ...(def.outputContractId ? { outputContractId: def.outputContractId } : {}),
     reviewPolicy: 'human_required'
   };

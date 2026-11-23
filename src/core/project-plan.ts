@@ -2,6 +2,7 @@ import type { ProjectState } from './runtime';
 import { pools, type PlanBaseline, type PlanSettings, type Pool } from '../protocol/planning';
 import { civilDate, civilMinute, dateMinute, dayMinutes, nextWorkingMinute, workWindow } from './planning-calendar';
 import { planWork, priorityClosure, type PlanWork } from './planning-work';
+import { currentExternalPromise, enabledWorkOrders } from './work-orders';
 
 type PlanWindow = { start: number; finish: number };
 export type ScheduledWork = PlanWork & PlanWindow & {
@@ -12,6 +13,7 @@ export type ScheduledWork = PlanWork & PlanWindow & {
   delayed: boolean;
   taskDue?: string;
   missesTaskDue: boolean;
+  promisedOn?: string;
 };
 type Lane = { available: number; previous?: string };
 
@@ -35,6 +37,19 @@ export function calculateProjectPlan(project: ProjectState, settings: PlanSettin
     external: { lanes: Array.from({ length: settings.externalLanes }, (): Lane => ({ available: earliest })), minutes: settings.externalMinutes }
   };
   const { work, unresolvedDecisions } = planWork(project, settings);
+  const promised = new Map<string, string>();
+  const workOrderDue = new Map<string, string>();
+  for (const order of enabledWorkOrders(project)) {
+    const milestone = order.followUp?.milestoneId;
+    if (milestone && project.steps[milestone]?.state === 'ready') {
+      const promise = currentExternalPromise(project, milestone);
+      if (promise) promised.set('step:' + milestone, promise.detail);
+    }
+    for (const id of order.deliverables) {
+      const due = project.coordination?.requirements[order.id]?.due;
+      if (due) workOrderDue.set('material:' + id, due);
+    }
+  }
   const urgent = priorityClosure(work, settings.expedited);
   const scheduled = new Map<string, ScheduledWork>();
   const drivers = new Map<string, string[]>();
@@ -42,14 +57,17 @@ export function calculateProjectPlan(project: ProjectState, settings: PlanSettin
 
   function store(row: PlanWork, window: ReturnType<typeof workWindow>, lane?: number) {
     const baselineFinish = sameZoneBaseline?.tasks[row.key]?.finish;
-    const taskDue = settings.taskDueDates?.[row.key];
+    const taskDue = settings.taskDueDates?.[row.key] ?? workOrderDue.get(row.key);
     const taskDeadline = taskDue ? dateMinute(taskDue) + dayMinutes : undefined;
     const missesTaskDue = taskDeadline !== undefined && window.finish >= taskDeadline;
     const incomplete = row.status !== 'done';
     const overdue = incomplete && ((baselineFinish !== undefined && now > baselineFinish) ||
       (taskDeadline !== undefined && now >= taskDeadline));
     const delayed = baselineFinish !== undefined && window.finish > baselineFinish;
-    scheduled.set(row.key, { ...row, ...window, lane, critical: false, overdue, delayed, taskDue, missesTaskDue });
+    scheduled.set(row.key, {
+      ...row, ...window, lane, critical: false, overdue, delayed, taskDue, missesTaskDue,
+      promisedOn: promised.get(row.key)
+    });
   }
 
   for (const row of work) {
@@ -97,7 +115,10 @@ export function calculateProjectPlan(project: ProjectState, settings: PlanSettin
       ...(previous.previous && previous.available === constrainedAt ? [previous.previous] : [])
     ]);
     resource.lanes[chosen.lane] = { available: window.finish, previous: row.key };
-    store(row, window, chosen.lane + 1);
+    const promisedOn = promised.get(row.key);
+    // With only a date, reserve no working minutes for the wait and plan handoff after that day.
+    const finish = promisedOn ? Math.max(window.finish, dateMinute(promisedOn) + dayMinutes - 1) : window.finish;
+    store(row, { ...window, finish }, chosen.lane + 1);
   }
 
   const rows = [...scheduled.values()].sort((a, b) => a.start - b.start || a.finish - b.finish);

@@ -1,20 +1,21 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import { projectLaunchSchema } from '@/protocol/project-launch';
-import { createProject, listProjects, listPackages, RuntimeError } from '@/core/store';
-import { configuredExecutorMode } from '@/executors/runner';
+import { createProject, getModelSettings, listProjects, RuntimeError } from '@/core/store';
+import { getLaunchablePackage, listLaunchablePackages } from '@/app/launch-templates';
 import { ensureLocalScheduler } from '@/executors/scheduler';
 
 export const runtime = 'nodejs'; export const dynamic = 'force-dynamic';
 
 export async function GET() {
   ensureLocalScheduler();
-  return NextResponse.json({ projects: listProjects(), packages: listPackages(), executor: configuredExecutorMode() });
+  const settings = getModelSettings();
+  return NextResponse.json({ settings, projects: listProjects(), packages: listLaunchablePackages(), executor: settings.provider });
 }
 export async function POST(request: Request) {
   try {
     const { packageId, packageVersion, title, setup } = projectLaunchSchema.parse(await request.json());
-    const project = createProject(packageId, title, setup, packageVersion);
+    const project = createProject(getLaunchablePackage(packageId, packageVersion), title, setup);
     ensureLocalScheduler();
     return NextResponse.json({ project }, { status: 201 });
   } catch (error) {
