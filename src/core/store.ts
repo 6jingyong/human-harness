@@ -521,6 +521,9 @@ export function recordExecutorEvent(id: string, stepId: string, runId: string, e
     } else if (event.kind === 'skills') {
       run.codexSkills = event.selectors;
       recordEvent(p, 'executor.skills', stepId, JSON.stringify(event.selectors));
+    } else if (event.kind === 'mcpLookup') {
+      run.codexMcpLookup = event.selector;
+      recordEvent(p, 'executor.mcp_lookup', stepId, event.selector);
     } else {
       run.lastExecutorEvent = event.message.slice(0, 150);
       // Progress is a status snapshot. Avoid a large SQLite event ledger for every token.

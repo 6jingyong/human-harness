@@ -85,7 +85,25 @@ npm run codex:capabilities -- --mcp
 
 第一条查询本机插件与 Skills。第二条还会探测已配置的 MCP 服务，可能启动相应连接。查询不发起模型会话，也不向插件交付项目素材。模板执行时需使用 `HH_EXECUTOR=codex`，读取已验收的 PDF/DOCX 还需启用 `HH_CODEX_DOCUMENTS=1`。停用、缺失或重名的能力会留下失败记录，成功绑定的 Skill 会记录在对应运行和任务详情里。
 
-通用 MCP 工具执行暂未开放。任务结果仍由 Human Todo 验收，绑定记录只表明该 Skill 已提交给 Codex 任务的准备阶段。运行时能拒绝已经观察到的越界工具事件，权限仍由本机 Codex 的沙盒和配置负责。
+Skill 绑定记录对应任务准备阶段。运行时根据观察到的工具事件拒绝越界候选，权限仍由本机 Codex 的沙盒和配置负责。
+
+### 直接调用一个只读 MCP 工具
+
+在 Agent 任务中开启 **Codex MCP**，填入本机配置的服务和工具名称。运行工作台的主机须在 `HH_CODEX_MCP_READ_ONLY` 中逐个授权 `服务/工具`，用逗号分隔。可通过 `npm run codex:capabilities -- --mcp` 查看服务器状态和工具的只读声明。只读声明由服务器提供，授权前需确认工具实际行为。
+
+在模板 JSON 的对应任务中可以设置固定查询参数。以下为合成场地目录示例，服务和工具名称以本机配置为准。
+
+```json
+{
+  "codexMcp": {
+    "server": "registry",
+    "tool": "sample_lookup",
+    "arguments": { "sampleId": "DEMO-01" }
+  }
+}
+```
+
+任务运行时建立临时 Codex 线程，在该线程下检查工具目录，再调用一次原生 `mcpServer/tool/call`。调用载荷仅含模板的固定参数。工具的文本或结构化 JSON 返回值进入 Human Todo，由人工决定是否采纳并解锁下游。协议测试覆盖工具授权、只读声明、失效登录、重名服务和工具报错。
 
 下面是更完整的能力编排设计草案。
 
@@ -173,4 +191,4 @@ my-document-helper/
 
 > **同一个 Human Harness 项目方法，能由 Codex 环境中的真实现成工具执行，并返回可用于项目流转的候选结果。**
 
-目前已覆盖 `plugin/installed`、`skills/list`、按需 `mcpServerStatus/list` 和任务 Skill 绑定的协议回归。下一轮验收需要在已认证的 Codex 主机上，用实际插件样本生成候选成果并核验来源引用。
+目前协议回归覆盖 `plugin/installed`、`skills/list`、按需 `mcpServerStatus/list`、任务 Skill 绑定和单工具 `mcpServer/tool/call`。实际插件读件仍需在已认证的 Codex 主机上核验候选成果及来源引用。

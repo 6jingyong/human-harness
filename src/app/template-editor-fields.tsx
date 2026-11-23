@@ -211,7 +211,7 @@ export function TemplateInspector({ pkg, node, graph, onChange, onSelect, onRemo
         {pkg.stages.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}
       </select></label>
       <label>任务说明<textarea value={step.instructions} onChange={event => updateStep({ instructions: event.target.value })} /></label>
-      {step.kind === 'agent' && <details open={Boolean(step.codexSkills) || undefined}>
+      {step.kind === 'agent' && !step.codexMcp && <details open={Boolean(step.codexSkills) || undefined}>
         <summary>Codex Skills</summary>
         <label>所需 Skill（每行一个）<textarea key={step.id}
           defaultValue={step.codexSkills?.join('\n') ?? ''} rows={3}
@@ -221,6 +221,20 @@ export function TemplateInspector({ pkg, node, graph, onChange, onSelect, onRemo
             updateStep({ codexSkills: names.length ? names : undefined });
           }} /></label>
         <small>使用本机 Codex 已启用的 Skill。指定后，此任务需要 Codex 执行器。</small>
+      </details>}
+      {step.kind === 'agent' && <details open={Boolean(step.codexMcp) || undefined}>
+        <summary>Codex MCP</summary>
+        <label><input type="checkbox" checked={Boolean(step.codexMcp)} disabled={Boolean(step.codexSkills?.length)}
+          onChange={event => updateStep({ codexMcp: event.target.checked ? { server: '', tool: '' } : undefined })} />
+          调用一个只读 MCP 工具</label>
+        {step.codexSkills?.length && <small>清空此任务的 Codex Skills 后可启用直接查询。</small>}
+        {step.codexMcp && <>
+          <label>MCP 服务名称<input value={step.codexMcp.server}
+            onChange={event => updateStep({ codexMcp: { ...step.codexMcp!, server: event.target.value } })} /></label>
+          <label>MCP 工具名称<input value={step.codexMcp.tool}
+            onChange={event => updateStep({ codexMcp: { ...step.codexMcp!, tool: event.target.value } })} /></label>
+          <small>工具由本机授权。可在模板 JSON 中填写固定查询参数。项目资料不会作为查询参数发送。</small>
+        </>}
       </details>}
       <Minutes label={step.kind === 'external_milestone' ? '外部预计工期（工作分钟）' : '预计投入分钟'}
         value={step.planning?.workMinutes} onChange={workMinutes => updateStep({ planning: { ...step.planning, workMinutes } })} />

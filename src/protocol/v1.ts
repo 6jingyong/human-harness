@@ -7,6 +7,13 @@ const capabilityId = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/);
 const codexSkills = z.array(z.string().max(256)
   .regex(/^(?:[A-Za-z0-9][A-Za-z0-9_.-]*@[A-Za-z0-9][A-Za-z0-9_.-]*\/)?[A-Za-z0-9][A-Za-z0-9_.-]*$/))
   .min(1).max(8).refine(names => new Set(names).size === names.length, 'Codex Skills must be distinct');
+const codexMcp = z.strictObject({
+  server: capabilityId,
+  tool: capabilityId,
+  arguments: z.record(z.string(), z.json())
+    .refine(value => JSON.stringify(value).length <= 8000, 'MCP arguments exceed 8000 characters').optional()
+});
+export type CodexMcpLookup = z.infer<typeof codexMcp>;
 const digest = z.string().regex(/^sha256:[0-9a-f]{64}$/);
 const description = z.string().min(1).max(4000);
 
@@ -64,6 +71,7 @@ const step = z.strictObject({
   requestableMaterialIds: z.array(id).max(20).optional(),
   when: condition.optional(), capabilityId: capabilityId.optional(),
   codexSkills: codexSkills.optional(),
+  codexMcp: codexMcp.optional(),
   options: z.array(z.strictObject({ id, label: description })).min(2).max(20).optional(),
   requiresReview: z.boolean().optional(), outputContractId: id.optional(),
   resourceIds: z.array(id).max(30).optional(),
@@ -224,6 +232,12 @@ export const packageSchema = z.strictObject({
       }
     } else if (s.capabilityId) error(s.id + ': human/external steps cannot execute tools');
     if (s.codexSkills && s.kind !== 'agent') error(s.id + ': only Agent tasks can select Codex Skills');
+    if (s.codexMcp) {
+      if (s.kind !== 'agent' || s.codexSkills) error(s.id + ': a direct MCP lookup requires an Agent task without Codex Skills');
+      if (outputs.get(s.outputContractId ?? '')?.markdown?.headings) {
+        error(s.id + ': a direct MCP lookup has no fixed report headings');
+      }
+    }
     if (s.outputContractId && outputs.get(s.outputContractId)?.producingStepId !== s.id) {
       error(s.id + ': output contract must belong to producing step');
     }
@@ -304,6 +318,7 @@ export const taskPacketSchema = z.strictObject({
   templateResources: z.array(z.strictObject({ resourceId: id, revision: z.number().int().positive(), role: z.literal('reference') })).max(100),
   toolsAllowed: z.array(capabilityId).max(100),
   codexSkills: codexSkills.optional(),
+  codexMcp: codexMcp.optional(),
   outputContractId: id.optional(),
   reviewPolicy: z.enum(['human_required', 'automated_validation'])
 });

@@ -232,6 +232,84 @@ test('ambiguous and disabled Plugin Skills and unexpected MCP execution reject r
   }
 });
 
+const mcpLookup = { server: 'registry', tool: 'sample_lookup', arguments: { sampleId: 'DEMO-01' } };
+
+test('a template MCP lookup uses Codex without a model turn and waits for Human review', async () => {
+  const old = process.env.HH_CODEX_MCP_READ_ONLY;
+  process.env.HH_CODEX_MCP_READ_ONLY = 'registry/sample_lookup';
+  try {
+    const pkg = manualProjectPackage({
+      id: 'codex-mcp-review', title: 'MCP 源记录核验', description: 'Protocol test',
+      inputs: '待核查项目说明', objective: '查阅匹配的目录记录'
+    });
+    pkg.steps[0].codexMcp = mcpLookup;
+    pkg.steps.push({
+      ...pkg.steps[0], id: 'use-lookup', title: '使用已审核目录记录',
+      codexMcp: undefined, dependsOn: ['draft'], outputContractId: undefined
+    });
+    store.importPackage(pkg);
+    const { id } = store.createProject(pkg.id, 'Read-only lookup');
+    store.submitMaterial(id, 'input-01', 'PRIVATE_PROJECT_NOTE');
+    store.reviewReceivedMaterial(id, 'input-01', true, '');
+    await assert.rejects(() => executeOneAgentTask(id, 'draft', {
+      id: 'demo', async execute() { throw new Error('Demo should not have started'); }
+    }), /需要 Codex MCP 查询/);
+    store.retryFailedAgent(id, 'draft');
+    const executor: TaskExecutor = {
+      id: 'codex',
+      execute: (input, onEvent) => {
+        assert.deepEqual(input.packet.codexMcp, mcpLookup);
+        assert.equal(input.evidence[0].content, 'PRIVATE_PROJECT_NOTE');
+        return runCodexTask(input, { onEvent, timeoutMs: 3000, startProcess: start('mcp-direct') });
+      }
+    };
+    const result = await executeOneAgentTask(id, 'draft', executor);
+    assert.equal(result.project.steps['draft'].state, 'review');
+    assert.equal(result.project.steps['use-lookup'].state, 'blocked');
+    assert.equal(result.project.runs.at(-1)?.codexMcpLookup, 'registry/sample_lookup');
+    assert.equal(result.project.runs.at(-1)?.codexTurnId, undefined);
+    const output = store.latestOutput(result.project, 'draft')?.content ?? '';
+    assert.match(output, /Synthetic registry record/);
+    assert.match(output, /DEMO-01/);
+    assert.doesNotMatch(output, /PRIVATE_PROJECT_NOTE/);
+    const approved = store.reviewAgentOutput(id, 'draft', true, '确认样例目录条目');
+    assert.equal(approved.steps['use-lookup'].state, 'ready');
+  } finally {
+    if (old === undefined) delete process.env.HH_CODEX_MCP_READ_ONLY;
+    else process.env.HH_CODEX_MCP_READ_ONLY = old;
+  }
+});
+
+test('MCP lookup requires an exact host allowlist and a ready, read-only tool on the selected thread', async () => {
+  const old = process.env.HH_CODEX_MCP_READ_ONLY;
+  const lookupTask = { ...task, packet: { ...task.packet, codexMcp: mcpLookup } };
+  try {
+    process.env.HH_CODEX_MCP_READ_ONLY = 'registry/*';
+    await assert.rejects(() => runCodexTask(lookupTask, {
+      startProcess: () => { throw new Error('no process should start'); }
+    }), /not approved in HH_CODEX_MCP_READ_ONLY/);
+
+    process.env.HH_CODEX_MCP_READ_ONLY = 'registry/sample_lookup';
+    for (const [mode, error] of [
+      ['mcp-write', /does not advertise readOnlyHint/],
+      ['mcp-auth', /not ready or authorized/],
+      ['mcp-ambiguous', /Ambiguous Codex MCP server registration/],
+      ['mcp-tool-error', /tool reported an error/]
+    ] as const) {
+      await assert.rejects(() => runCodexTask(lookupTask, {
+        startProcess: start(mode), timeoutMs: 3000
+      }), error);
+    }
+    const output = await runCodexTask({ ...lookupTask, outputFormat: 'json' }, {
+      startProcess: start('mcp-direct'), timeoutMs: 3000
+    });
+    assert.equal(JSON.parse(output.body).structuredContent.sampleId, 'DEMO-01');
+  } finally {
+    if (old === undefined) delete process.env.HH_CODEX_MCP_READ_ONLY;
+    else process.env.HH_CODEX_MCP_READ_ONLY = old;
+  }
+});
+
 test('runner transports only currently accepted original bytes, not storage paths', async () => {
   const pkg = manualProjectPackage({
     id: 'codex-accepted-upload-scope', title: '文件读取作用域',

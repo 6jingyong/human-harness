@@ -37,7 +37,7 @@ function prepareTask(projectId: string, stepId: string, runId: string): Executor
     if (!artifact) throw new Error('Authorized artifact was not found at expected revision');
     // Only the exact accepted revision in the scoped packet can be exposed.
     // Do not pass private paths to any executor or stage a rejected revision.
-    const bytes = artifact.filePath ? readFileSync(artifact.filePath) : undefined;
+    const bytes = !packet.codexMcp && artifact.filePath ? readFileSync(artifact.filePath) : undefined;
     if (bytes) {
       totalOriginalBytes += bytes.byteLength;
       if (bytes.byteLength > 12 * 1024 * 1024 || totalOriginalBytes > 32 * 1024 * 1024) {
@@ -120,6 +120,9 @@ export async function executeOneAgentTask(projectId: string, requestedStepId?: s
     const task = prepareTask(projectId, started.stepId, started.runId);
     if (task.packet.codexSkills?.length && executor.id !== codexExecutor.id) {
       throw new Error('此任务需要指定的 Codex Skill。请在 HH_EXECUTOR=codex 的主机上重试。');
+    }
+    if (task.packet.codexMcp && executor.id !== codexExecutor.id) {
+      throw new Error('此任务需要 Codex MCP 查询。请在 HH_EXECUTOR=codex 的主机上重试。');
     }
     const completion = executor.execute(task, event => {
       recordExecutorEvent(projectId, started.stepId, started.runId, event);

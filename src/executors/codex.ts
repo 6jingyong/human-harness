@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { stageAuthorizedDocuments } from './document-workspace';
 import { readCodexCapabilities, resolveCodexSkills } from './codex-capabilities';
+import { authorizeMcpLookup, callCodexMcpLookup } from './codex-mcp';
 import {
   executorOutputSchema, renderTextContext, type ExecutorOutput,
   type ExecutorRunEvent, type ExecutorTask, type TaskExecutor
@@ -45,13 +46,18 @@ class AppServerClient {
 
   constructor(private readonly child: ChildProcessWithoutNullStreams) {
     this.lines = createInterface({ input: child.stdout, crlfDelay: Infinity });
-    child.stderr.resume();
+    let stderrTail = '';
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+      stderrTail = (stderrTail + chunk).slice(-1024);
+    });
     this.lines.on('line', line => this.consume(line));
     child.on('error', error => this.fail(new Error('Cannot start local Codex app-server: ' + error.message)));
     child.stdin.on('error', error => this.fail(new Error('Codex stdin closed: ' + error.message)));
-    child.on('close', (code, signal) => this.fail(
-      new Error('Codex app-server exited before completion (code=' + code + ', signal=' + signal + ')')
-    ));
+    child.on('close', (code, signal) => {
+      const detail = /read-only file system|unable to open database file/i.test(stderrTail)
+        ? '。Codex 启动所需的文件不可写，请检查本机状态目录。' : '';
+      this.fail(new Error('Codex app-server exited before completion (code=' + code + ', signal=' + signal + ')' + detail));
+    });
   }
 
   private consume(line: string) {
@@ -135,24 +141,39 @@ async function initializeCodex(client: AppServerClient, experimentalApi: boolean
   client.notify('initialized');
 }
 
-/** Probe the local app-server in the same working-directory scope as a task. */
-export async function inspectCodexCapabilities(options: Pick<CodexLaunchOptions, 'startProcess' | 'timeoutMs'> & {
-  includeMcp?: boolean;
-} = {}) {
-  const workspace = mkdtempSync(join(tmpdir(), 'hh-codex-inventory-'));
+/** App-server requests that need neither document staging nor a model turn. */
+async function withCodexControl<T>(options: CodexLaunchOptions, timeoutMs: number,
+  run: (client: AppServerClient, workspace: string) => Promise<T>) {
+  const workspace = mkdtempSync(join(tmpdir(), 'hh-codex-control-'));
   let client: AppServerClient | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const abort = () => {
+    client?.fail(new Error('Codex run cancelled by human operator'));
+    client?.close();
+  };
   try {
+    if (options.signal?.aborted) throw new Error('Codex run cancelled by human operator');
     const connection = new AppServerClient((options.startProcess ?? startLocalCodex)(workspace));
     client = connection;
-    timer = setTimeout(() => connection.fail(new Error('Codex capability discovery timed out')), options.timeoutMs ?? 15000);
+    options.signal?.addEventListener('abort', abort, { once: true });
+    if (options.signal?.aborted) abort();
+    timer = setTimeout(() => connection.fail(new Error('Codex app-server request timed out')), options.timeoutMs ?? timeoutMs);
     await initializeCodex(connection, true);
-    return await readCodexCapabilities(connection.call.bind(connection), workspace, options.includeMcp === true);
+    return await run(connection, workspace);
   } finally {
     if (timer) clearTimeout(timer);
+    options.signal?.removeEventListener('abort', abort);
     client?.close();
     rmSync(workspace, { recursive: true, force: true });
   }
+}
+
+/** Probe the local app-server in the same working-directory scope as a task. */
+export function inspectCodexCapabilities(options: Pick<CodexLaunchOptions, 'startProcess' | 'timeoutMs'> & {
+  includeMcp?: boolean;
+} = {}) {
+  return withCodexControl(options, 15000, (client, cwd) =>
+    readCodexCapabilities(client.call.bind(client), cwd, options.includeMcp === true));
 }
 
 function parseOutput(text: string): ExecutorOutput {
@@ -167,6 +188,19 @@ export async function runCodexTask(task: ExecutorTask, options: CodexLaunchOptio
   if (options.signal?.aborted) throw new Error('Agent run was cancelled before launch');
   if (task.packet.toolsAllowed.length || task.packet.templateResources.length) {
     throw new Error('Codex plugin/tool capability binding is not supported yet');
+  }
+  const lookup = task.packet.codexMcp;
+  if (lookup) {
+    const selector = authorizeMcpLookup(lookup);
+    return withCodexControl(options, 30000, async (client, workspace) => {
+      const started = await client.call('thread/start', {
+        cwd: workspace, ephemeral: true, sandbox: 'read-only', approvalPolicy: 'never', serviceName: 'human_harness'
+      });
+      const threadId = string(object(started.thread).id);
+      if (!threadId) throw new Error('Codex thread/start returned no thread id');
+      options.onEvent?.({ kind: 'thread', id: threadId });
+      return callCodexMcpLookup(client.call.bind(client), threadId, lookup, selector, task, options.onEvent);
+    });
   }
   const workspace = mkdtempSync(join(tmpdir(), 'hh-codex-'));
   let documents: ReturnType<typeof stageAuthorizedDocuments>;

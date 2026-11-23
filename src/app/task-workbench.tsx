@@ -412,6 +412,11 @@ export function TaskWorkbench({
                 {step.codexSkills?.length && <p>模板要求 · {step.codexSkills.join('、')}</p>}
                 {activeRun?.codexSkills?.length && <p>已绑定 · {activeRun.codexSkills.join('、')}</p>}
               </section>}
+              {step.codexMcp && <section className="inspector-section">
+                <h3>Codex MCP 查询</h3>
+                <p>模板要求 · {step.codexMcp.server}/{step.codexMcp.tool}</p>
+                {activeRun?.codexMcpLookup && <p>已收到结果 · {activeRun.codexMcpLookup}</p>}
+              </section>}
               {currentStepState.state === 'ready' && <section className="inspector-section">
                 <h3>准备执行</h3>
                 {policy.autoDispatch ? <p className="dispatch-hint">已进入自动派发队列，满足资源与依赖条件后执行。</p> :

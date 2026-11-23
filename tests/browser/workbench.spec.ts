@@ -668,6 +668,27 @@ test('the template editor saves Codex Skills on the selected Agent task', async 
     .toEqual(['documents@local/pdf', 'docx']);
 });
 
+test('the template editor saves a direct Codex MCP lookup on an Agent task', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await page.getByRole('button', { name: /新建模板/ }).click();
+  const editor = page.getByRole('region', { name: '项目模板编辑器' });
+  await editor.getByText('模板资料与阶段').click();
+  await editor.getByLabel('模板 ID').fill('workbench-mcp-lookup');
+  await editor.locator('[data-flow-card="step:draft"]').click();
+  await editor.getByText('Codex MCP', { exact: true }).click();
+  await editor.getByLabel('调用一个只读 MCP 工具').check();
+  await editor.getByLabel('MCP 服务名称').fill('registry');
+  await editor.getByLabel('MCP 工具名称').fill('sample_lookup');
+  await editor.getByRole('button', { name: '验证并保存模板' }).click();
+  await expect(page.getByRole('status')).toContainText('workbench-mcp-lookup @ 1.0.0');
+  const response = await page.request.get('/api/v1/packages?id=workbench-mcp-lookup');
+  expect(response.ok()).toBe(true);
+  const { package: saved } = await response.json();
+  expect(saved.steps.find((step: { id: string }) => step.id === 'draft').codexMcp)
+    .toEqual({ server: 'registry', tool: 'sample_lookup' });
+});
+
 test('the bundled land reference opens directly, exposes gated handoffs, and saves an independent template', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: '打开菜单' }).click();

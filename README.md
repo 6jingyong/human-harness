@@ -158,7 +158,7 @@ We are using the **open-source Codex harness as the main architectural reference
 
 **Current code supports a protocol-tested Codex adapter in addition to the Mastra/demo prototype; actual model calls have not been verified on a logged-in Codex host.** Human Harness continues to own project templates, pending human inputs, evidence acceptance and project-level decisions. A Codex thread/turn cannot replace that project ledger.
 
-Read the [Codex-first design note](docs/codex-reference.md) and [app-server / Skills / permissions study](docs/codex-app-server-study.md). The app-server adapter supports text tasks plus an opt-in PDF/DOCX Skill discovery/invocation bridge for approved originals. A real local Skill and model smoke test remains required; general Codex Plugin/MCP installation and discovery are not yet integrated.
+Read the [Codex-first design note](docs/codex-reference.md) and [app-server / Skills / permissions study](docs/codex-app-server-study.md). The app-server adapter supports text tasks plus an opt-in PDF/DOCX Skill discovery/invocation bridge for approved originals. Plugin and MCP configuration stay in Codex. A live Skill and model smoke test remains required.
 
 ## First reproducible document-method experiment (synthetic data)
 
@@ -188,7 +188,7 @@ This is a design direction, **not** an existing second distribution, fork, or wo
 
 **The next integration milestone is to consume existing native Codex plugins**, not to build our own PDF/DOCX reader. Human Harness will provide a scoped task and its expected outputs; Codex will discover and use installed Skills/MCP tools. The template retains only the *business requirement* (which fields, which checks, what to do if unresolved). If a compatible plugin is missing, the user can install/connect it through the normal Codex flow.
 
-Human Harness reads installed Plugin and Skill inventory from Codex app-server, checks optional MCP readiness, and can attach an enabled Skill to a work item. The work item records the binding before the turn starts. Generic MCP execution and live model validation of Plugin-provided Skills are pending.
+Human Harness reads installed Plugin and Skill inventory from Codex app-server, checks optional MCP readiness, and can attach an enabled Skill to a work item. An Agent step can also make a direct MCP lookup against one host-approved read-only tool, using fixed template arguments and routing the result to Human review. The direct lookup requires no model turn. Broader model-selected MCP execution and live validation of Plugin-provided Skills are pending.
 
 Read the [native Codex plugin strategy](docs/codex-native-plugins.md) for the actual interfaces, current limitations, and the one-call smoke test. The existing PDF/DOCX extraction experiment is preserved only as a **historical method-contract test**, not the next product implementation.
 

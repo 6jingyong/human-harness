@@ -1,7 +1,7 @@
 import { basename, isAbsolute } from 'node:path';
 import { z } from 'zod';
 
-type Call = (method: string, params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+export type CodexCall = (method: string, params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
 const skill = z.object({
   name: z.string().min(1), path: z.string(), enabled: z.boolean(),
   pluginId: z.string().nullish()
@@ -11,11 +11,16 @@ const plugin = z.object({
 });
 const mcpServer = z.object({
   name: z.string().min(1), authStatus: z.string(),
+  environmentId: z.string().nullish(),
   tools: z.record(z.string(), z.unknown()), toolsError: z.unknown().optional(),
   serverCapabilities: z.object({}).nullish()
 });
+const mcpTool = z.object({
+  name: z.string().min(1),
+  annotations: z.object({ readOnlyHint: z.boolean().optional() }).nullish()
+});
 
-async function localSkills(call: Call, cwd: string) {
+async function localSkills(call: CodexCall, cwd: string) {
   const { data } = z.object({
     data: z.array(z.object({ skills: z.array(skill), errors: z.array(z.unknown()).optional() }))
   }).parse(await call('skills/list', { cwds: [cwd], forceReload: true }));
@@ -25,7 +30,7 @@ async function localSkills(call: Call, cwd: string) {
   };
 }
 
-async function installedPlugins(call: Call, cwd: string) {
+async function installedPlugins(call: CodexCall, cwd: string) {
   const result = z.object({
     marketplaces: z.array(z.object({ plugins: z.array(plugin) })),
     marketplaceLoadErrors: z.array(z.unknown()).optional()
@@ -36,26 +41,28 @@ async function installedPlugins(call: Call, cwd: string) {
   };
 }
 
-async function mcpStatus(call: Call) {
+export async function listMcpServers(call: CodexCall, scope: { threadId?: string; serverName?: string } = {}) {
   const response = z.object({ data: z.array(mcpServer), nextCursor: z.string().nullish() });
-  const items: Array<{ name: string; authStatus: string; initialized: boolean | null;
-    toolCount: number; toolListError: boolean }> = [];
+  const servers: z.infer<typeof mcpServer>[] = [];
   const cursors = new Set<string>();
   let cursor: string | undefined;
   do {
     const page = response.parse(await call('mcpServerStatus/list', {
-      detail: 'toolsAndAuthOnly', limit: 100, ...(cursor ? { cursor } : {})
+      ...scope, detail: 'toolsAndAuthOnly', limit: 100, ...(cursor ? { cursor } : {})
     }));
-    items.push(...page.data.map(server => ({
-      name: server.name, authStatus: server.authStatus,
-      initialized: server.serverCapabilities === undefined ? null : server.serverCapabilities !== null,
-      toolCount: Object.keys(server.tools).length, toolListError: Boolean(server.toolsError)
-    })));
+    servers.push(...page.data);
     cursor = page.nextCursor ?? undefined;
     if (cursor && cursors.has(cursor)) throw new Error('Codex returned a repeated MCP status cursor');
     if (cursor) cursors.add(cursor);
   } while (cursor);
-  return { items, loadErrors: 0 };
+  return servers;
+}
+
+export function readOnlyToolNames(tools: Record<string, unknown>) {
+  return Object.values(tools).flatMap(raw => {
+    const tool = mcpTool.safeParse(raw);
+    return tool.success && tool.data.annotations?.readOnlyHint === true ? [tool.data.name] : [];
+  });
 }
 
 async function tryProbe<T extends object>(probe: () => Promise<T>) {
@@ -67,7 +74,7 @@ async function tryProbe<T extends object>(probe: () => Promise<T>) {
   }
 }
 
-export async function readCodexCapabilities(call: Call, cwd: string, includeMcp: boolean) {
+export async function readCodexCapabilities(call: CodexCall, cwd: string, includeMcp: boolean) {
   const [skills, plugins, mcp] = await Promise.all([
     tryProbe(async () => {
       const { items, loadErrors } = await localSkills(call, cwd);
@@ -76,13 +83,20 @@ export async function readCodexCapabilities(call: Call, cwd: string, includeMcp:
       })), loadErrors };
     }),
     tryProbe(() => installedPlugins(call, cwd)),
-    includeMcp ? tryProbe(() => mcpStatus(call)) : null
+    includeMcp ? tryProbe(async () => ({
+      items: (await listMcpServers(call)).map(server => ({
+        name: server.name, authStatus: server.authStatus,
+        initialized: server.serverCapabilities === undefined ? null : server.serverCapabilities !== null,
+        toolCount: Object.keys(server.tools).length, toolListError: Boolean(server.toolsError),
+        readOnlyTools: readOnlyToolNames(server.tools)
+      })), loadErrors: 0
+    })) : null
   ]);
   return { skills, plugins, mcp };
 }
 
 /** Match only enabled Skills returned by the current host. Names never become file paths. */
-export async function resolveCodexSkills(call: Call, cwd: string, selectors: readonly string[]) {
+export async function resolveCodexSkills(call: CodexCall, cwd: string, selectors: readonly string[]) {
   if (!selectors.length) return [];
   const { items } = await localSkills(call, cwd);
   const resolved = new Map<string, z.infer<typeof skill>>();

@@ -71,6 +71,7 @@ export type ExecutorRunEvent =
   | { kind: 'thread'; id: string }
   | { kind: 'turn'; id: string }
   | { kind: 'skills'; selectors: string[] }
+  | { kind: 'mcpLookup'; selector: string }
   | { kind: 'progress'; message: string };
 
 export interface TaskExecutor {
