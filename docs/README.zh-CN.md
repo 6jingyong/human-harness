@@ -2,7 +2,7 @@
 
 ## 在本机打开工作台
 
-安装 Node.js 22.19 或更高版本，下载或克隆 `feat/general-project-templates` 分支。Windows 双击根目录的 **Start-Human-Harness.cmd**，首次启动会安装依赖。macOS 或 Linux 在项目目录执行 `npm ci`，再执行 `npm run local`。默认浏览器会打开 **http://127.0.0.1:3000**。
+安装 Node.js 22.19 或更高版本，[下载并解压主分支](https://github.com/6jingyong/human-harness/archive/refs/heads/main.zip)，或用 Git 克隆仓库。Windows 双击根目录的 **Start-Human-Harness.cmd**，首次启动会安装依赖。macOS 或 Linux 在项目目录执行 `npm ci`，再执行 `npm run local`。默认浏览器会打开 **http://127.0.0.1:3000**。
 
 首页可从报告撰写、项目启动或会议纪要开始，也可以打开最近项目。点击右上角的模型按钮，可选演示、已登录的 Codex CLI、本机 Ollama 已安装的模型，或 Mastra 对应的服务商模型。Mastra 的凭据配置在本机环境或 `.env.local`。保存后，本机所有项目从下一项 Agent 任务起使用新选择，任务详情可查看本次使用的模型。[手机宽度界面截图](images/local-model-picker.webp)
 
@@ -110,36 +110,15 @@ Human Harness 希望解决的不是“怎样让 AI 回答得更多”，而是�
 | 模块 | 已实现 | 尚未实现 |
 | --- | --- | --- |
 | 模板 | 双轴流程图新建、复制和编辑模板，或导入严格 JSON | 二进制资源包、批量模板管理、跨平台分发 |
-| 项目 | SQLite 持久化、模板版本快照、条件任务激活 | 动态衍生任意新任务、上游修改自动失效重算 |
+| 项目 | SQLite 持久化、模板版本快照、条件任务激活、上游修订后按依赖重开任务 | 动态衍生任意新任务 |
 | 人机协作 | 两栏任务、资料收取、人工选择、批准/退回 | 多用户权限、可公开部署的身份认证 |
-| Agent | Demo/Mastra、Codex app-server 文本任务适配器（模拟协议 CI 通过）、严格任务包 | 真实 Codex 模型本机验收、插件及并行调度 |
+| Agent | Demo、Codex、Ollama、Mastra 执行器，本机并行调度 | 登录后的 Codex 模型端到端验收、跨进程恢复 |
 | 文档 | 可保存上传文件，纯文本可读取，Markdown/JSON 审核后下载，模板可启用 Word 内审稿 | PDF/DOCX/CAD 稳定解析、复杂文档格式还原 |
-| 插件 | 内部能力 ID / 协议预留 | MCP 客户端与服务端、Agent Skills 安装与跨宿主验收 |
+| 插件 | 本机 Codex 插件与 Skill 清单、模板绑定、已授权的只读 MCP 查询 | 工作台内安装插件、模型自主选择 MCP 工具 |
 
 **不要误解演示模式：** 它不会调用真实模型，更不会访问 Google Earth、现场踏勘、检测机构或任何真实业务数据。
 
-## 本地启动
-
-需要 Node.js 22.19（推荐，CI 同版本；package.json 声明最低 22.13）、npm、可持久保存本地文件的电脑。
-
-**目前实现代码仍在 PR 开发分支，不在 `main`。** 在 PR 合并前使用：
-
-```bash
-git clone https://github.com/6jingyong/human-harness.git
-cd human-harness
-git switch feat/visual-template-editor
-npm install
-cp .env.example .env.local
-npm run dev
-```
-
-Windows PowerShell 可使用 `Copy-Item .env.example .env.local`。访问 **http://localhost:3000**。
-
-默认配置 `HH_EXECUTOR=demo`，不需要模型 API Key。
-
-要尝试真实 Mastra 调用，需设置 `HH_EXECUTOR=mastra`、提供方支持的模型 ID 和对应凭证。**项目尚未做真实模型 API 端到端测试**，请不要认为只要修改配置就一定能运行。
-
-测试：
+## 本地开发验证
 
 ```bash
 npm run typecheck
@@ -157,7 +136,7 @@ GitHub Actions 的 `gui-smoke` 使用 Ubuntu 24.04、Playwright Chromium 和正�
 src/
 ├── protocol/        自定义项目协议与输入输出结构校验
 ├── core/            项目状态、任务激活、资料审核与 SQLite 存储
-├── executors/       Mastra Agent 适配器
+├── executors/       Demo、Codex、Ollama 和 Mastra 执行器
 └── app/             Next.js 工作台与 /api/v1 接口
 examples/            项目模板示例
 docs/                协议、业务蓝图、插件兼容方案
@@ -194,16 +173,6 @@ Human Harness 不是一个主 Agent 依次执行全部任务的聊天循环，�
 
 当前代码新增了 Codex app-server 文本任务适配器和仅限已接受 PDF/DOCX 的 Skills 发现/显式调用实验桥接；**尚未通过真实登录模型与文档 Skill 的验收，通用 Plugins/MCP 也未接入**。我们先理解并验证接口，不因选定参考对象就马上替换已经可运行的代码。
 
-## 新增：可复现的 PDF/DOCX 素材方法实验
-
-我们没有先开发通用插件，而是制作了**两份明确标注为合成测试资料、但是真正 PDF/DOCX 格式的文件**，用现成解析库读取原始表格，然后按 [方法声明](../experiments/document-methods/methods.json) 做字段完整性和跨文件一致性验证。结果确实找到 **S-002 点位冲突**和 **S-003 单位缺失**，并输出两条带原始位置的 Human Todo 建议。
-
-- [运行实验](../experiments/document-methods/README.md)
-- [测试结果与局限](document-methods-experiment.md)
-- [Codex 可发现的演示 Skill](../.agents/skills/document-evidence-demo/SKILL.md)
-
-**这不是正式 PDF/DOCX 读取功能，也没有启动 Codex。** 实验只验证固定表头的合成表格，后续仍需扫描件、复杂表格及真实布局的系统测试。
-
 ## 共用项目内核，未来可有 Codex / Octop 两种生态配置
 
 Human Harness 主要利用 **Codex 本地的 Agent、Skill、Plugin、MCP 生态**，不必继承 Codex Cloud、云端多人协作等在线产品特性。通过在线模型 API 执行任务仍可能需要网络，但这不等于依赖 Codex 云端产品。
@@ -220,7 +189,7 @@ Human Harness 主要利用 **Codex 本地的 Agent、Skill、Plugin、MCP 生态
 
 [原生 Codex 插件复用方案](codex-native-plugins.md) 给出了 `plugin/list`、`skills/list`、MCP 就绪状态、能力绑定及缺失能力处理方案。把 Human Harness 自身发布成一个 Codex Plugin 是**另一条可选方向**，但不是我们复用现成 PDF/DOCX 插件的前提。
 
-之前的合成 PDF/DOCX 实验仅保留作方法合同验证，不继续作为解析器研发路线。**目前已有 PDF/DOCX Skill 的发现与显式调用桥接，但真实本机模型 + 文档 Skill 尚未验收；其他插件/MCP 能力仍未接入。**
+工作台支持发现并显式调用文档 Skill。通过已登录模型和实际文档 Skill 读取文件，仍需端到端验收。
 
 ## 我们接下来怎样学习成熟 Agent / 插件？
 

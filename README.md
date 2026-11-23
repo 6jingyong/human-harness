@@ -51,22 +51,22 @@ A future material requirement may be recorded on day one but remains outside the
 
 ## Current capabilities and limits
 
-| Area | Available in this branch | Not available yet |
+| Area | Available now | Not available yet |
 | --- | --- | --- |
 | Templates | Create, copy and edit two-lane workflows visually, or import strict Protocol 1.0 JSON | ZIP packages with binary assets; public search/catalog |
 | Project execution | Persisted tasks, conditional branches, decisions, external milestones, and selective reopening after an accepted source revision changes | General dynamic task creation |
 | Human–AI collaboration | Human TodoList, Agent task queue, approve/reject/retry | Multi-user identity, permissions, secure public hosting |
 | Materials | Save files and text; request/receive/accept/reject; track versions | Robust PDF/DOCX/CAD parsing, content-level professional verification |
-| Agent executor | Demo, Mastra and Codex adapters, plus local bounded auto-dispatch | Live Codex model verification and production worker recovery |
+| Agent executor | Demo, Codex, Ollama and Mastra adapters, plus local bounded auto-dispatch | Live Codex model verification and production worker recovery |
 | Outputs | Reviewed Markdown/JSON downloads and opt-in Word review copies of approved Markdown | Production report compilation and publication |
 | Codex integration | Installed Plugin and Skill inventory, optional MCP readiness, Skill selection per Agent task, and a direct query to one locally approved read-only MCP tool | Plugin installation from the workbench and model-selected MCP tools |
 
 ## Local graphical workbench
 
-Install Node.js 22.19 or later and check out the development branch of [PR #11](https://github.com/6jingyong/human-harness/pull/11).
+Install Node.js 22.19 or later. [Download and extract the main branch](https://github.com/6jingyong/human-harness/archive/refs/heads/main.zip) or clone it with Git.
 
 ```bash
-git clone --branch feat/general-project-templates https://github.com/6jingyong/human-harness.git
+git clone https://github.com/6jingyong/human-harness.git
 cd human-harness
 npm ci
 npm run local
@@ -165,7 +165,7 @@ See the [template material-processing design](docs/template-material-processing.
 src/
   protocol/        Canonical package / task / result validators
   core/            Workflow activation, decisions, evidence review, SQLite store
-  executors/       Demo, Mastra and Codex adapters
+  executors/       Demo, Codex, Ollama and Mastra adapters
   app/             Next.js workspace and /api/v1 routes
 examples/          Runnable project package
 docs/              Protocol, domain blueprint, interoperability research
@@ -181,16 +181,6 @@ We are using the **open-source Codex harness as the main architectural reference
 **Current code supports a protocol-tested Codex adapter in addition to the Mastra/demo prototype; actual model calls have not been verified on a logged-in Codex host.** Human Harness continues to own project templates, pending human inputs, evidence acceptance and project-level decisions. A Codex thread/turn cannot replace that project ledger.
 
 Read the [Codex-first design note](docs/codex-reference.md) and [app-server / Skills / permissions study](docs/codex-app-server-study.md). The app-server adapter supports text tasks plus an opt-in PDF/DOCX Skill discovery/invocation bridge for approved originals. Plugin and MCP configuration stay in Codex. A live Skill and model smoke test remains required.
-
-## First reproducible document-method experiment (synthetic data)
-
-We have added a **standalone, reproducible PDF/DOCX method-contract experiment** (not yet integrated with Human Harness): two synthetic original-format documents, a declarative material-method JSON file, a read-only extraction/check runner, and a Codex-discoverable demo Skill. It identifies a deliberate sample-point mismatch and a missing measurement unit, emitting **two source-linked Human Todo proposals**.
-
-This demonstrates how templates could specify recognition → field extraction → cross-document verification → issue-to-Human-Todo, **not** production document parsing or Codex/MCP interoperability.
-
-- [Experiment and run instructions](experiments/document-methods/README.md)
-- [Measured results and limitations](docs/document-methods-experiment.md)
-- [Demo Skill](.agents/skills/document-evidence-demo/SKILL.md)
 
 ## Parallel-first by default
 

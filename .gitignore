@@ -7,3 +7,8 @@ coverage/
 .human-harness/
 *.tsbuildinfo
 .DS_Store
+
+# Local browser test output and its temporary project database
+/test-results/
+/playwright-report/
+/.human-harness-browser-smoke/

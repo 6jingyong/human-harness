@@ -21,9 +21,6 @@ Human Harness is a **project-first human–AI collaboration runtime**, not a cha
 - `docs/codex-reference.md`: primary external harness reference and study plan.
 - `docs/codex-app-server-study.md`: exact app-server lifecycle, Skills discovery, permission approvals and proposed TaskPacket mapping. Do not treat it as an already-implemented adapter.
 - `docs/protocol/human-harness-1.0.md`: project/executor contract.
-- `docs/document-methods-experiment.md`: actually executed synthetic PDF/DOCX experiment, measured results and limitations.
-- `experiments/document-methods/`: standalone method declaration, fixture generator and read-only parser experiment.
-- `.agents/skills/document-evidence-demo/SKILL.md`: optional Codex-discoverable demo instructions; NOT a production document capability.
 - `docs/interoperability.md`: MCP, Skills, document parsing and compatibility research.
 - `src/protocol/`: validated protocol shapes.
 - `src/core/`: project state and activation rules.
@@ -75,7 +72,6 @@ Read only the material relevant to the current task. Keep changes focused; avoid
 - **Prefer consuming installed native Codex Plugins/Skills/MCP tools.** Do not build a new PDF/DOCX parsing engine, MCP server or host-specific reader by default.
 - See `docs/codex-native-plugins.md` for verified inventory APIs, plugin readiness checks and current limitations.
 - Preserve template-owned field/validation requirements; reuse plugin-provided methods, and turn unresolved problems into a Human WorkItem.
-- Existing `experiments/document-methods/` is a historical contract test, **not the primary parser roadmap**.
 - For stage A/B/C live model experiments, use `npm run codex:abc:live -- --scenario=real|poison-a|poison-ab` on an authenticated Codex machine. Only the named `codex-live` stages invoke models; synthetic QC/fault injection stages are explicitly marked. Report the observed semantics separately from hard evidence-scope checks. See `docs/eia-codex-live-stage-eval.md`. Text-only observed tool calls fail closed, but do NOT claim absolute filesystem-read isolation on all Codex versions.
 - Codex plugin discovery and installation are not integrated. Live Codex model execution requires an explicit `npm run codex:smoke` on a configured local host; CI uses a synthetic app-server fixture.
 
