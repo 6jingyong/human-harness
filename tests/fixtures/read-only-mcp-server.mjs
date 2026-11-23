@@ -25,7 +25,8 @@ responses.on('line', line => {
   } else if (method === 'tools/list') {
     result = { tools: [tool] };
   } else if (method === 'tools/call') {
-    const matches = params?.name === tool.name && params?.arguments?.sampleId === 'DEMO-01';
+    const matches = params?.name === tool.name && params?.arguments?.sampleId === 'DEMO-01' &&
+      Object.keys(params.arguments).length === 1;
     result = matches ? {
       content: [{ type: 'text', text: 'Synthetic lookup succeeded.' }],
       structuredContent: { sampleId: 'DEMO-01', synthetic: true }

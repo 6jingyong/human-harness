@@ -678,8 +678,14 @@ test('the template editor validates and preserves fixed arguments for direct Cod
   await editor.locator('[data-flow-card="step:draft"]').click();
   await editor.getByText('Codex MCP', { exact: true }).click();
   await editor.getByLabel('调用一个只读 MCP 工具').check();
-  await editor.getByLabel('MCP 服务名称').fill('registry');
-  await editor.getByLabel('MCP 工具名称').fill('sample_lookup');
+  await page.route('**/api/v1/codex/mcp-tools', route => route.fulfill({
+    json: { selectors: ['registry/sample_lookup'], unavailable: 1 }
+  }));
+  await editor.getByRole('button', { name: '查看本机可用工具' }).click();
+  await expect(editor.getByRole('status')).toContainText('1 个已授权工具当前不可用');
+  await editor.getByLabel('本机可用的只读工具').selectOption('registry/sample_lookup');
+  await expect(editor.getByLabel('MCP 服务名称')).toHaveValue('registry');
+  await expect(editor.getByLabel('MCP 工具名称')).toHaveValue('sample_lookup');
   const parameters = editor.getByLabel('MCP 固定参数（JSON 对象）');
   await parameters.fill('{"sampleId":');
   await editor.getByRole('button', { name: '验证并保存模板' }).click();

@@ -18,6 +18,14 @@ jobs:
           CI: 'true'
           HH_EXECUTOR: demo
           HH_DATA_DIR: ${{ runner.temp }}/human-harness-gui-smoke
+      - name: Verify a project handoff through the native Codex app-server
+        shell: bash
+        run: |
+          npm install --prefix "$RUNNER_TEMP/hh-native-tools" --no-audit --no-fund @openai/codex@0.171.0
+          export HH_CODEX_COMMAND="$RUNNER_TEMP/hh-native-tools/node_modules/.bin/codex"
+          "$HH_CODEX_COMMAND" --version
+          "$HH_CODEX_COMMAND" mcp add hh_smoke -- node "$GITHUB_WORKSPACE/tests/fixtures/read-only-mcp-server.mjs"
+          npm run test:codex:mcp
       - uses: actions/upload-artifact@v4
         if: always()
         with:

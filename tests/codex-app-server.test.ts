@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { inspectCodexCapabilities, runCodexTask } from '../src/executors/codex';
+import { inspectApprovedMcpTools, inspectCodexCapabilities, runCodexTask } from '../src/executors/codex';
 import type { ExecutorTask, ExecutorRunEvent, TaskExecutor } from '../src/executors/contracts';
 import { manualProjectPackage } from '../src/protocol/manual';
 
@@ -229,6 +229,24 @@ test('ambiguous and disabled Plugin Skills and unexpected MCP execution reject r
   } finally {
     if (old === undefined) delete process.env.HH_CODEX_DOCUMENTS;
     else process.env.HH_CODEX_DOCUMENTS = old;
+  }
+});
+
+test('MCP picker lists host-approved, live read-only tools without calling them', async () => {
+  const old = process.env.HH_CODEX_MCP_READ_ONLY;
+  try {
+    delete process.env.HH_CODEX_MCP_READ_ONLY;
+    assert.deepEqual(await inspectApprovedMcpTools({ startProcess: () => assert.fail('unexpected launch') }),
+      { selectors: [], unavailable: 0 });
+    process.env.HH_CODEX_MCP_READ_ONLY = 'registry/sample_lookup,registry/missing,registry/sample_lookup,invalid';
+    for (const mode of ['mcp-inventory', 'mcp-write', 'mcp-auth', 'mcp-ambiguous']) {
+      const available = mode === 'mcp-inventory';
+      const result = await inspectApprovedMcpTools({ startProcess: start(mode), timeoutMs: 3000 });
+      assert.deepEqual(result, { selectors: available ? ['registry/sample_lookup'] : [], unavailable: available ? 1 : 2 });
+    }
+  } finally {
+    if (old === undefined) delete process.env.HH_CODEX_MCP_READ_ONLY;
+    else process.env.HH_CODEX_MCP_READ_ONLY = old;
   }
 });
 

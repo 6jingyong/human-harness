@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { CodexMcpLookup } from '../protocol/v1';
+import { codexMcpLookupSchema, type CodexMcpLookup } from '../protocol/v1';
 import { listMcpServers, readOnlyToolNames, type CodexCall } from './codex-capabilities';
 import type { ExecutorOutput, ExecutorRunEvent, ExecutorTask } from './contracts';
 
@@ -10,29 +10,54 @@ const toolResult = z.object({
 });
 const textBlock = z.object({ type: z.literal('text'), text: z.string() });
 
+export function approvedMcpSelectors() {
+  const names = (process.env.HH_CODEX_MCP_READ_ONLY ?? '').split(',').map(item => item.trim());
+  return [...new Set(names)].filter(name => {
+    const [server, tool, ...extra] = name.split('/');
+    return extra.length === 0 && codexMcpLookupSchema.safeParse({ server, tool }).success;
+  }).sort();
+}
+
 export function authorizeMcpLookup(lookup: CodexMcpLookup): string {
   const selector = lookup.server + '/' + lookup.tool;
-  const approved = (process.env.HH_CODEX_MCP_READ_ONLY ?? '').split(',').map(name => name.trim());
-  if (!approved.includes(selector)) {
+  if (!approvedMcpSelectors().includes(selector)) {
     throw new Error('Codex MCP lookup is not approved in HH_CODEX_MCP_READ_ONLY: ' + selector);
   }
   return selector;
 }
 
-export async function callCodexMcpLookup(call: CodexCall, threadId: string, lookup: CodexMcpLookup,
-  selector: string, task: ExecutorTask, onEvent?: (event: ExecutorRunEvent) => void): Promise<ExecutorOutput> {
-  const servers = (await listMcpServers(call, { threadId, serverName: lookup.server }))
-    .filter(server => server.name === lookup.server);
+async function readyMcpServer(call: CodexCall, threadId: string, name: string) {
+  const servers = (await listMcpServers(call, { threadId, serverName: name }))
+    .filter(server => server.name === name);
   if (servers.length !== 1) {
-    throw new Error(servers.length ? 'Ambiguous Codex MCP server registration: ' + lookup.server
-      : 'Codex MCP server is not configured for the task thread: ' + lookup.server);
+    throw new Error(servers.length ? 'Ambiguous Codex MCP server registration: ' + name
+      : 'Codex MCP server is not configured for the task thread: ' + name);
   }
   const [server] = servers;
   if (!server.serverCapabilities || server.toolsError ||
       !['unsupported', 'bearerToken', 'oAuth'].includes(server.authStatus)) {
-    throw new Error('Codex MCP server is not ready or authorized: ' + lookup.server);
+    throw new Error('Codex MCP server is not ready or authorized: ' + name);
   }
-  if (!readOnlyToolNames(server.tools).includes(lookup.tool)) {
+  return { server, toolNames: readOnlyToolNames(server.tools) };
+}
+
+export async function discoverMcpSelectors(call: CodexCall, threadId: string, approved: string[]) {
+  const names = new Set(approved.map(selector => selector.split('/')[0]));
+  const registrations = await Promise.allSettled([...names].map(name => readyMcpServer(call, threadId, name)));
+  const available = new Set<string>();
+  for (const result of registrations) {
+    if (result.status !== 'fulfilled') continue;
+    const { server, toolNames } = result.value;
+    for (const tool of toolNames) available.add(server.name + '/' + tool);
+  }
+  const selectors = approved.filter(selector => available.has(selector));
+  return { selectors, unavailable: approved.length - selectors.length };
+}
+
+export async function callCodexMcpLookup(call: CodexCall, threadId: string, lookup: CodexMcpLookup,
+  selector: string, task: ExecutorTask, onEvent?: (event: ExecutorRunEvent) => void): Promise<ExecutorOutput> {
+  const { server, toolNames } = await readyMcpServer(call, threadId, lookup.server);
+  if (!toolNames.includes(lookup.tool)) {
     throw new Error('Codex MCP tool is missing or does not advertise readOnlyHint: ' + selector);
   }
   const raw = await call('mcpServer/tool/call', {

@@ -16,6 +16,40 @@ function Lines({ label, values, onChange }: { label: string; values: string[]; o
   }} /></label>;
 }
 
+function McpToolPicker({ onSelect }: { onSelect: (server: string, tool: string) => void }) {
+  const [loading, setLoading] = useState(false);
+  const [inventory, setInventory] = useState<{ selectors: string[]; unavailable: number }>();
+  const [error, setError] = useState('');
+  async function refresh() {
+    setLoading(true);
+    setError('');
+    setInventory(undefined);
+    try {
+      const response = await fetch('/api/v1/codex/mcp-tools', { method: 'POST' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '读取工具失败。');
+      setInventory(data);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '读取工具失败。');
+    } finally { setLoading(false); }
+  }
+  return <>
+    <button type="button" disabled={loading} onClick={refresh}>{loading ? '正在读取工具…' : '查看本机可用工具'}</button>
+    {error && <small role="alert">{error}</small>}
+    {inventory && <>
+      {inventory.selectors.length > 0 && <label>本机可用的只读工具<select value="" onChange={event => {
+        const [server, tool] = event.target.value.split('/');
+        if (tool) onSelect(server, tool);
+      }}>
+        <option value="">选择工具以填入下方名称</option>
+        {inventory.selectors.map(selector => <option key={selector}>{selector}</option>)}
+      </select></label>}
+      {inventory.unavailable > 0 && <small role="status">有 {inventory.unavailable} 个已授权工具当前不可用，请检查服务连接、登录和只读声明。</small>}
+      {!inventory.selectors.length && !inventory.unavailable && <small role="status">本机尚未授权只读工具。可在 HH_CODEX_MCP_READ_ONLY 中配置服务/工具。</small>}
+    </>}
+  </>;
+}
+
 function Minutes({ label, value, onChange }: { label: string; value?: number; onChange: (value?: number) => void }) {
   return <label>{label}<input type="number" min="15" max="24000" step="15" value={value ?? ''} onChange={event =>
     onChange(event.target.value ? Number(event.target.value) : undefined)} /></label>;
@@ -234,6 +268,7 @@ export function TemplateInspector({ pkg, node, graph, mcpArgumentText, onMcpArgu
           调用一个只读 MCP 工具</label>
         {step.codexSkills?.length && <small>清空此任务的 Codex Skills 后可启用直接查询。</small>}
         {step.codexMcp && <>
+          <McpToolPicker onSelect={(server, tool) => updateStep({ codexMcp: { ...step.codexMcp!, server, tool } })} />
           <label>MCP 服务名称<input value={step.codexMcp.server}
             onChange={event => updateStep({ codexMcp: { ...step.codexMcp!, server: event.target.value } })} /></label>
           <label>MCP 工具名称<input value={step.codexMcp.tool}

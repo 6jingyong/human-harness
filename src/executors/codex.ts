@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { stageAuthorizedDocuments } from './document-workspace';
 import { readCodexCapabilities, resolveCodexSkills } from './codex-capabilities';
-import { authorizeMcpLookup, callCodexMcpLookup } from './codex-mcp';
+import { approvedMcpSelectors, authorizeMcpLookup, callCodexMcpLookup, discoverMcpSelectors } from './codex-mcp';
 import {
   executorOutputSchema, renderTextContext, type ExecutorOutput,
   type ExecutorRunEvent, type ExecutorTask, type TaskExecutor
@@ -168,6 +168,22 @@ async function withCodexControl<T>(options: CodexLaunchOptions, timeoutMs: numbe
   }
 }
 
+async function startLookupThread(client: AppServerClient, workspace: string) {
+  const started = await client.call('thread/start', {
+    cwd: workspace, ephemeral: true, sandbox: 'read-only', approvalPolicy: 'never', serviceName: 'human_harness'
+  });
+  const id = string(object(started.thread).id);
+  if (!id) throw new Error('Codex thread/start returned no thread id');
+  return id;
+}
+
+export async function inspectApprovedMcpTools(options: CodexLaunchOptions = {}) {
+  const approved = approvedMcpSelectors();
+  if (approved.length === 0) return { selectors: [], unavailable: 0 };
+  return withCodexControl(options, 30000, async (client, workspace) =>
+    discoverMcpSelectors(client.call.bind(client), await startLookupThread(client, workspace), approved));
+}
+
 /** Probe the local app-server in the same working-directory scope as a task. */
 export function inspectCodexCapabilities(options: Pick<CodexLaunchOptions, 'startProcess' | 'timeoutMs'> & {
   includeMcp?: boolean;
@@ -193,11 +209,7 @@ export async function runCodexTask(task: ExecutorTask, options: CodexLaunchOptio
   if (lookup) {
     const selector = authorizeMcpLookup(lookup);
     return withCodexControl(options, 30000, async (client, workspace) => {
-      const started = await client.call('thread/start', {
-        cwd: workspace, ephemeral: true, sandbox: 'read-only', approvalPolicy: 'never', serviceName: 'human_harness'
-      });
-      const threadId = string(object(started.thread).id);
-      if (!threadId) throw new Error('Codex thread/start returned no thread id');
+      const threadId = await startLookupThread(client, workspace);
       options.onEvent?.({ kind: 'thread', id: threadId });
       return callCodexMcpLookup(client.call.bind(client), threadId, lookup, selector, task, options.onEvent);
     });

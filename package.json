@@ -15,6 +15,7 @@
     "codex:smoke": "node --import tsx scripts/codex-smoke.ts",
     "codex:mcp:smoke": "node --import tsx scripts/codex-mcp-smoke.ts",
     "codex:capabilities": "node --import tsx scripts/codex-capabilities.ts",
+    "test:codex:mcp": "playwright test --config playwright.native.config.ts",
     "test:browser": "playwright test",
     "codex:abc:live": "node --import tsx scripts/codex-abc-live.ts"
   },
