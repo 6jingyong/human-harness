@@ -171,7 +171,7 @@ my-document-helper/
 
 ## 5. 那之前的文档解析实验怎么处理？
 
-保留 `experiments/document-methods/` 作为**历史方法合同验证样例**，停止将其视为产品主线：
+2026 年 11 月的合成 PDF/DOCX 实验验证了字段提取、来源引用和跨文件核对。实验脚本与复现步骤可在[归档版本](https://github.com/6jingyong/human-harness/blob/c423f258386e0c54cb4c08a7093ddf6ac6ded68b/docs/document-methods-experiment.md)查看。
 
 - 有价值的是“结构化字段、来源引用、跨文件检查和精确 Human Todo”这一业务约定；
 - 不再计划把 `pdfplumber` / `python-docx` 实验脚本升级为通用读取插件；
