@@ -5,7 +5,7 @@ Define a reusable workflow, then use it to schedule people and agents against pr
 
 **[通用文档交接 MVP](docs/mvp-document-handoff.md)** · **[中文说明](docs/README.zh-CN.md)** · **[Codex Edition V1 roadmap](docs/roadmap-codex-v1.md)** · [Protocol 1.0](docs/protocol/human-harness-1.0.md) · [Codex-first design](docs/codex-reference.md) · [Interoperability roadmap](docs/interoperability.md) · [Land investigation example](examples/land-investigation.hh.json)
 
-> **Early local-development prototype.** The task engine and no-key demo are runnable. The Codex adapter has automated protocol coverage for Skill selection and direct read-only MCP lookups. Authenticated model runs, third-party connectors, and document extraction by installed Skills still need live verification. Word export produces review copies from approved Markdown.
+> **Early local-development prototype.** The task engine and no-key demo are runnable. Skill selection has automated protocol coverage. A real Codex CLI 0.171.0 and a synthetic local MCP server passed the browser workflow from template selection to Human review and downstream handoff. Authenticated model runs, third-party connectors, and document extraction by installed Skills still need live verification. Word export produces review copies from approved Markdown.
 
 The first reference project template, [land investigation](project-templates/land-investigation/), opens directly in the package editor via the menu action 「打开环评参考模板」. It covers project launch, external work, evidence review, and delivery of an approved internal report in Markdown or Word. The default template list contains general-purpose examples. Existing projects use their saved package snapshots.
 
@@ -99,7 +99,9 @@ npm run codex:capabilities -- --mcp
 HH_CODEX_MCP_READ_ONLY=hh_smoke/sample_lookup npm run codex:mcp:smoke -- hh_smoke sample_lookup '{"sampleId":"DEMO-01"}'
 ```
 
-For the same lookup in a project, set `HH_EXECUTOR=codex` and `HH_CODEX_MCP_READ_ONLY=hh_smoke/sample_lookup` in `.env.local`. In the visual template editor, open an Agent task, expand **Codex MCP**, and enable the read-only lookup. Enter `hh_smoke`, `sample_lookup`, and `{"sampleId":"DEMO-01"}` in the server, tool, and fixed JSON arguments fields. The tool must advertise `readOnlyHint`. The call sends only those fixed arguments, and the result enters Human Todo for review.
+For a project, set `HH_EXECUTOR=codex` and `HH_CODEX_MCP_READ_ONLY=hh_smoke/sample_lookup` in `.env.local`, then restart the workbench. In the template editor, select an Agent task and enable the read-only lookup under **Codex MCP**. Click **查看本机可用工具**, pick `hh_smoke/sample_lookup`, and enter `{"sampleId":"DEMO-01"}` as its fixed arguments. You can also enter the two names by hand when authoring a template for another machine. The runtime checks the tool again when the task is ready. Its result enters Human Todo for review.
+
+With the synthetic server registered, `npm run build`, `npx playwright install chromium`, and `npm run test:codex:mcp` exercise the full browser workflow on port 3101 using a temporary project database. The test saves a template, runs the lookup through the Codex CLI, inspects the returned record, approves it in Human Todo, and checks that the dependent handoff becomes actionable. The recorded run used no model turn or project originals. [GitHub Actions verification](https://github.com/6jingyong/human-harness/actions/runs/45167224596/job/137667201247).
 
 ### Walk through the built-in example
 
