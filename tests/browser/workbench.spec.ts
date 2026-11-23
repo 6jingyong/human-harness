@@ -678,6 +678,11 @@ test('the template editor validates and preserves fixed arguments for direct Cod
   await editor.locator('[data-flow-card="step:draft"]').click();
   await editor.getByText('Codex MCP', { exact: true }).click();
   await editor.getByLabel('调用一个只读 MCP 工具').check();
+  const toolsUrl = '/api/v1/codex/mcp-tools';
+  const denied = await page.request.post(toolsUrl, { headers: { origin: 'https://example.invalid' } });
+  expect(denied.status()).toBe(403);
+  const local = await page.request.post(toolsUrl, { headers: { origin: new URL(page.url()).origin } });
+  expect(local.ok()).toBe(true);
   await page.route('**/api/v1/codex/mcp-tools', route => route.fulfill({
     json: { selectors: ['registry/sample_lookup'], unavailable: 1 }
   }));

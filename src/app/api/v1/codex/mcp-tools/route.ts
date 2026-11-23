@@ -5,7 +5,9 @@ export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   const origin = request.headers.get('origin');
-  if (origin && origin !== new URL(request.url).origin) {
+  const host = request.headers.get('host');
+  // Next can normalize the internal URL to localhost even when the browser used 127.0.0.1.
+  if (origin && (!host || ![`http://${host}`, `https://${host}`].includes(origin))) {
     return NextResponse.json({ error: '请从当前工作台查看工具。' }, { status: 403 });
   }
   try {
