@@ -1,5 +1,5 @@
 import { configuredExecutorMode, modelSettingsSchema, type ModelSettings } from '../protocol/model-settings';
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import { createHash } from 'node:crypto';
 import { basename, extname, join, resolve } from 'node:path';
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -30,10 +30,10 @@ export class RuntimeError extends Error {}
 export class LedgerConflictError extends RuntimeError {}
 const dir = process.env.HH_DATA_DIR ? resolve(process.env.HH_DATA_DIR) : join(process.cwd(), '.human-harness');
 mkdirSync(dir, { recursive: true });
-const db = new Database(join(dir, 'protocol-v1.sqlite'));
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
-db.pragma('busy_timeout = 5000');
+const db = new DatabaseSync(join(dir, 'protocol-v1.sqlite'));
+db.exec('PRAGMA journal_mode = WAL');
+db.exec('PRAGMA foreign_keys = ON');
+db.exec('PRAGMA busy_timeout = 5000');
 db.exec([
   'CREATE TABLE IF NOT EXISTS local_model_settings (id INTEGER PRIMARY KEY CHECK(id=1), selection TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS packages (id TEXT NOT NULL, version TEXT NOT NULL, digest TEXT NOT NULL, definition TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (id, version))',
@@ -43,6 +43,19 @@ db.exec([
   'CREATE INDEX IF NOT EXISTS idx_runtime_projects ON projects(created_at)',
   'CREATE INDEX IF NOT EXISTS idx_runtime_events ON event_log(project_id, created_at)'
 ].join(';') + ';');
+
+function transaction<T>(operation: () => T, mode: 'deferred' | 'immediate' = 'deferred'): T {
+  db.exec(mode === 'immediate' ? 'BEGIN IMMEDIATE' : 'BEGIN');
+  try {
+    const result = operation();
+    db.exec('COMMIT');
+    return result;
+  } catch (error) {
+    // SQLite can roll back automatically on a storage error. Keep the original cause.
+    try { db.exec('ROLLBACK'); } catch { /* already rolled back */ }
+    throw error;
+  }
+}
 
 export function getModelSettings(): ModelSettings {
   const row = db.prepare('SELECT selection FROM local_model_settings WHERE id=1').get() as { selection: string } | undefined;
@@ -159,7 +172,7 @@ function ledgerView(project: ProjectState, ledger: ProjectLedger) {
 }
 
 export function getProjectLedger(projectId: string) {
-  return db.transaction(() => ledgerView(loadProject(projectId), loadLedger(projectId)))();
+  return transaction(() => ledgerView(loadProject(projectId), loadLedger(projectId)));
 }
 
 export type ProjectLedgerView = ReturnType<typeof getProjectLedger>;
@@ -203,7 +216,7 @@ export type CompanyLedgerView = ReturnType<typeof getCompanyLedger>;
 
 export function updateProjectLedger(projectId: string, input: unknown) {
   const command = projectLedgerCommandSchema.parse(input);
-  return db.transaction(() => {
+  return transaction(() => {
     const project = loadProject(projectId);
     const ledger = loadLedger(projectId);
     if (command.action === 'record') {
@@ -246,7 +259,7 @@ export function updateProjectLedger(projectId: string, input: unknown) {
     db.prepare('INSERT INTO project_ledgers (project_id, state) VALUES (?, ?) ON CONFLICT(project_id) DO UPDATE SET state = excluded.state')
       .run(projectId, JSON.stringify(ledger));
     return ledgerView(project, ledger);
-  }).immediate();
+  }, 'immediate');
 }
 
 
@@ -260,13 +273,13 @@ function persist(project: ProjectState, newEvents: number): void {
 }
 
 function mutate<T>(id: string, fn: (p: ProjectState) => T): { project: ProjectState; value: T } {
-  return db.transaction(() => {
+  return transaction(() => {
     const project = loadProject(id);
     const count = project.events.length;
     const value = fn(project);
     persist(project, project.events.length - count);
     return { project, value };
-  })();
+  });
 }
 
 function buildProjectSnapshot(template: string | HumanHarnessPackage, rawTitle: string, rawSetup?: unknown, version?: string): ProjectState {
@@ -294,7 +307,7 @@ export function previewProject(template: string | HumanHarnessPackage, title: st
 
 export function createProject(template: string | HumanHarnessPackage, rawTitle: string, setup?: unknown, version?: string): ProjectState {
   const project = buildProjectSnapshot(template, rawTitle, setup, version);
-  db.transaction(() => {
+  transaction(() => {
     db.prepare('INSERT INTO projects VALUES (?, ?, ?, ?, ?, ?)').run(
       project.id, project.title, project.templateId, project.templateVersion, JSON.stringify(project), project.createdAt
     );
@@ -303,7 +316,7 @@ export function createProject(template: string | HumanHarnessPackage, rawTitle: 
         e.id, project.id, e.type, e.subject, e.detail, e.createdAt
       );
     }
-  })();
+  });
   return project;
 }
 
