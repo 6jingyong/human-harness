@@ -92,7 +92,7 @@ const output = z.strictObject({
   acceptance: z.array(description).min(1).max(30), humanSignoff: z.boolean(),
   markdown: markdownOptions.optional(),
   word: wordExport.optional(),
-  deliverable: z.literal(true).optional()
+  deliverable: z.boolean().optional()
 });
 
 /** A strict, package-local validator. Runtime capability availability is a separate check. */
@@ -107,7 +107,7 @@ export const packageSchema = z.strictObject({
   materials: z.array(material).max(300),
   workOrders: z.array(workOrder).max(30).optional(),
   steps: z.array(step).min(1).max(400),
-  outputs: z.array(output).min(1).max(100)
+  outputs: z.array(output).max(100)
 }).superRefine((pkg, ctx) => {
   const error = (message: string) => ctx.addIssue({ code: 'custom', message });
   const unique = (ids: string[], label: string) => {

@@ -23,7 +23,7 @@ Human Harness owns the **project state and workflow**. An existing agent framewo
 
 ### The central loop
 
-1. **Author or import a project template manually.** Define the workflow, required materials, decision gates, capabilities, and intended outputs.
+1. **Author or import a project template.** Use the visual editor to connect Human tasks, AI and program execution, and review handoffs. Set material gates, conditions, estimates, and deliverables on the same package that drives project execution.
 2. **Create a project.** The project pins the template version and a content digest.
 3. **Work on what is actionable now.** Human TodoList and Agent work are two views of the same project, not competing checklists. On the home screen, Human TodoList is the left vertical list and Agent TodoList is the right vertical list. Agent tasks fold by template-defined owner and by status. Click any task to expand its input/review controls. The hamburger menu opens project/template controls and a separate project materials page with original files, template-specific requirements and reviewed Agent interpretations. Source-referenced semantic notes are optional and become reusable only after human approval and only for the currently accepted source revision.
 4. **Submit materials and review results.** Uploading a file does *not* automatically verify its contents.
@@ -49,7 +49,7 @@ A future material requirement may be recorded on day one but remains outside the
 
 | Area | Available in this branch | Not available yet |
 | --- | --- | --- |
-| Templates | Manually create, copy, edit and import strict Protocol 1.0 JSON | ZIP packages with binary assets; public search/catalog |
+| Templates | Create, copy and edit two-lane workflows visually, or import strict Protocol 1.0 JSON | ZIP packages with binary assets; public search/catalog |
 | Project execution | Persisted tasks, conditional branches, decisions, external milestones | General dynamic task creation; upstream change invalidation |
 | Human–AI collaboration | Human TodoList, Agent task queue, approve/reject/retry | Multi-user identity, permissions, secure public hosting |
 | Materials | Save files and text; request/receive/accept/reject; track versions | Robust PDF/DOCX/CAD parsing, content-level professional verification |
@@ -68,7 +68,7 @@ Requirements: Node.js **22.19 recommended** (the package declares Node >=22.13),
 ```bash
 git clone https://github.com/6jingyong/human-harness.git
 cd human-harness
-git switch feat/land-investigation-reference
+git switch feat/visual-template-editor
 npm install
 cp .env.example .env.local
 npm run dev

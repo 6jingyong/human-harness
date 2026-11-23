@@ -36,8 +36,9 @@ export type LaunchPreview = {
 
 /** Older templates infer delivery from their terminal outputs. */
 export function templateDeliverables(template: HumanHarnessPackage) {
-  const declared = template.outputs.filter(output => output.deliverable);
-  if (declared.length) return declared;
+  if (template.outputs.some(output => output.deliverable !== undefined)) {
+    return template.outputs.filter(output => output.deliverable === true);
+  }
   const internal = new Set(template.steps.flatMap(step => step.dependsOn));
   return template.outputs.filter(out => !internal.has(out.producingStepId));
 }

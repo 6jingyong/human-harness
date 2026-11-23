@@ -10,7 +10,7 @@ import { ProjectRequirements } from './project-requirements';
 import { PlanAttention, ProjectPlanView } from './project-plan-view';
 import { ProjectMaterialLibrary } from './project-material-library';
 import type { HumanHarnessPackage } from '@/protocol/v1';
-import { manualProjectPackage } from '@/protocol/manual';
+import { TemplateEditor } from './template-editor';
 
 type PackageSummary = { id: string; version: string; title: string; description: string; builtin: boolean };
 type ProjectSummary = { id: string; title: string; package_id: string; package_version: string };
@@ -43,11 +43,7 @@ export function RuntimeWorkspace() {
   const [mode, setMode] = useState<'project' | 'editor' | 'library' | 'plan' | 'launch'>('project');
   const [menuOpen, setMenuOpen] = useState(false);
   const [executor, setExecutor] = useState('demo');
-  const [editor, setEditor] = useState('');
-  const [form, setForm] = useState({
-    id: 'my-document-project', title: '资料整理项目', description: '通用文档工作流',
-    inputs: '文件:原始资料A\n文件:原始资料B', objective: '根据已核验资料形成可审阅的内部成果'
-  });
+  const [editor, setEditor] = useState({ source: '', revision: 0 });
   const [values, setValues] = useState<Record<string, string>>({});
   const [feedback, setFeedback] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<Record<string, File | undefined>>({});
@@ -118,6 +114,14 @@ export function RuntimeWorkspace() {
     void refreshIndex().catch(error => setError(error.message));
   }
 
+  function beginTemplateEditor(source: string) {
+    setEditor(current => ({ source, revision: current.revision + 1 }));
+    setError('');
+    setNotice('');
+    setMode('editor');
+    setMenuOpen(false);
+  }
+
   async function openTemplateEditor() {
     setBusy(true); setError('');
     try {
@@ -133,25 +137,15 @@ export function RuntimeWorkspace() {
         id: builtin ? selected.id + '-custom' : selected.id,
         version: builtin ? '1.0.0' : nextVersion
       };
-      setEditor(JSON.stringify(copy, null, 2));
-      setMode('editor'); setMenuOpen(false);
+      beginTemplateEditor(JSON.stringify(copy));
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
-  function generateTemplate() {
-    setError(''); setNotice('');
-    try {
-      const generated = manualProjectPackage(form);
-      setEditor(JSON.stringify(generated, null, 2));
-      setNotice('模板草稿已生成，可继续编辑完整 JSON 并保存。');
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
-  }
-  async function saveTemplate() {
+  async function saveTemplate(body: string) {
     setBusy(true); setError(''); setNotice('');
     try {
-      if (!editor.trim()) throw new Error('请先生成或填写模板 JSON');
       const data = await parseResponse(await fetch('/api/v1/packages', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: editor
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body
       }));
       await refreshIndex();
       setPackageId(data.package.id);
@@ -166,10 +160,7 @@ export function RuntimeWorkspace() {
     if (!file) return;
     if (file.size > 200000) { setError('项目模板不能超过 200KB'); return; }
     try {
-      setEditor(await file.text());
-      setError('');
-      setMode('editor');
-      setMenuOpen(false);
+      beginTemplateEditor(await file.text());
       setNotice('已载入本地模板。请检查内容并保存。');
     } catch {
       setError('读取模板文件失败');
@@ -297,7 +288,7 @@ export function RuntimeWorkspace() {
             })}>{policy.autoDispatch ? '暂停自动派发' : '恢复自动派发'}</button>
         </div>}
         <div className="section-label with-gap">模板管理</div>
-        <button onClick={() => { setEditor(''); setMode('editor'); setMenuOpen(false); }} disabled={busy}>＋ 新建模板</button>
+        <button onClick={() => beginTemplateEditor('')} disabled={busy}>＋ 新建模板</button>
         <button onClick={openTemplateEditor} disabled={busy}>复制所选模板</button>
         <label className="upload-label">导入本地 JSON 模板<input type="file" accept=".json,application/json" onChange={importFile} disabled={busy} /></label>
         <div className="section-label with-gap">已有项目</div>
@@ -334,27 +325,8 @@ export function RuntimeWorkspace() {
           onOpen={key => { setFocusedHandoff(key); setMode('project'); }}
           onSaved={(id, planning) => setProject(current => current?.id === id ? { ...current, planning } : current)}
         /> :
-        mode === 'editor' ? <section className="editor-screen">
-          <span className="eyebrow">MANUAL PACKAGE AUTHORING</span>
-          <h1>手动创建项目模板</h1>
-          <p>简单项目可由表单生成 Protocol 1.0 模板；复杂阶段、专业决策、未来资料和脚本引用使用下方 JSON 完整声明。</p>
-          <div className="author-grid">
-            <label>模板 ID<input value={form.id} onChange={e => setForm(f => ({ ...f, id: e.target.value }))} /></label>
-            <label>模板名称<input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} /></label>
-            <label className="wide">项目描述<input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></label>
-            <label>用户初始资料（每行一项）<textarea rows={4} value={form.inputs} onChange={e => setForm(f => ({ ...f, inputs: e.target.value }))} /></label>
-            <label>Agent 任务目标<textarea rows={4} value={form.objective} onChange={e => setForm(f => ({ ...f, objective: e.target.value }))} /></label>
-          </div>
-          <button type="button" onClick={generateTemplate} disabled={busy}>生成标准模板草稿</button>
-          <details className="advanced-editor" open>
-            <summary>完整模板 JSON（hh.package/1）</summary>
-            <textarea className="json-editor" aria-label="Protocol 1.0 项目模板 JSON" spellCheck={false}
-              value={editor} onChange={e => setEditor(e.target.value)} />
-          </details>
-          <div className="actions"><button className="primary" type="button" onClick={saveTemplate} disabled={busy}>验证并保存模板</button>
-            <button type="button" onClick={() => setMode('project')} disabled={busy}>返回项目</button></div>
-          <p className="muted">每次更新模板请修改 version。已有项目继续使用创建时冻结的版本。只有已安装执行能力的模板可以运行。</p>
-        </section> : !project ? <div className="empty">
+        mode === 'editor' ? <TemplateEditor key={editor.revision} source={editor.source} busy={busy}
+          onSave={body => void saveTemplate(body)} onBack={() => setMode('project')} /> : !project ? <div className="empty">
            <span className="eyebrow">HUMAN HARNESS</span>
            <h1>Human Todo + Agent Todo</h1>
            <p>用项目模板安排双方的工作。打开左上角 ☰ 菜单创建项目。</p>

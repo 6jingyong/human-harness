@@ -468,6 +468,18 @@ test('the local JSON import installs the optional land investigation template an
   await page.getByLabel('导入本地 JSON 模板').setInputFiles(fileURLToPath(
     new URL('../../project-templates/land-investigation/land-investigation.hh.json', import.meta.url)
   ));
+  const flow = page.getByRole('region', { name: '项目双轴流程图' });
+  await expect(flow.getByRole('heading', { name: '必须由人完成' })).toBeVisible();
+  await expect(flow.getByRole('heading', { name: '可交给 AI／程序' })).toBeVisible();
+  await page.getByLabel('查找任务').fill('调查路线');
+  const route = flow.getByRole('button', { name: /专业确认第一阶段结论及调查路线/ });
+  await expect(route).toHaveAttribute('data-lane', 'human');
+  await route.click();
+  await expect(page.getByLabel('选项 1')).toHaveValue('第一阶段结题');
+  await expect(page.getByLabel('选项 2')).toHaveValue('进入后续采样调查');
+  await page.getByLabel('查找任务').fill('组装第一阶段');
+  await expect(flow.locator('[data-flow-card="step:report-preliminary"]')).toHaveAttribute('data-lane', 'machine');
+  await expect(flow.locator('[data-flow-card="review:report-preliminary"]')).toHaveAttribute('data-lane', 'human');
   await page.getByRole('button', { name: '验证并保存模板' }).click();
   await expect(page.getByRole('status')).toContainText('land-investigation-report @ 0.5.0');
 
@@ -590,4 +602,50 @@ test('startup previews template deliverables and carries requirements into the f
   await expect(todo.getByRole('button', { name: /提前联系地测机构/ })).toBeVisible();
   await expect(todo.getByRole('button', { name: /地测机构成果及交付文件/ })).toHaveCount(0);
   await expect(page.getByRole('region', { name: '项目要求' })).toContainText('2034-11-27');
+});
+
+test('the visual template editor connects a Human prerequisite and starts a project without editing JSON', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await page.getByRole('button', { name: /新建模板/ }).click();
+  const editor = page.getByRole('region', { name: '项目模板编辑器' });
+  const graph = editor.getByRole('region', { name: '项目双轴流程图' });
+  const fields = editor.getByRole('region', { name: '流程任务属性' });
+  await editor.getByText('模板资料与阶段').click();
+  await editor.getByLabel('模板 ID').fill('workbench-visual-template');
+  await editor.getByLabel('模板名称', { exact: true }).fill('可视化模板闭环验证');
+  await editor.getByRole('button', { name: /添加任务/ }).click();
+  await fields.getByLabel('任务名称').fill('确认素材使用权');
+  await expect(graph.getByRole('button', { name: /确认素材使用权/ })).toHaveAttribute('data-lane', 'human');
+  await graph.locator('[data-flow-card="step:draft"]').click();
+  await fields.getByLabel('前置任务', { exact: true }).selectOption({ label: '确认素材使用权' });
+  await expect(fields.getByRole('button', { name: '解除 确认素材使用权' })).toBeVisible();
+  await expect(graph.locator('svg > path.dependency').first()).toBeAttached();
+  await page.screenshot({ path: 'test-results/template-flow-editor.png', fullPage: true });
+  await graph.locator('[data-flow-card="review:draft"]').click();
+  const deliveryFlag = fields.getByLabel('列入项目交付');
+  await expect(deliveryFlag).toBeChecked();
+  await deliveryFlag.uncheck();
+  await expect(deliveryFlag).not.toBeChecked();
+  await deliveryFlag.check();
+  await editor.getByRole('button', { name: '验证并保存模板' }).click();
+  await expect(page.getByRole('status')).toContainText('workbench-visual-template @ 1.0.0');
+
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await page.getByLabel('本次项目名称').fill('素材使用权试跑');
+  await page.getByRole('button', { name: /创建项目/ }).click();
+  await expect(page.getByText('确认素材使用权')).toBeVisible();
+  await page.getByRole('button', { name: '确认并启动项目' }).click();
+  const human = page.getByRole('region', { name: '人类 TodoList' });
+  await human.getByRole('button', { name: /原始资料/ }).click();
+  await page.getByLabel('资料内容 / 来源说明').fill('记录样例');
+  await page.getByRole('button', { name: '提交资料，等待人工核验' }).click();
+  await page.getByRole('button', { name: '确认接受材料' }).click();
+  await expect(human.getByRole('button', { name: /生成待审成果/ })).toHaveCount(0);
+  await human.getByRole('button', { name: /确认素材使用权/ }).click();
+  await page.getByLabel('完成情况、结论或交接给 Agent 的信息').fill('已取得授权，保留凭证');
+  await page.getByRole('button', { name: '确认完成并交接' }).click();
+  await human.getByRole('button', { name: /生成待审成果/ }).click();
+  await page.getByRole('button', { name: '批准并交接下游' }).click();
+  await expect(page.getByRole('region', { name: '项目交付' }).getByRole('link', { name: '下载交付件' })).toBeVisible();
 });
