@@ -1,5 +1,7 @@
 'use client';
 
+import type { LedgerReference } from '@/protocol/project-ledger';
+
 import { formatLatestStart } from '@/core/project-coordination';
 import { effectiveMaterials, workOrderHandoffTarget } from '@/core/work-orders';
 import type { ProjectState } from '@/core/runtime';
@@ -21,6 +23,7 @@ type Props = {
   selectedKey: string;
   onSelect: (key: string) => void;
   onRefresh: () => void;
+  onRecord?: (reference: LedgerReference) => void;
   onAction: (name: string, options: ActionOptions) => void;
   values: Record<string, string>;
   feedback: Record<string, string>;
@@ -50,7 +53,7 @@ function TaskOption({ item, selected, onSelect }: {
 }
 
 export function TaskWorkbench({
-  project, executor, selectedKey, onSelect, onRefresh, onAction,
+  project, executor, selectedKey, onSelect, onRefresh, onAction, onRecord,
   values, feedback, files, onValue, onFeedback, onFile, isPending
 }: Props) {
   const queues = deriveWorkbenchQueues(project);
@@ -82,6 +85,10 @@ export function TaskWorkbench({
   const note = feedback[key] ?? '';
   const attachedReviewNote = humanRequest ? (feedback[humanRequest.materialId] ?? '') : '';
   const activeRun = step ? project.runs.filter(run => run.stepId === step.id).at(-1) : undefined;
+  const materialRef = material?.id ?? humanRequest?.materialId;
+  const ledgerReference: LedgerReference | undefined = materialRef ? { kind: 'material', id: materialRef }
+    : activeRun && current?.owner === 'agent' ? { kind: 'run', id: activeRun.id }
+    : step ? { kind: 'step', id: step.id } : undefined;
   const outputRevisions = step
     ? project.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === step.id).reverse()
     : [];
@@ -161,6 +168,9 @@ export function TaskWorkbench({
             <div><strong>负责方</strong><span>{current.owner === 'history' ? '已完成' :
               current.owner === 'human' ? '人类' : 'Agent'}</span></div>
           </div>
+          {ledgerReference && onRecord && <button type="button" onClick={() => onRecord(ledgerReference)}>
+            记录本任务投入
+          </button>}
           {humanRequest && <section className="inspector-section">
             <h3>Agent 请求补充信息</h3>
             <p>相关资料：{requestMaterial?.title ?? humanRequest.materialId}</p>

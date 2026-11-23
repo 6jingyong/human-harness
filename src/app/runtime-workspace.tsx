@@ -11,6 +11,9 @@ import { PlanAttention, ProjectPlanView } from './project-plan-view';
 import { ProjectMaterialLibrary } from './project-material-library';
 import type { HumanHarnessPackage } from '@/protocol/v1';
 import { TemplateEditor } from './template-editor';
+import { ProjectLedgerView } from './project-ledger-view';
+import { CompanyLedgerView } from './company-ledger-view';
+import type { LedgerReference } from '@/protocol/project-ledger';
 
 type PackageSummary = { id: string; version: string; title: string; description: string; builtin: boolean };
 type ProjectSummary = { id: string; title: string; package_id: string; package_version: string };
@@ -40,7 +43,8 @@ export function RuntimeWorkspace() {
   const [packageId, setPackageId] = useState('document-handoff');
   const [name, setName] = useState('');
   const [launchTemplate, setLaunchTemplate] = useState<HumanHarnessPackage>();
-  const [mode, setMode] = useState<'project' | 'editor' | 'library' | 'plan' | 'launch'>('project');
+  const [mode, setMode] = useState<'project' | 'editor' | 'library' | 'plan' | 'launch' | 'ledger' | 'company-ledger'>('project');
+  const [ledgerReference, setLedgerReference] = useState<LedgerReference>();
   const [menuOpen, setMenuOpen] = useState(false);
   const [executor, setExecutor] = useState('demo');
   const [editor, setEditor] = useState({ source: '', revision: 0 });
@@ -61,7 +65,7 @@ export function RuntimeWorkspace() {
     setProjects(data.projects);
     setExecutor(data.executor);
   }
-  async function openProject(id: string, silent = false) {
+  async function openProject(id: string, silent = false, destination: 'project' | 'ledger' = 'project') {
     const request = ++projectRequestSequence.current;
     const data = await parseResponse(await fetch('/api/v1/projects/' + encodeURIComponent(id), { cache: 'no-store' }));
     if (request !== projectRequestSequence.current) return;
@@ -72,12 +76,12 @@ export function RuntimeWorkspace() {
       return (current.planning?.revision ?? 0) > (incoming.planning?.revision ?? 0)
         ? { ...incoming, planning: current.planning } : incoming;
     });
-    if (!silent) { setMode('project'); setFocusedHandoff(''); setMenuOpen(false); }
+    if (!silent) { setLedgerReference(undefined); setMode(destination); setFocusedHandoff(''); setMenuOpen(false); }
   }
   useEffect(() => { refreshIndex().catch(e => setError(e.message)); }, []);
   // Server owns active Codex turns. Refreshing the page does not interrupt them.
   useEffect(() => {
-    if (!project?.id || (mode !== 'project' && mode !== 'plan')) return;
+    if (!project?.id || (mode !== 'project' && mode !== 'plan' && mode !== 'ledger')) return;
     const projectId = project.id;
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible') {
@@ -253,6 +257,7 @@ export function RuntimeWorkspace() {
            <button type="button" disabled={!project} onClick={() => { setMode('library'); setMenuOpen(false); }}>
              项目资料管理
            </button>
+           <button type="button" onClick={() => { setMode('company-ledger'); setMenuOpen(false); }}>公司账务</button>
          </div>
 
         <div className="section-label">项目模板（手动）</div>
@@ -322,6 +327,10 @@ export function RuntimeWorkspace() {
           onOpen={key => { setFocusedHandoff(key); setMode('project'); }}
           onSaved={(id, planning) => setProject(current => current?.id === id ? { ...current, planning } : current)}
         /> :
+        mode === 'company-ledger' ? <CompanyLedgerView onBack={() => setMode('project')}
+          onOpen={id => void openProject(id, false, 'ledger').catch(error => setError(error.message))} /> :
+        mode === 'ledger' && project ? <ProjectLedgerView key={project.id} project={project}
+          projects={projects} initialReference={ledgerReference} onBack={() => setMode('project')} /> :
         mode === 'editor' ? <TemplateEditor key={editor.revision} source={editor.source} busy={busy}
           onSave={body => void saveTemplate(body)} onBack={() => setMode('project')} /> : !project ? <div className="empty">
            <span className="eyebrow">HUMAN HARNESS</span>
@@ -334,6 +343,7 @@ export function RuntimeWorkspace() {
             <div className="simple-project-actions">
               <span>{humanCount} 项待你处理 · {agentRunning} 项 Agent 运行中</span>
               <button type="button" onClick={() => setMode('plan')}>项目计划</button>
+              <button type="button" onClick={() => { setLedgerReference(undefined); setMode('ledger'); }}>项目账务</button>
               <button type="button" onClick={() => setMode('library')}>查看项目资料</button>
             </div>
           </div>
@@ -344,6 +354,7 @@ export function RuntimeWorkspace() {
           <TaskWorkbench project={project} executor={executor}
             selectedKey={focusedHandoff} onSelect={setFocusedHandoff}
             onRefresh={() => openProject(project.id).catch(e => setError(e.message))}
+            onRecord={reference => { setLedgerReference(reference); setMode('ledger'); }}
             onAction={action} values={values} feedback={feedback} files={files}
             onValue={(key, value) => setValues(old => ({ ...old, [key]: value }))}
             onFeedback={(key, value) => setFeedback(old => ({ ...old, [key]: value }))}

@@ -10,6 +10,8 @@ import { enabledWorkOrders, workOrderHandoffTarget } from './work-orders';
 import { planSettingsSchema, type PlanSettings } from '../protocol/planning';
 import { projectSetupSchema } from '../protocol/project-launch';
 import { capturePlanBaseline } from './project-plan';
+import { projectLedgerCommandSchema, type ProjectLedger } from '../protocol/project-ledger';
+import { externalWaits, ledgerReferenceExists, ledgerSummary } from './project-ledger';
 import { readyAgentSteps } from './planning-work';
 import type { SemanticNote } from '../protocol/semantics';
 import type { MethodCheckResult } from '../executors/contracts';
@@ -20,6 +22,7 @@ import {
 } from './runtime';
 
 export class RuntimeError extends Error {}
+export class LedgerConflictError extends RuntimeError {}
 const dir = process.env.HH_DATA_DIR ? resolve(process.env.HH_DATA_DIR) : join(process.cwd(), '.human-harness');
 mkdirSync(dir, { recursive: true });
 const db = new Database(join(dir, 'protocol-v1.sqlite'));
@@ -29,6 +32,7 @@ db.pragma('busy_timeout = 5000');
 db.exec([
   'CREATE TABLE IF NOT EXISTS packages (id TEXT NOT NULL, version TEXT NOT NULL, digest TEXT NOT NULL, definition TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (id, version))',
   'CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, title TEXT NOT NULL, package_id TEXT NOT NULL, package_version TEXT NOT NULL, state TEXT NOT NULL, created_at TEXT NOT NULL)',
+  'CREATE TABLE IF NOT EXISTS project_ledgers (project_id TEXT PRIMARY KEY REFERENCES projects(id), state TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS event_log (id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), type TEXT NOT NULL, subject TEXT NOT NULL, detail TEXT NOT NULL, created_at TEXT NOT NULL)',
   'CREATE INDEX IF NOT EXISTS idx_runtime_projects ON projects(created_at)',
   'CREATE INDEX IF NOT EXISTS idx_runtime_events ON event_log(project_id, created_at)'
@@ -119,6 +123,108 @@ function loadProject(id: string): ProjectState {
 }
 
 export const getProject = (id: string): ProjectState => loadProject(id);
+
+function loadLedger(projectId: string): ProjectLedger {
+  const row = db.prepare('SELECT state FROM project_ledgers WHERE project_id = ?').get(projectId) as { state: string } | undefined;
+  return row ? JSON.parse(row.state) as ProjectLedger : { revision: 0, settings: { currency: 'CNY' }, entries: [] };
+}
+
+function ledgerView(project: ProjectState, ledger: ProjectLedger) {
+  const waits = externalWaits(project, new Date());
+  return { ledger, waits, summary: ledgerSummary(ledger, waits) };
+}
+
+export function getProjectLedger(projectId: string) {
+  return db.transaction(() => ledgerView(loadProject(projectId), loadLedger(projectId)))();
+}
+
+export type ProjectLedgerView = ReturnType<typeof getProjectLedger>;
+
+export function getCompanyLedger() {
+  const rows = db.prepare(`SELECT p.id, p.title, p.package_id, p.package_version, l.state AS ledger_state
+    FROM projects p LEFT JOIN project_ledgers l ON p.id = l.project_id ORDER BY p.created_at DESC`).all() as Array<{
+      id: string; title: string; package_id: string; package_version: string; ledger_state: string | null;
+    }>;
+  const projects = rows.map(({ ledger_state, ...project }) => {
+    const ledger = ledger_state ? JSON.parse(ledger_state) as ProjectLedger : undefined;
+    const summary = ledger ? ledgerSummary(ledger, []) : undefined;
+    return { ...project, currency: ledger?.settings.currency, summary: summary && {
+      cash: summary.cash, cashCostCents: summary.cashCostCents, cashBalanceCents: summary.cashBalanceCents,
+      openReceivableCents: summary.openReceivableCents, knownCostCents: summary.knownCostCents,
+      unpricedMinutes: summary.unpricedMinutes
+    } };
+  });
+  type Totals = {
+    currency: ProjectLedger['settings']['currency'];
+    clients: number; paid: number; balance: number; receivable: number; missingContract: number;
+  };
+  const totals = new Map<Totals['currency'], Totals>();
+  for (const { currency, summary } of projects) {
+    if (!currency || !summary) continue;
+    const group = totals.get(currency) ?? {
+      currency, clients: 0, paid: 0, balance: 0, receivable: 0, missingContract: 0
+    };
+    group.clients += summary.cash.client;
+    group.paid += summary.cashCostCents;
+    group.balance += summary.cashBalanceCents;
+    group.receivable += summary.openReceivableCents ?? 0;
+    group.missingContract += Number(summary.openReceivableCents === undefined);
+    totals.set(currency, group);
+  }
+  return { projects, totals: [...totals.values()] };
+}
+
+export type CompanyLedgerView = ReturnType<typeof getCompanyLedger>;
+
+
+export function updateProjectLedger(projectId: string, input: unknown) {
+  const command = projectLedgerCommandSchema.parse(input);
+  return db.transaction(() => {
+    const project = loadProject(projectId);
+    const ledger = loadLedger(projectId);
+    if (command.action === 'record') {
+      const existing = ledger.entries.find(entry => entry.id === command.entry.id);
+      if (existing) {
+        const { recordedAt: _recordedAt, hourlyRateCents: _hourlyRateCents, voided: _voided, ...original } = existing;
+        if (JSON.stringify(original) === JSON.stringify(command.entry)) return ledgerView(project, ledger);
+        throw new LedgerConflictError('这笔账的提交编号已使用，请刷新后重试。');
+      }
+    }
+    if (ledger.revision !== command.revision) throw new LedgerConflictError('项目账务已更新，请刷新账务后重试。');
+    switch (command.action) {
+      case 'settings':
+        if (command.settings.currency !== ledger.settings.currency && (ledger.entries.length || ledger.baseline?.cashCostCents !== undefined)) {
+          throw new RuntimeError('项目已有金额记录，币种已锁定。');
+        }
+        ledger.settings = command.settings;
+        break;
+      case 'record':
+        if (command.entry.reference && !ledgerReferenceExists(project, command.entry.reference)) {
+          throw new RuntimeError('关联事项不属于当前项目。');
+        }
+        ledger.entries.push({
+          ...command.entry, recordedAt: now(),
+          ...(command.entry.type === 'labor' && ledger.settings.hourlyRateCents !== undefined
+            ? { hourlyRateCents: ledger.settings.hourlyRateCents } : {})
+        });
+        break;
+      case 'void': {
+        const entry = ledger.entries.find(item => item.id === command.entryId);
+        if (!entry || entry.voided) throw new RuntimeError('这笔账不存在或已作废。');
+        entry.voided = { at: now(), reason: command.reason };
+        break;
+      }
+      case 'baseline':
+        ledger.baseline = command.baseline ?? undefined;
+        break;
+    }
+    ledger.revision++;
+    db.prepare('INSERT INTO project_ledgers (project_id, state) VALUES (?, ?) ON CONFLICT(project_id) DO UPDATE SET state = excluded.state')
+      .run(projectId, JSON.stringify(ledger));
+    return ledgerView(project, ledger);
+  }).immediate();
+}
+
 
 function persist(project: ProjectState, newEvents: number): void {
   const start = project.events.length - newEvents;

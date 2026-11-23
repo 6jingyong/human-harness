@@ -670,3 +670,65 @@ test('the bundled land reference opens directly, exposes gated handoffs, and sav
   await page.getByRole('button', { name: '打开环评参考模板' }).click();
   await expect(editor).toContainText('v1.0.1');
 });
+
+test('project ledger records cash and task time, compares a baseline and rolls up to the company', async ({ page }) => {
+  await createProject(page, '项目账务浏览器验收');
+  const title = (await page.locator('.simple-project-title h1').textContent())!.trim();
+  await page.getByRole('button', { name: '项目账务', exact: true }).click();
+  const ledger = page.getByRole('region', { name: '项目账务', exact: true });
+  await ledger.getByText('账务设置', { exact: true }).click();
+  await ledger.getByLabel('合同约定总额').fill('3000');
+  await ledger.getByLabel('人工时薪估值').fill('100');
+  await ledger.getByRole('button', { name: '保存账务设置' }).click();
+  await expect(ledger.getByRole('region', { name: '合同未收' })).toContainText('3,000.00');
+  const record = ledger.getByRole('region', { name: '记一笔' });
+  await record.getByLabel('金额（CNY）').fill('1200');
+  await record.getByLabel('说明').fill('客户首付款');
+  await record.getByRole('button', { name: '保存记录' }).click();
+  await expect(ledger.getByRole('region', { name: '合同未收' })).toContainText('1,800.00');
+  await ledger.getByRole('button', { name: '返回项目' }).click();
+
+  const human = page.getByRole('region', { name: '人类 TodoList' });
+  await human.getByRole('button', { name: /第一份资料/ }).click();
+  await page.getByRole('button', { name: '记录本任务投入' }).click();
+  await expect(record.getByLabel('关联事项（可选）')).toHaveValue('material:source-a');
+  await record.getByLabel('账目类别').selectOption('labor:setup');
+  await record.getByLabel('投入分钟').fill('45');
+  await record.getByLabel('说明').fill('原件建档');
+  await record.getByRole('button', { name: '保存记录' }).click();
+  await expect(ledger.getByRole('region', { name: '已记成本' })).toContainText('75.00');
+  await expect(ledger.getByRole('region', { name: '账务明细' }).getByText('原件建档')).toBeVisible();
+
+  const compare = ledger.getByRole('region', { name: '对照项目' });
+  await compare.getByText('录入历史项目基线').click();
+  await compare.getByLabel('历史项目名称').fill('历史同类项目');
+  await compare.getByLabel('人工总分钟').fill('85');
+  await compare.getByLabel('接入与建档分钟').fill('55');
+  await compare.getByRole('button', { name: '保存历史基线' }).click();
+  await expect(compare.getByRole('row', { name: /人工总投入/ })).toContainText('−40 分钟');
+
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await page.getByRole('button', { name: '公司账务' }).click();
+  const company = page.getByRole('region', { name: '公司账务', exact: true });
+  await expect(company.getByRole('region', { name: 'CNY 汇总' })).toContainText('1,200.00');
+  await company.getByRole('button', { name: title, exact: true }).click();
+  await expect(ledger.getByRole('region', { name: '客户净回款' })).toContainText('1,200.00');
+
+  await createProject(page, '同模板第二单');
+  await page.getByRole('button', { name: '项目账务', exact: true }).click();
+  const selector = compare.getByLabel('选择对照');
+  const previous = selector.getByRole('option', { name: new RegExp(title) });
+  const previousId = await previous.getAttribute('value');
+  if (!previousId) throw new Error('找不到已登记账务的对照项目');
+  await selector.selectOption(previousId);
+  const minutesRow = compare.getByRole('row', { name: /人工总投入/ });
+  await expect(minutesRow).toContainText('45 分钟');
+  await expect(minutesRow.getByRole('cell').last()).toHaveText('—');
+  await record.getByLabel('账目类别').selectOption('labor:setup');
+  await record.getByLabel('投入分钟').fill('15');
+  await record.getByLabel('说明').fill('复用模板建档');
+  await record.getByRole('button', { name: '保存记录' }).click();
+  await expect(minutesRow.getByRole('cell').last()).toHaveText('−30 分钟');
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+});

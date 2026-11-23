@@ -13,6 +13,8 @@ The [project requirements workflow](docs/project-coordination.md) materializes o
 
 The [project planning view](docs/project-planning.md) schedules the same tasks against workday capacity, records a baseline and identifies actionable delays.
 
+The local project ledger tracks cash, contract receivables and actual human time. It reads external waiting from project events, compares related projects or a historical baseline, and rolls up company cash by currency.
+
 ## Why does this exist?
 
 Most agent apps start with a chat: the user asks for something, and the agent decides the next step. Many real projects are different. They involve source documents that do not exist yet, outside organizations, human approvals, and work that must pause until the right evidence arrives.
