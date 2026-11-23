@@ -1,11 +1,11 @@
 # Human Harness
 
 **A project-first workspace for humans and AI agents.**  
-Define a project once, then let people and agents work through its real-world dependencies—without relying on a long chat to remember what comes next.
+Define a reusable workflow, then use it to schedule people and agents against project deadlines, available hours, and outside lead times. Human Harness keeps the project plan and review history. Its Codex adapter uses the open-source Codex app-server to execute eligible Agent tasks and access capabilities installed in Codex.
 
 **[通用文档交接 MVP](docs/mvp-document-handoff.md)** · **[中文说明](docs/README.zh-CN.md)** · **[Codex Edition V1 roadmap](docs/roadmap-codex-v1.md)** · [Protocol 1.0](docs/protocol/human-harness-1.0.md) · [Codex-first design](docs/codex-reference.md) · [Interoperability roadmap](docs/interoperability.md) · [Land investigation example](examples/land-investigation.hh.json)
 
-> **Status: early local-development prototype.** The project now includes a generic PDF/DOCX → Agent → Human → Agent handoff example and a protocol-fixture-tested local Codex Skill bridge. Neither actual Codex document parsing nor official DOCX/PDF report generation has been verified.  The task engine and no-key demo workflow work; real model calls, third-party connectors, office document parsing, and production deployment are **not verified or supported**. This repository is not a regulatory compliance tool.
+> **Early local-development prototype.** The task engine and no-key demo are runnable. The Codex adapter has automated protocol coverage for Skill selection and direct read-only MCP lookups. Authenticated model runs, third-party connectors, and document extraction by installed Skills still need live verification. Word export produces review copies from approved Markdown.
 
 The first reference project template, [land investigation](project-templates/land-investigation/), opens directly in the package editor via the menu action 「打开环评参考模板」. It covers project launch, external work, evidence review, and delivery of an approved internal report in Markdown or Word. The default template list contains general-purpose examples. Existing projects use their saved package snapshots.
 
@@ -54,25 +54,23 @@ A future material requirement may be recorded on day one but remains outside the
 | Area | Available in this branch | Not available yet |
 | --- | --- | --- |
 | Templates | Create, copy and edit two-lane workflows visually, or import strict Protocol 1.0 JSON | ZIP packages with binary assets; public search/catalog |
-| Project execution | Persisted tasks, conditional branches, decisions, external milestones | General dynamic task creation; upstream change invalidation |
+| Project execution | Persisted tasks, conditional branches, decisions, external milestones, and selective reopening after an accepted source revision changes | General dynamic task creation |
 | Human–AI collaboration | Human TodoList, Agent task queue, approve/reject/retry | Multi-user identity, permissions, secure public hosting |
 | Materials | Save files and text; request/receive/accept/reject; track versions | Robust PDF/DOCX/CAD parsing, content-level professional verification |
-| Agent executor | Demo/Mastra, protocol-tested Codex adapter; local bounded auto-dispatch | Real Codex model smoke test; production worker/lease recovery; extended plugins |
+| Agent executor | Demo, Mastra and Codex adapters, plus local bounded auto-dispatch | Live Codex model verification and production worker recovery |
 | Outputs | Reviewed Markdown/JSON downloads and opt-in Word review copies of approved Markdown | Production report compilation and publication |
-| Integration | Internal typed TaskPacket/TaskResult contracts | MCP client/server, portable Agent Skills, host-platform adapters |
-
-We are **designing** interoperability with MCP and Agent Skills; they are **not installed as project capabilities** in this version.
+| Codex integration | Installed Plugin and Skill inventory, optional MCP readiness, Skill selection per Agent task, and a direct query to one locally approved read-only MCP tool | Plugin installation from the workbench and model-selected MCP tools |
 
 ## Try it locally
 
 Requirements: Node.js **22.19 recommended** (the package declares Node >=22.13), npm, and a computer with persistent local storage.
 
-**The implementation is currently in an open pull request, not yet on `main`.** Until it is merged, check out the development branch:
+The commands below use the development branch of [PR #11](https://github.com/6jingyong/human-harness/pull/11).
 
 ```bash
 git clone https://github.com/6jingyong/human-harness.git
 cd human-harness
-git switch feat/visual-template-editor
+git switch feat/general-project-templates
 npm install
 cp .env.example .env.local
 npm run dev
@@ -85,6 +83,23 @@ The default `HH_EXECUTOR=demo` calls **no model or outside service**. The genera
 For real Mastra calls, set `HH_EXECUTOR=mastra`, choose an **available model identifier** in `HH_MODEL`, and configure the relevant provider credentials. Actual API access and model availability have not been smoke-tested in this repository.
 
 Run `npm run codex:capabilities` to list installed Plugins and available Skills through the local Codex app-server without running a model. Add `-- --mcp` to discover connection and tool status from configured MCP servers. For project execution, install and authenticate Codex CLI, set `HH_EXECUTOR=codex` (optional `HH_CODEX_MODEL`), and run `npm run codex:smoke` when ready to use model quota. An Agent step can select Skills using `codexSkills`, including a Plugin-provided Skill such as `documents@local/pdf` when that ID is installed. Accepted PDF/DOCX originals additionally require `HH_CODEX_DOCUMENTS=1`. See [Codex capability discovery and task binding](docs/codex-native-plugins.md) and the [live A/B/C evaluation guide](docs/eia-codex-live-stage-eval.md).
+
+### Verify a read-only Codex MCP tool
+
+The synthetic lookup below exercises a configured local Codex app-server without a model turn. Add the server to your local Codex configuration and replace the path with the absolute path to your clone.
+
+```toml
+[mcp_servers.hh_smoke]
+command = "node"
+args = ["/absolute/path/to/human-harness/tests/fixtures/read-only-mcp-server.mjs"]
+```
+
+```bash
+npm run codex:capabilities -- --mcp
+HH_CODEX_MCP_READ_ONLY=hh_smoke/sample_lookup npm run codex:mcp:smoke -- hh_smoke sample_lookup '{"sampleId":"DEMO-01"}'
+```
+
+For the same lookup in a project, set `HH_EXECUTOR=codex` and `HH_CODEX_MCP_READ_ONLY=hh_smoke/sample_lookup` in `.env.local`. In the visual template editor, open an Agent task, expand **Codex MCP**, and enable the read-only lookup. Enter `hh_smoke`, `sample_lookup`, and `{"sampleId":"DEMO-01"}` in the server, tool, and fixed JSON arguments fields. The tool must advertise `readOnlyHint`. The call sends only those fixed arguments, and the result enters Human Todo for review.
 
 ### Walk through the built-in example
 
@@ -109,7 +124,7 @@ flowchart TD
   C --> D["Human TodoList"]
   C --> E["Agent TaskPacket"]
   D --> F["Materials / decisions / reviews"]
-  E --> G["Mastra (replaceable executor)"]
+  E --> G["Demo, Mastra or Codex executor"]
   G --> H["Typed TaskResult + candidate artifacts"]
   F --> C
   H --> I["Runtime validation and human review"]
@@ -127,7 +142,7 @@ A **MaterialRequirement** expresses *what must eventually exist*. A **WorkItem**
 
 The project runtime is responsible for state transitions. **The shared runner** (`src/executors/runner.ts`) reserves tasks, selects the authorized evidence references, validates the candidate result and commits the next review state. The replaceable adapter (`src/executors/contracts.ts`) receives only the scoped task/evidence/feedback and returns a typed candidate; it never receives the full project snapshot or the private upload path.
 
-The existing `demo` / `mastra` adapters and the new **text-only Codex app-server adapter** use this boundary. Codex creates isolated local thread/turn runs; their identities and typed candidate results are tracked by the runtime. CI validates the protocol against a fixture, while an authenticated live-model run remains **unverified**. [P0–P5 milestone plan](docs/roadmap-codex-v1.md).
+The Demo, Mastra, and Codex adapters share this boundary. The Codex adapter creates a local thread per run and records its identity and typed candidate result. Model-backed tasks use a turn in that thread. Direct MCP lookups call the tool without opening a model turn. CI checks the app-server protocol against a fixture. [P0–P5 milestone plan](docs/roadmap-codex-v1.md).
 
 ### Materials are processed according to the template
 
@@ -143,7 +158,7 @@ See the [template material-processing design](docs/template-material-processing.
 src/
   protocol/        Canonical package / task / result validators
   core/            Workflow activation, decisions, evidence review, SQLite store
-  executors/       Mastra worker adapter
+  executors/       Demo, Mastra and Codex adapters
   app/             Next.js workspace and /api/v1 routes
 examples/          Runnable project package
 docs/              Protocol, domain blueprint, interoperability research
@@ -186,11 +201,9 @@ This is a design direction, **not** an existing second distribution, fork, or wo
 
 ## Native Codex Plugins first
 
-**The next integration milestone is to consume existing native Codex plugins**, not to build our own PDF/DOCX reader. Human Harness will provide a scoped task and its expected outputs; Codex will discover and use installed Skills/MCP tools. The template retains only the *business requirement* (which fields, which checks, what to do if unresolved). If a compatible plugin is missing, the user can install/connect it through the normal Codex flow.
+Install and connect Plugins, Skills, and MCP servers through Codex. A Human Harness template records the business requirements and can bind an Agent task to an available Skill or a direct MCP lookup.
 
-Human Harness reads installed Plugin and Skill inventory from Codex app-server, checks optional MCP readiness, and can attach an enabled Skill to a work item. An Agent step can also make a direct MCP lookup against one host-approved read-only tool, using fixed template arguments and routing the result to Human review. The direct lookup requires no model turn. Broader model-selected MCP execution and live validation of Plugin-provided Skills are pending.
-
-Read the [native Codex plugin strategy](docs/codex-native-plugins.md) for the actual interfaces, current limitations, and the one-call smoke test. The existing PDF/DOCX extraction experiment is preserved only as a **historical method-contract test**, not the next product implementation.
+Read the [native Codex plugin strategy](docs/codex-native-plugins.md) for the app-server interfaces and current limits.
 
 ## Plugin and platform direction
 
