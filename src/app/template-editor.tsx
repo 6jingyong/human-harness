@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { manualProjectPackage } from '@/protocol/manual';
 import { addFlowStage, addFlowTask, authorableTypes, flowTaskLabels, removeFlowTask,
   templateFlow, type AuthorableType, type FlowNode } from '@/protocol/template-flow';
-import { packageSchema, type HumanHarnessPackage } from '@/protocol/v1';
+import { codexMcpArgumentsSchema, packageSchema, type HumanHarnessPackage } from '@/protocol/v1';
 import { TemplateFlowChart } from './template-flow-chart';
 import { TemplateInspector } from './template-editor-fields';
 import './template-editor.css';
@@ -24,6 +24,22 @@ function decode(text: string) {
       [issue.path.join('.'), issue.message].filter(Boolean).join(' · ')).join('\n'));
   }
   return validation.data;
+}
+
+function applyMcpArguments(pkg: HumanHarnessPackage, edits: ReadonlyMap<string, string>): HumanHarnessPackage {
+  if (edits.size === 0) return pkg;
+  return { ...pkg, steps: pkg.steps.map(step => {
+    const text = edits.get(step.id);
+    if (text === undefined || !step.codexMcp) return step;
+    let args: unknown;
+    try { args = text.trim() ? JSON.parse(text) : {}; }
+    catch { throw new Error(step.title + '的 MCP 固定参数无法解析，请检查 JSON。'); }
+    const parsed = codexMcpArgumentsSchema.safeParse(args);
+    if (!parsed.success) {
+      throw new Error(step.title + '的 MCP 固定参数须为 JSON 对象，且压缩后不超过 8000 个字符。');
+    }
+    return { ...step, codexMcp: { ...step.codexMcp, arguments: text.trim() ? parsed.data : undefined } };
+  }) };
 }
 
 type EditorProps = {
@@ -47,6 +63,7 @@ export function TemplateEditor({ source, busy, onBack, onSave }: EditorProps) {
   const [focused, setFocused] = useState(false);
   const [taskType, setTaskType] = useState<AuthorableType>('human_action');
   const [selected, setSelected] = useState('');
+  const [mcpArgumentEdits, setMcpArgumentEdits] = useState<ReadonlyMap<string, string>>(() => new Map());
   const flow = useMemo(() => draft && templateFlow(draft), [draft]);
   const nodes = useMemo(() => [...(flow?.nodes.values() ?? [])].filter(node =>
     (!stageId || node.stageId === stageId) &&
@@ -65,6 +82,15 @@ export function TemplateEditor({ source, busy, onBack, onSave }: EditorProps) {
 
   function update(pkg: HumanHarnessPackage) {
     setDraft(pkg);
+    setError('');
+  }
+  function editMcpArguments(stepId: string, text?: string) {
+    setMcpArgumentEdits(previous => {
+      const next = new Map(previous);
+      if (text === undefined) next.delete(stepId);
+      else next.set(stepId, text);
+      return next;
+    });
     setError('');
   }
   function select(node: FlowNode, reveal = false) {
@@ -95,12 +121,18 @@ export function TemplateEditor({ source, busy, onBack, onSave }: EditorProps) {
   }
 
   function changeView(toJson: boolean) {
-    if (toJson && draft) setText(JSON.stringify(draft, null, 2));
+    if (toJson && draft) {
+      try {
+        setText(JSON.stringify(applyMcpArguments(draft, mcpArgumentEdits), null, 2));
+        setError('');
+      } catch (error) { setError((error as Error).message); return; }
+    }
     if (!toJson) {
       try {
         if (!draft || text !== JSON.stringify(draft, null, 2)) update(decode(text));
       }
       catch (error) { setError((error as Error).message); return; }
+      setMcpArgumentEdits(new Map());
       setSelected('');
       setStageId('');
       setFilter('');
@@ -118,7 +150,7 @@ export function TemplateEditor({ source, busy, onBack, onSave }: EditorProps) {
     if (!draft) return;
     try {
       // Use the same package validator as import, preview and project startup.
-      const validated = decode(JSON.stringify(draft));
+      const validated = decode(JSON.stringify(applyMcpArguments(draft, mcpArgumentEdits)));
       const emptyAssembly = validated.steps.find(step => step.kind === 'script' &&
         !step.dependsOn.some(id => validated.steps.some(input => input.id === id && input.outputContractId)));
       if (emptyAssembly) throw new Error(emptyAssembly.title + '需要至少一项已审核的上游成果。');
@@ -205,6 +237,8 @@ export function TemplateEditor({ source, busy, onBack, onSave }: EditorProps) {
       <div className="flow-workspace">
         <TemplateFlowChart nodes={visible} links={flow.links} selected={current?.key ?? ''} onSelect={select} />
         {current && <TemplateInspector key={current.key} pkg={draft} node={current} graph={flow} onChange={update}
+          mcpArgumentText={mcpArgumentEdits.get(current.id)}
+          onMcpArgumentChange={text => editMcpArguments(current.id, text)}
           onSelect={node => select(node, true)} onRemove={remove} />}
       </div>
     </>}

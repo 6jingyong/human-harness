@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ProjectState } from '@/core/runtime';
 import { deriveWorkbenchQueues } from './workbench-queue';
+import { ModelPicker } from './model-picker';
+import type { ModelSettings } from '@/protocol/model-settings';
+import './local-workspace.css';
 import { TaskWorkbench } from './task-workbench';
 import { ProjectDeliverables } from './project-deliverables';
 import { ProjectLaunchView } from './project-launch-view';
@@ -11,6 +14,9 @@ import { PlanAttention, ProjectPlanView } from './project-plan-view';
 import { ProjectMaterialLibrary } from './project-material-library';
 import type { HumanHarnessPackage } from '@/protocol/v1';
 import { TemplateEditor } from './template-editor';
+import { ProjectLedgerView } from './project-ledger-view';
+import { CompanyLedgerView } from './company-ledger-view';
+import type { LedgerReference } from '@/protocol/project-ledger';
 
 type PackageSummary = { id: string; version: string; title: string; description: string; builtin: boolean };
 type ProjectSummary = { id: string; title: string; package_id: string; package_version: string };
@@ -40,9 +46,12 @@ export function RuntimeWorkspace() {
   const [packageId, setPackageId] = useState('document-handoff');
   const [name, setName] = useState('');
   const [launchTemplate, setLaunchTemplate] = useState<HumanHarnessPackage>();
-  const [mode, setMode] = useState<'project' | 'editor' | 'library' | 'plan' | 'launch'>('project');
+  const [mode, setMode] = useState<'project' | 'editor' | 'library' | 'plan' | 'launch' | 'ledger' | 'company-ledger'>('project');
+  const [ledgerReference, setLedgerReference] = useState<LedgerReference>();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [executor, setExecutor] = useState('demo');
+  const [settings, setSettings] = useState<ModelSettings>({ provider: 'demo', model: null });
+  const [modelsOpen, setModelsOpen] = useState(false);
+  const executor = settings.provider;
   const [editor, setEditor] = useState({ source: '', revision: 0 });
   const [values, setValues] = useState<Record<string, string>>({});
   const [feedback, setFeedback] = useState<Record<string, string>>({});
@@ -54,14 +63,21 @@ export function RuntimeWorkspace() {
   const [pendingActions, setPendingActions] = useState<Record<string, boolean>>({});
   const pendingKeys = useRef(new Set<string>());
   const projectRequestSequence = useRef(0);
+  const focusProjectName = useRef(false);
+  useEffect(() => {
+    if (menuOpen && focusProjectName.current) {
+      document.getElementById('new-project-name')?.focus();
+      focusProjectName.current = false;
+    }
+  }, [menuOpen]);
 
   async function refreshIndex() {
     const data = await parseResponse(await fetch('/api/v1/projects', { cache: 'no-store' }));
     setPackages(data.packages);
     setProjects(data.projects);
-    setExecutor(data.executor);
+    setSettings(data.settings);
   }
-  async function openProject(id: string, silent = false) {
+  async function openProject(id: string, silent = false, destination: 'project' | 'ledger' = 'project') {
     const request = ++projectRequestSequence.current;
     const data = await parseResponse(await fetch('/api/v1/projects/' + encodeURIComponent(id), { cache: 'no-store' }));
     if (request !== projectRequestSequence.current) return;
@@ -72,12 +88,12 @@ export function RuntimeWorkspace() {
       return (current.planning?.revision ?? 0) > (incoming.planning?.revision ?? 0)
         ? { ...incoming, planning: current.planning } : incoming;
     });
-    if (!silent) { setMode('project'); setFocusedHandoff(''); setMenuOpen(false); }
+    if (!silent) { setLedgerReference(undefined); setMode(destination); setFocusedHandoff(''); setMenuOpen(false); }
   }
   useEffect(() => { refreshIndex().catch(e => setError(e.message)); }, []);
   // Server owns active Codex turns. Refreshing the page does not interrupt them.
   useEffect(() => {
-    if (!project?.id || (mode !== 'project' && mode !== 'plan')) return;
+    if (!project?.id || (mode !== 'project' && mode !== 'plan' && mode !== 'ledger')) return;
     const projectId = project.id;
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible') {
@@ -239,9 +255,13 @@ export function RuntimeWorkspace() {
     <header className="topbar">
       <button type="button" className="hamburger" aria-label={menuOpen ? '关闭菜单' : '打开菜单'}
         aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>☰</button>
-      <div className="brand"><span className="brand-mark">H/H</span><span>Human Harness<small>项目运行 · Protocol 1.0</small></span></div>
-      <div className="head-info"><span className="tiny-label">Executor</span><b>{executor === 'demo' ? 'Demo（不调用模型）' : executor === 'codex' ? 'Codex（本机 app-server）' : 'Mastra（真实模型）'}</b></div>
+      <div className="brand"><span className="brand-mark" aria-hidden="true">H/H</span><span>Human Harness<small>本地项目工作台</small></span></div>
+      <button className="model-trigger" aria-label="选择工作模型" onClick={() => setModelsOpen(true)}>
+        <i aria-hidden="true" /><span>{settings.provider === 'demo' ? '演示模式' : settings.model || 'Codex 默认模型'}</span><b aria-hidden="true">⌄</b>
+      </button>
     </header>
+    {modelsOpen && <ModelPicker settings={settings} onClose={() => setModelsOpen(false)}
+      onSaved={value => { setSettings(value); setModelsOpen(false); setNotice('工作模型设置已保存。'); }} />}
     <div className="shell">
       {menuOpen && <button type="button" className="menu-backdrop" aria-label="收起侧边栏"
           onClick={() => setMenuOpen(false)} />}
@@ -253,12 +273,13 @@ export function RuntimeWorkspace() {
            <button type="button" disabled={!project} onClick={() => { setMode('library'); setMenuOpen(false); }}>
              项目资料管理
            </button>
+           <button type="button" onClick={() => { setMode('company-ledger'); setMenuOpen(false); }}>公司账务</button>
          </div>
 
-        <div className="section-label">项目模板（手动）</div>
+        <div className="section-label">项目模板</div>
         <h2>创建项目</h2>
         <form className="create-form" onSubmit={openLaunch}>
-          <label htmlFor="package-select">选择已安装模板</label>
+          <label htmlFor="package-select">选择项目模板</label>
           <select id="package-select" value={packageId} onChange={e => setPackageId(e.target.value)}>
             {packages.map(p => <option key={p.id} value={p.id}>{p.title} · {p.version}</option>)}
           </select>
@@ -298,7 +319,7 @@ export function RuntimeWorkspace() {
         </nav>
         <p className="sidebar-foot">当前为本地开发版本。未配置账户认证，请勿公开部署。</p>
       </aside>
-      <main className="main">
+      <main className="main" inert={menuOpen} aria-hidden={menuOpen || undefined}>
         {error && <div className="alert error" role="alert">{error}</div>}
         {notice && <div className="alert info" role="status">{notice}</div>}
 
@@ -322,18 +343,35 @@ export function RuntimeWorkspace() {
           onOpen={key => { setFocusedHandoff(key); setMode('project'); }}
           onSaved={(id, planning) => setProject(current => current?.id === id ? { ...current, planning } : current)}
         /> :
+        mode === 'company-ledger' ? <CompanyLedgerView onBack={() => setMode('project')}
+          onOpen={id => void openProject(id, false, 'ledger').catch(error => setError(error.message))} /> :
+        mode === 'ledger' && project ? <ProjectLedgerView key={project.id} project={project}
+          projects={projects} initialReference={ledgerReference} onBack={() => setMode('project')} /> :
         mode === 'editor' ? <TemplateEditor key={editor.revision} source={editor.source} busy={busy}
-          onSave={body => void saveTemplate(body)} onBack={() => setMode('project')} /> : !project ? <div className="empty">
-           <span className="eyebrow">HUMAN HARNESS</span>
-           <h1>Human Todo + Agent Todo</h1>
-           <p>用项目模板安排双方的工作。打开左上角 ☰ 菜单创建项目。</p>
-           <button type="button" className="primary" onClick={() => setMenuOpen(true)}>☰ 新建或选择项目</button>
-        </div> : <>
+          onSave={body => void saveTemplate(body)} onBack={() => setMode('project')} /> : !project ? <section className="studio-home">
+          <header className="studio-lead"><div><div className="workspace-kicker">本地工作台</div>
+            <h1>项目工作区</h1><p>从模板启动项目，或继续处理你的待办。</p></div>
+            <button type="button" className="primary" onClick={() => setMenuOpen(true)}>＋ 新建项目</button></header>
+          <h2>从模板开始</h2>
+          <div className="studio-templates">{[
+            { id: 'general-report', title: '报告撰写', detail: '整理证据、撰写初稿与交付', mark: '▤' },
+            { id: 'project-plan', title: '项目启动', detail: '明确目标、分工与时间表', mark: '◷' },
+            { id: 'meeting-actions', title: '会议纪要', detail: '提取决定并跟进后续行动', mark: '☷' }
+          ].map(item => <button key={item.id} type="button" onClick={() => {
+            focusProjectName.current = true; setPackageId(item.id); setMenuOpen(true);
+          }}><i aria-hidden="true">{item.mark}</i><strong>{item.title}</strong><small>{item.detail}</small><span aria-hidden="true">↗</span></button>)}</div>
+          <h2>最近项目</h2>
+          {projects.length ? <div className="studio-recent">{projects.slice(0,6).map(item =>
+            <button key={item.id} type="button" onClick={() => openProject(item.id).catch(e => setError(e.message))}>
+              <strong>{item.title}</strong><small>{packages.find(pkg => pkg.id === item.package_id)?.title || item.package_id}　↗</small>
+            </button>)}</div> : <p className="studio-no-project">创建的项目会显示在这里。</p>}
+        </section> : <>
           <div className="simple-project-title">
             <div><span className="eyebrow">{project.package.title}</span><h1>{project.title}</h1></div>
             <div className="simple-project-actions">
               <span>{humanCount} 项待你处理 · {agentRunning} 项 Agent 运行中</span>
               <button type="button" onClick={() => setMode('plan')}>项目计划</button>
+              <button type="button" onClick={() => { setLedgerReference(undefined); setMode('ledger'); }}>项目账务</button>
               <button type="button" onClick={() => setMode('library')}>查看项目资料</button>
             </div>
           </div>
@@ -344,6 +382,7 @@ export function RuntimeWorkspace() {
           <TaskWorkbench project={project} executor={executor}
             selectedKey={focusedHandoff} onSelect={setFocusedHandoff}
             onRefresh={() => openProject(project.id).catch(e => setError(e.message))}
+            onRecord={reference => { setLedgerReference(reference); setMode('ledger'); }}
             onAction={action} values={values} feedback={feedback} files={files}
             onValue={(key, value) => setValues(old => ({ ...old, [key]: value }))}
             onFeedback={(key, value) => setFeedback(old => ({ ...old, [key]: value }))}

@@ -1,0 +1,169 @@
+{
+  "protocol": "hh.package/1",
+  "id": "meeting-actions",
+  "version": "1.0.0",
+  "title": "会议纪要与行动清单",
+  "description": "把会议记录整理为可核对的决定和行动项。负责人复核归属、时点和未决事项，验收后生成纪要和行动表。",
+  "stages": [
+    {
+      "id": "intake",
+      "title": "提供会议资料",
+      "description": "确认会议范围和正文材料"
+    },
+    {
+      "id": "review",
+      "title": "核对讨论及决定",
+      "description": "提取决定、行动与分歧，并由负责人确认"
+    },
+    {
+      "id": "deliver",
+      "title": "发布前验收",
+      "description": "生成能交给参会人的纪要与行动表"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "mastra.agent",
+      "kind": "agent",
+      "description": "受控 Agent 执行，输入遵循项目证据权限"
+    }
+  ],
+  "assets": [],
+  "materials": [
+    {
+      "id": "context",
+      "title": "会议基本信息",
+      "producer": "human",
+      "formats": [
+        "text/plain"
+      ],
+      "description": "填写议题、会议日期、参会人及主持或确认角色。",
+      "acceptance": [
+        "会议范围可识别，必要的人名或角色已确认"
+      ],
+      "planningMinutes": 15
+    },
+    {
+      "id": "notes",
+      "title": "会议笔记或文字转录",
+      "producer": "human",
+      "formats": [
+        "text/plain"
+      ],
+      "description": "粘贴笔记或已转成文字的记录。提供时间戳、段落号或其他可回查位置。",
+      "acceptance": [
+        "笔记来源与会议对应，记录边界清楚"
+      ],
+      "planningMinutes": 30
+    }
+  ],
+  "steps": [
+    {
+      "id": "extract",
+      "stageId": "review",
+      "kind": "agent",
+      "title": "提炼决定、行动与未决事项",
+      "instructions": "从会议资料逐项提取真实决定、候选行动和仍在讨论的事项，提供时间戳或段落引用。记录行动中实际明确的负责人、日期和完成条件，缺项标为待确认。发言观点不能当作组织决定。",
+      "dependsOn": [],
+      "needsMaterials": [
+        "context",
+        "notes"
+      ],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "extract-output",
+      "requiresReview": true,
+      "planning": {
+        "workMinutes": 30,
+        "reviewMinutes": 15
+      }
+    },
+    {
+      "id": "confirm",
+      "stageId": "review",
+      "kind": "human_action",
+      "title": "核实决定、负责人和截止日期",
+      "instructions": "逐项确认决定和行动归属，补足明确授权的负责人及时间。对尚未确认的事项保留未决状态。",
+      "dependsOn": [
+        "extract"
+      ],
+      "needsMaterials": [],
+      "planning": {
+        "workMinutes": 15
+      }
+    },
+    {
+      "id": "minutes",
+      "stageId": "deliver",
+      "kind": "agent",
+      "title": "整理纪要和行动清单",
+      "instructions": "用已审提取结果和负责人确认意见撰写纪要。行动用 Markdown 表格写明事项、负责人、截止日期和完成凭据。保留未决项与查阅位置。确认意见与记录矛盾时以确认意见为准并保留来源。 按以下顺序使用原样的 Markdown 二级标题：会议概况、决定与依据、行动清单、未决事项。",
+      "dependsOn": [
+        "extract",
+        "confirm"
+      ],
+      "needsMaterials": [],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "minutes-output",
+      "requiresReview": true,
+      "planning": {
+        "workMinutes": 30,
+        "reviewMinutes": 15
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "id": "extract-output",
+      "title": "待核对的决定和行动",
+      "audience": "internal",
+      "fileName": "extract.md",
+      "format": "markdown",
+      "producingStepId": "extract",
+      "acceptance": [
+        "正式决定与提议分别标识",
+        "行动归属及日期能回查相应发言"
+      ],
+      "humanSignoff": true
+    },
+    {
+      "id": "minutes-output",
+      "title": "会议纪要与行动清单",
+      "audience": "internal",
+      "fileName": "minutes.md",
+      "format": "markdown",
+      "producingStepId": "minutes",
+      "acceptance": [
+        "行动表逐项对应确认意见",
+        "未定事项保持待确认",
+        "确认过的负责人及日期可直接抄录"
+      ],
+      "humanSignoff": true,
+      "markdown": {
+        "headings": [
+          {
+            "level": 2,
+            "title": "会议概况"
+          },
+          {
+            "level": 2,
+            "title": "决定与依据"
+          },
+          {
+            "level": 2,
+            "title": "行动清单"
+          },
+          {
+            "level": 2,
+            "title": "未决事项"
+          }
+        ]
+      },
+      "word": {
+        "fileName": "meeting-minutes.docx",
+        "title": "会议纪要与行动清单",
+        "tocDepth": 2
+      },
+      "deliverable": true
+    }
+  ]
+}

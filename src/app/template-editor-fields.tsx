@@ -16,6 +16,40 @@ function Lines({ label, values, onChange }: { label: string; values: string[]; o
   }} /></label>;
 }
 
+function McpToolPicker({ onSelect }: { onSelect: (server: string, tool: string) => void }) {
+  const [loading, setLoading] = useState(false);
+  const [inventory, setInventory] = useState<{ selectors: string[]; unavailable: number }>();
+  const [error, setError] = useState('');
+  async function refresh() {
+    setLoading(true);
+    setError('');
+    setInventory(undefined);
+    try {
+      const response = await fetch('/api/v1/codex/mcp-tools', { method: 'POST' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '读取工具失败。');
+      setInventory(data);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '读取工具失败。');
+    } finally { setLoading(false); }
+  }
+  return <>
+    <button type="button" disabled={loading} onClick={refresh}>{loading ? '正在读取工具…' : '查看本机可用工具'}</button>
+    {error && <small role="alert">{error}</small>}
+    {inventory && <>
+      {inventory.selectors.length > 0 && <label>本机可用的只读工具<select value="" onChange={event => {
+        const [server, tool] = event.target.value.split('/');
+        if (tool) onSelect(server, tool);
+      }}>
+        <option value="">选择工具以填入下方名称</option>
+        {inventory.selectors.map(selector => <option key={selector}>{selector}</option>)}
+      </select></label>}
+      {inventory.unavailable > 0 && <small role="status">有 {inventory.unavailable} 个已授权工具当前不可用，请检查服务连接、登录和只读声明。</small>}
+      {!inventory.selectors.length && !inventory.unavailable && <small role="status">本机尚未授权只读工具。可在 HH_CODEX_MCP_READ_ONLY 中配置服务/工具。</small>}
+    </>}
+  </>;
+}
+
 function Minutes({ label, value, onChange }: { label: string; value?: number; onChange: (value?: number) => void }) {
   return <label>{label}<input type="number" min="15" max="24000" step="15" value={value ?? ''} onChange={event =>
     onChange(event.target.value ? Number(event.target.value) : undefined)} /></label>;
@@ -114,12 +148,14 @@ type InspectorProps = {
   pkg: HumanHarnessPackage;
   node: FlowNode;
   graph: ReturnType<typeof templateFlow>;
+  mcpArgumentText?: string;
+  onMcpArgumentChange: (text?: string) => void;
   onChange: (pkg: HumanHarnessPackage) => void;
   onSelect: (node: FlowNode) => void;
   onRemove: (node: FlowNode) => void;
 };
 
-export function TemplateInspector({ pkg, node, graph, onChange, onSelect, onRemove }: InspectorProps) {
+export function TemplateInspector({ pkg, node, graph, mcpArgumentText, onMcpArgumentChange, onChange, onSelect, onRemove }: InspectorProps) {
   const stage = pkg.stages.find(stage => stage.id === node.stageId);
   const step = pkg.steps.find(item => item.id === node.id);
   const material = pkg.materials.find(item => item.id === node.id);
@@ -211,6 +247,39 @@ export function TemplateInspector({ pkg, node, graph, onChange, onSelect, onRemo
         {pkg.stages.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}
       </select></label>
       <label>任务说明<textarea value={step.instructions} onChange={event => updateStep({ instructions: event.target.value })} /></label>
+      {step.kind === 'agent' && !step.codexMcp && <details open={Boolean(step.codexSkills) || undefined}>
+        <summary>Codex Skills</summary>
+        <label>所需 Skill（每行一个）<textarea key={step.id}
+          defaultValue={step.codexSkills?.join('\n') ?? ''} rows={3}
+          placeholder="例如 pdf，或 插件ID/Skill名称"
+          onBlur={event => {
+            const names = event.target.value.split(/\r?\n/).map(name => name.trim()).filter(Boolean);
+            updateStep({ codexSkills: names.length ? names : undefined });
+          }} /></label>
+        <small>使用本机 Codex 已启用的 Skill。指定后，此任务需要 Codex 执行器。</small>
+      </details>}
+      {step.kind === 'agent' && <details open={Boolean(step.codexMcp) || undefined}>
+        <summary>Codex MCP</summary>
+        <label><input type="checkbox" checked={Boolean(step.codexMcp)} disabled={Boolean(step.codexSkills?.length)}
+          onChange={event => {
+            onMcpArgumentChange();
+            updateStep({ codexMcp: event.target.checked ? { server: '', tool: '' } : undefined });
+          }} />
+          调用一个只读 MCP 工具</label>
+        {step.codexSkills?.length && <small>清空此任务的 Codex Skills 后可启用直接查询。</small>}
+        {step.codexMcp && <>
+          <McpToolPicker onSelect={(server, tool) => updateStep({ codexMcp: { ...step.codexMcp!, server, tool } })} />
+          <label>MCP 服务名称<input value={step.codexMcp.server}
+            onChange={event => updateStep({ codexMcp: { ...step.codexMcp!, server: event.target.value } })} /></label>
+          <label>MCP 工具名称<input value={step.codexMcp.tool}
+            onChange={event => updateStep({ codexMcp: { ...step.codexMcp!, tool: event.target.value } })} /></label>
+          <label>MCP 固定参数（JSON 对象）<textarea rows={4} spellCheck={false}
+            value={mcpArgumentText ?? (step.codexMcp.arguments ? JSON.stringify(step.codexMcp.arguments, null, 2) : '')}
+            placeholder={'{"sampleId":"DEMO-01"}'}
+            onChange={event => onMcpArgumentChange(event.target.value)} /></label>
+          <small>工具由本机授权。查询只发送这里填写的固定参数，留空即使用空对象。</small>
+        </>}
+      </details>}
       <Minutes label={step.kind === 'external_milestone' ? '外部预计工期（工作分钟）' : '预计投入分钟'}
         value={step.planning?.workMinutes} onChange={workMinutes => updateStep({ planning: { ...step.planning, workMinutes } })} />
       {step.kind === 'human_decision' && step.options && <fieldset className="flow-link-field">
