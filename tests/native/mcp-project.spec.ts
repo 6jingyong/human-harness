@@ -2,6 +2,18 @@ import { expect, test } from '@playwright/test';
 
 test('native Codex lookup goes from the visual template to a reviewed project handoff', async ({ page }) => {
   await page.goto('/');
+  await page.getByRole('button', { name: '选择工作模型' }).click();
+  const models = page.getByRole('dialog', { name: '选择工作模型' });
+  await models.getByRole('button', { name: /Codex/ }).click();
+  const options = models.getByLabel('可用模型').locator('option');
+  await expect.poll(() => options.count()).toBeGreaterThan(1);
+  const id = await options.last().getAttribute('value');
+  expect(id).toBeTruthy();
+  await models.getByLabel('可用模型').selectOption(id!);
+  await models.getByRole('button', { name: '应用设置' }).click();
+  await expect(page.getByRole('button', { name: '选择工作模型' })).toContainText(id!);
+  await page.reload();
+  await expect(page.getByRole('button', { name: '选择工作模型' })).toContainText(id!);
   await page.getByRole('button', { name: '打开菜单' }).click();
   await page.getByRole('button', { name: /新建模板/ }).click();
   const editor = page.getByRole('region', { name: '项目模板编辑器' });

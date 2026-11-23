@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { inspectApprovedMcpTools, inspectCodexCapabilities, runCodexTask } from '../src/executors/codex';
+import { inspectApprovedMcpTools, inspectCodexCapabilities, inspectCodexModels, runCodexTask } from '../src/executors/codex';
 import type { ExecutorTask, ExecutorRunEvent, TaskExecutor } from '../src/executors/contracts';
 import { manualProjectPackage } from '../src/protocol/manual';
 
@@ -28,8 +28,17 @@ test('P1.1: real JSON-RPC stdio handshake, model selection, identities and valid
   });
   assert.equal(result.body, 'Real protocol fixture answer');
   assert.deepEqual(events.filter(e => e.kind !== 'progress'), [
+    { kind: 'model', provider: 'codex', model: 'test-model' },
     { kind: 'thread', id: 'thread-fixture' }, { kind: 'turn', id: 'turn-fixture' }
   ]);
+});
+
+test('the model picker and thread/start share the paginated Codex catalog', async () => {
+  const options = { startProcess: start('select-model'), timeoutMs: 3000 };
+  const models = await inspectCodexModels(options);
+  assert.deepEqual(models.map(model => model.id), ['test-model', 'other-model']);
+  await runCodexTask({ ...task, model: 'other-model' }, options);
+  await assert.rejects(runCodexTask({ ...task, model: 'removed' }, options), /没有可用的所选模型/);
 });
 
 test('P1.1: fail closed on model failure, JSON mismatch, disconnected server and wrong turn', async () => {

@@ -837,3 +837,24 @@ test('the general report can be copied, launched from the menu and delivered as 
   await expect(delivery.getByRole('link', { name: '下载 Markdown' })).toBeVisible();
   await expect(delivery.getByRole('link', { name: '下载 Word' })).toHaveAttribute('href', /format=docx$/);
 });
+
+test('local model settings persist on reload and the mobile home opens a selected project template', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const trigger = page.getByRole('button', { name: '选择工作模型' });
+  await trigger.click();
+  const dialog = page.getByRole('dialog', { name: '选择工作模型' });
+  await dialog.getByRole('button', { name: /Mastra/ }).click();
+  await dialog.getByLabel('服务商 / 模型 ID').fill('openai/synthetic-test-model');
+  await dialog.getByRole('button', { name: '应用设置' }).click();
+  await expect(dialog).not.toBeVisible();
+  await page.reload();
+  await expect(trigger).toContainText('openai/synthetic-test-model');
+  await trigger.click();
+  await dialog.getByRole('button', { name: /演示/ }).click();
+  await dialog.getByRole('button', { name: '应用设置' }).click();
+  await expect(trigger).toContainText('演示模式');
+  await page.getByRole('button', { name: /报告撰写.*整理证据/ }).click();
+  await expect(page.getByLabel('选择项目模板')).toHaveValue('general-report');
+  await expect(page.getByLabel('本次项目名称')).toBeFocused();
+});

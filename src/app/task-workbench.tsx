@@ -251,6 +251,7 @@ export function TaskWorkbench({
             <div><strong>负责方</strong><span>{current.owner === 'history' ? '已完成' :
               current.owner === 'human' ? '人类' : 'Agent'}</span></div>
           </div>
+          {activeRun?.model && <p className="run-model">本次运行 · {activeRun.provider} / {activeRun.model}</p>}
           {ledgerReference && onRecord && <button type="button" onClick={() => onRecord(ledgerReference)}>
             记录本任务投入
           </button>}

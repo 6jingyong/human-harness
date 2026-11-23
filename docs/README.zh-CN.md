@@ -1,5 +1,12 @@
 # Human Harness（中文说明）
 
+## 在本机打开工作台
+
+安装 Node.js 22.19 或更高版本，下载或克隆 `feat/general-project-templates` 分支。Windows 双击根目录的 **Start-Human-Harness.cmd**，首次启动会安装依赖。macOS 或 Linux 在项目目录执行 `npm ci`，再执行 `npm run local`。默认浏览器会打开 **http://127.0.0.1:3000**。
+
+首页可从报告撰写、项目启动或会议纪要开始，也可以打开最近项目。点击右上角的模型按钮，可选演示、已登录的 Codex CLI、本机 Ollama 已安装的模型，或 Mastra 对应的服务商模型。Mastra 的凭据配置在本机环境或 `.env.local`。保存后，本机所有项目从下一项 Agent 任务起使用新选择，任务详情可查看本次使用的模型。[手机宽度界面截图](images/local-model-picker.webp)
+
+
 **一个以项目为中心、由人类和 AI Agent 共同执行任务的工作台。**
 
 [通用文档交接 MVP](mvp-document-handoff.md) · [English README](../README.md) · **[Codex 版 V1 开发计划](roadmap-codex-v1.md)** · [Protocol 1.0 协议](protocol/human-harness-1.0.md) · [Codex 参考架构](codex-reference.md) · [插件与跨平台研究](interoperability.md) · [土地污染调查示例](../examples/land-investigation.hh.json)

@@ -61,22 +61,27 @@ A future material requirement may be recorded on day one but remains outside the
 | Outputs | Reviewed Markdown/JSON downloads and opt-in Word review copies of approved Markdown | Production report compilation and publication |
 | Codex integration | Installed Plugin and Skill inventory, optional MCP readiness, Skill selection per Agent task, and a direct query to one locally approved read-only MCP tool | Plugin installation from the workbench and model-selected MCP tools |
 
-## Try it locally
+## Local graphical workbench
 
-Requirements: Node.js **22.19 recommended** (the package declares Node >=22.13), npm, and a computer with persistent local storage.
-
-The commands below use the development branch of [PR #11](https://github.com/6jingyong/human-harness/pull/11).
+Install Node.js 22.19 or later and check out the development branch of [PR #11](https://github.com/6jingyong/human-harness/pull/11).
 
 ```bash
-git clone https://github.com/6jingyong/human-harness.git
+git clone --branch feat/general-project-templates https://github.com/6jingyong/human-harness.git
 cd human-harness
-git switch feat/general-project-templates
-npm install
-cp .env.example .env.local
-npm run dev
+npm ci
+npm run local
 ```
 
-On Windows, use PowerShell `Copy-Item .env.example .env.local` instead of `cp` if needed. Visit **http://localhost:3000**.
+Windows users can double-click **Start-Human-Harness.cmd** in the checkout. It installs missing dependencies on first launch. The launcher starts the workbench on the loopback interface and opens the default browser. The usual address is **http://127.0.0.1:3000**. To use another port, set `PORT`. To start without opening a tab, run `npm run local -- --no-open`.
+
+Choose a project template on the home screen. The model button at the top right opens the workspace model settings. A saved choice applies across projects to newly started Agent runs and persists after restarting. Task details show the model recorded for that run. [Model picker screenshot](docs/images/local-model-picker.webp).
+
+| Model source | Setup |
+| --- | --- |
+| Demo | Ready on first launch. Exercises the workflow without a model account. |
+| Codex | Install and log into the local Codex CLI. Choose a model returned by the CLI or use its default. |
+| Ollama | Start Ollama on `127.0.0.1:11434` and install a model that supports structured output. Refresh the list and select the model you installed. |
+| Mastra | Configure your provider credentials in the environment or `.env.local`, then enter the provider/model ID. To suggest several IDs in the picker, set `HH_MODELS` to a comma-separated list. |
 
 The default `HH_EXECUTOR=demo` calls **no model or outside service**. The generated text is clearly marked as simulated, so it tests the workflow rather than actual research quality.
 

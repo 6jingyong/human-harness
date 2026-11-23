@@ -1,10 +1,10 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createInterface, type Interface } from 'node:readline';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import { stageAuthorizedDocuments } from './document-workspace';
-import { readCodexCapabilities, resolveCodexSkills } from './codex-capabilities';
+import { readCodexCapabilities, resolveCodexSkills, type CodexCall } from './codex-capabilities';
 import { approvedMcpSelectors, authorizeMcpLookup, callCodexMcpLookup, discoverMcpSelectors } from './codex-mcp';
 import {
   executorOutputSchema, renderTextContext, type ExecutorOutput,
@@ -128,7 +128,19 @@ export type CodexLaunchOptions = {
 };
 
 function startLocalCodex(workspace: string) {
-  return spawn(/*turbopackIgnore: true*/ process.env.HH_CODEX_COMMAND || 'codex', ['app-server'], {
+  let command = process.env.HH_CODEX_COMMAND || 'codex';
+  let args = ['app-server'];
+  // npm installs a .cmd shim on Windows. Launch the official JS entry point without a shell.
+  if (process.platform === 'win32' && (command === 'codex' || command.toLowerCase().endsWith('codex.cmd'))) {
+    const search = command === 'codex' ? (process.env.PATH || '').split(delimiter) : [dirname(command)];
+    for (const directory of search.filter(Boolean)) {
+      const binary = join(directory, 'codex.exe');
+      if (existsSync(binary)) { command = binary; break; }
+      const launcher = join(directory, 'node_modules', '@openai', 'codex', 'bin', 'codex.js');
+      if (existsSync(launcher)) { command = process.execPath; args = [launcher, 'app-server']; break; }
+    }
+  }
+  return spawn(/*turbopackIgnore: true*/ command, args, {
     cwd: workspace, stdio: 'pipe', shell: false, windowsHide: true, env: codexEnvironment()
   });
 }
@@ -182,6 +194,29 @@ export async function inspectApprovedMcpTools(options: CodexLaunchOptions = {}) 
   if (approved.length === 0) return { selectors: [], unavailable: 0 };
   return withCodexControl(options, 30000, async (client, workspace) =>
     discoverMcpSelectors(client.call.bind(client), await startLookupThread(client, workspace), approved));
+}
+
+async function listCodexModels(call: CodexCall) {
+  const models = new Map<string, { id: string; name: string; alias: string; isDefault: boolean }>();
+  const cursors = new Set<string>();
+  let cursor = '';
+  do {
+    const page = await call('model/list', { limit: 100, includeHidden: false, ...(cursor ? { cursor } : {}) });
+    if (!Array.isArray(page.data)) throw new Error('Codex returned an invalid model list');
+    for (const entry of page.data.map(object)) {
+      const id = string(entry.model) || string(entry.id);
+      if (id && entry.hidden !== true) models.set(id, { id, alias: string(entry.id),
+        name: string(entry.displayName) || id, isDefault: entry.isDefault === true });
+    }
+    cursor = string(page.nextCursor);
+    if (cursor && cursors.has(cursor)) throw new Error('Codex returned a repeated model cursor');
+    cursors.add(cursor);
+  } while (cursor);
+  return [...models.values()];
+}
+
+export function inspectCodexModels(options: CodexLaunchOptions = {}) {
+  return withCodexControl(options, 15000, client => listCodexModels(client.call.bind(client)));
 }
 
 /** Probe the local app-server in the same working-directory scope as a task. */
@@ -302,17 +337,12 @@ export async function runCodexTask(task: ExecutorTask, options: CodexLaunchOptio
       options.onEvent?.({ kind: 'skills', selectors: selectedSkills.map(skill =>
         skill.pluginId ? skill.pluginId + '/' + skill.name : skill.name) });
     }
-    const listed = await client.call('model/list', { limit: 100, includeHidden: false });
-    const models = Array.isArray(listed.data) ? listed.data.map(object) : [];
-    if (!models.length) throw new Error('Codex returned no available models; check local login and model configuration');
-    const requested = process.env.HH_CODEX_MODEL;
-    const chosen = requested
-      ? models.find(m => m.model === requested || m.id === requested)
-      : models.find(m => m.isDefault === true) ?? models[0];
-    if (!chosen) throw new Error('Configured HH_CODEX_MODEL is not available in Codex model/list: ' + requested);
-    const model = string(chosen.model) || string(chosen.id);
-    if (!model) throw new Error('Codex model/list did not contain a valid model identifier');
-
+    const models = await listCodexModels(client.call.bind(client));
+    const requested = task.model === undefined ? process.env.HH_CODEX_MODEL : task.model;
+    const chosen = requested ? models.find(item => item.id === requested || item.alias === requested)
+      : models.find(item => item.isDefault) ?? models[0];
+    if (!chosen) throw new Error('Codex 没有可用的所选模型，请在工作台重新选择：' + (requested || '默认模型'));
+    const model = chosen.id;
     const started = await client.call('thread/start', {
       cwd: workspace, model, ephemeral: true,
       sandbox: documents.length ? 'workspace-write' : 'read-only',
@@ -320,6 +350,7 @@ export async function runCodexTask(task: ExecutorTask, options: CodexLaunchOptio
     });
     threadId = string(object(started.thread).id);
     if (!threadId) throw new Error('Codex thread/start returned no thread id');
+    options.onEvent?.({ kind: 'model', provider: 'codex', model: string(started.model) || model });
     options.onEvent?.({ kind: 'thread', id: threadId });
     const instructions = [
       selectedSkills.map(skill => '$' + skill.name).join(' '),

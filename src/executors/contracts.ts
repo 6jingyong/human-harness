@@ -17,6 +17,7 @@ export type AuthorizedEvidence = Readonly<{
 }>;
 
 export type ExecutorTask = Readonly<{
+  model?: string | null;
   packet: HumanHarnessTaskPacket;
   stepTitle: string;
   /** Trusted capability binding resolved from the pinned step definition. */
@@ -68,6 +69,7 @@ export type ExecutorOutput = z.infer<typeof executorOutputSchema>;
 export type MethodCheckResult = NonNullable<ExecutorOutput['methodChecks']>[number];
 
 export type ExecutorRunEvent =
+  | { kind: 'model'; provider: 'codex' | 'mastra' | 'ollama'; model: string }
   | { kind: 'thread'; id: string }
   | { kind: 'turn'; id: string }
   | { kind: 'skills'; selectors: string[] }

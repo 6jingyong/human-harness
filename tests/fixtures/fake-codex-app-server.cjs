@@ -17,6 +17,11 @@ createInterface({ input: process.stdin }).on('line', line => {
     send({ id: msg.id, error: { code: -32000, message: 'Not initialized' } });
   } else if (msg.method === 'model/list') {
     if (mode === 'inventory' || directMcp) process.exit(18);
+    else if (mode === 'select-model') {
+      send({ id: msg.id, result: msg.params.cursor === 'more' ? { data: [
+        { id: 'alternate', model: 'other-model', displayName: 'Other' }
+      ] } : { data: [{ id: 'test-model', model: 'test-model', isDefault: true }], nextCursor: 'more' } });
+    }
     else send({ id: msg.id, result: { data: [{ id: 'test-model', model: 'test-model', isDefault: true }] } });
   } else if (msg.method === 'skills/list') {
     const pluginSkill = { name: 'pdf', enabled: true, path: '/fixture/plugin/pdf/SKILL.md', pluginId: 'documents@local' };
@@ -66,6 +71,7 @@ createInterface({ input: process.stdin }).on('line', line => {
       isError: mode === 'mcp-tool-error'
     } });
   } else if (msg.method === 'thread/start') {
+    if (mode === 'select-model' && msg.params.model !== 'other-model') process.exit(31);
     if (!['read-only', 'workspace-write'].includes(msg.params.sandbox) || msg.params.approvalPolicy !== 'never') {
       send({ id: msg.id, error: { code: -32602, message: 'Unsafe thread permissions' } });
     } else {

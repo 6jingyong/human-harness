@@ -1,3 +1,4 @@
+import { configuredExecutorMode, modelSettingsSchema, type ModelSettings } from '../protocol/model-settings';
 import Database from 'better-sqlite3';
 import { createHash } from 'node:crypto';
 import { basename, extname, join, resolve } from 'node:path';
@@ -34,6 +35,7 @@ db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 db.pragma('busy_timeout = 5000');
 db.exec([
+  'CREATE TABLE IF NOT EXISTS local_model_settings (id INTEGER PRIMARY KEY CHECK(id=1), selection TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS packages (id TEXT NOT NULL, version TEXT NOT NULL, digest TEXT NOT NULL, definition TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (id, version))',
   'CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, title TEXT NOT NULL, package_id TEXT NOT NULL, package_version TEXT NOT NULL, state TEXT NOT NULL, created_at TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS project_ledgers (project_id TEXT PRIMARY KEY REFERENCES projects(id), state TEXT NOT NULL)',
@@ -41,6 +43,23 @@ db.exec([
   'CREATE INDEX IF NOT EXISTS idx_runtime_projects ON projects(created_at)',
   'CREATE INDEX IF NOT EXISTS idx_runtime_events ON event_log(project_id, created_at)'
 ].join(';') + ';');
+
+export function getModelSettings(): ModelSettings {
+  const row = db.prepare('SELECT selection FROM local_model_settings WHERE id=1').get() as { selection: string } | undefined;
+  if (row) return modelSettingsSchema.parse(JSON.parse(row.selection));
+  const provider = configuredExecutorMode();
+  if (provider === 'mastra') return { provider, model: process.env.HH_MODEL || 'openai/gpt-6.1-sol' };
+  if (provider === 'ollama') return modelSettingsSchema.parse({ provider, model: process.env.HH_OLLAMA_MODEL });
+  if (provider === 'codex') return { provider, model: process.env.HH_CODEX_MODEL || null };
+  return { provider, model: null };
+}
+
+export function saveModelSettings(settings: ModelSettings) {
+  const valid = modelSettingsSchema.parse(settings);
+  db.prepare('INSERT INTO local_model_settings(id,selection) VALUES(1,?) ON CONFLICT(id) DO UPDATE SET selection=excluded.selection')
+    .run(JSON.stringify(valid));
+  return valid;
+}
 
 const builtinPackages = [documentHandoff, generalReport, projectPlan, meetingActions, projectRetrospective, technicalSpecReview]
   .map(pkg => packageSchema.parse(pkg));
@@ -509,7 +528,10 @@ export function recordExecutorEvent(id: string, stepId: string, runId: string, e
         p.steps[stepId]?.state !== 'running') {
       throw new RuntimeError('Stale or unknown Codex run event');
     }
-    if (event.kind === 'thread') {
+    if (event.kind === 'model') {
+      run.model = event.model;
+      run.provider = event.provider;
+    } else if (event.kind === 'thread') {
       if (run.codexThreadId && run.codexThreadId !== event.id) throw new RuntimeError('Codex thread identity changed');
       run.codexThreadId = event.id;
       recordEvent(p, 'executor.thread', stepId, event.id);
