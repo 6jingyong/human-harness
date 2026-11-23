@@ -1,26 +1,19 @@
 import { freshId } from '../core/runtime';
+import { readyAgentSteps } from '../core/planning-work';
+import { effectiveMaterials } from '../core/work-orders';
 import { approvedSemanticNotes } from '../core/semantics';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { awaitHumanInput, getProject, getTaskPacket, markAgentFailed, recordExecutorEvent, startAgent, succeedAgent } from '../core/store';
+import { awaitHumanInput, getModelSettings, getProject, getTaskPacket, markAgentFailed, recordExecutorEvent, startAgent, succeedAgent } from '../core/store';
 import { taskResultSchema } from '../protocol/v1';
-import { executorOutputSchema, type ExecutorTask, type TaskExecutor } from './contracts';
+import { assembledMarkdownOutputSchema, executorOutputSchema, type ExecutorTask, type TaskExecutor } from './contracts';
 import { demoExecutor } from './demo';
 import { codexExecutor } from './codex';
+import { ollamaExecutor } from './ollama';
 import { mastraExecutor } from './mastra';
 import { markdownAssemblyExecutor } from './markdown-assembly';
 
-/** Fail closed: HH_EXECUTOR=codex must not quietly run a fake demo task. */
-export function configuredExecutorMode(mode = process.env.HH_EXECUTOR): 'demo' | 'mastra' | 'codex' {
-  if (!mode || mode === 'demo') return 'demo';
-  if (mode === 'mastra' || mode === 'codex') return mode;
-  throw new Error('Unsupported HH_EXECUTOR=' + mode);
-}
-
-function selectedExecutor(): TaskExecutor {
-  const mode = configuredExecutorMode();
-  return mode === 'codex' ? codexExecutor : mode === 'mastra' ? mastraExecutor : demoExecutor;
-}
+export { configuredExecutorMode } from '../protocol/model-settings';
 
 /** Only authorized artifact revisions and review feedback are visible to the executor. */
 function prepareTask(projectId: string, stepId: string, runId: string): ExecutorTask {
@@ -35,7 +28,7 @@ function prepareTask(projectId: string, stepId: string, runId: string): Executor
     if (!artifact) throw new Error('Authorized artifact was not found at expected revision');
     // Only the exact accepted revision in the scoped packet can be exposed.
     // Do not pass private paths to any executor or stage a rejected revision.
-    const bytes = artifact.filePath ? readFileSync(artifact.filePath) : undefined;
+    const bytes = !packet.codexMcp && artifact.filePath ? readFileSync(artifact.filePath) : undefined;
     if (bytes) {
       totalOriginalBytes += bytes.byteLength;
       if (bytes.byteLength > 12 * 1024 * 1024 || totalOriginalBytes > 32 * 1024 * 1024) {
@@ -77,7 +70,8 @@ function prepareTask(projectId: string, stepId: string, runId: string): Executor
       value: 'Question about template material ' + request.materialId + ': ' +
         request.reason + '\nHuman response (not independently verified): ' + request.answer
     }));
-  const allowedMaterialIds = new Set([...step.needsMaterials, ...(step.requestableMaterialIds ?? [])]);
+  const requiredMaterials = effectiveMaterials(project, step.id, step.needsMaterials);
+  const allowedMaterialIds = new Set([...requiredMaterials, ...(step.requestableMaterialIds ?? [])]);
   const requestableMaterials = project.package.materials
     .filter(m => allowedMaterialIds.has(m.id))
     .map(m => ({ id: m.id, title: m.title, description: m.description }));
@@ -90,10 +84,11 @@ function prepareTask(projectId: string, stepId: string, runId: string): Executor
   return { packet, stepTitle: step.title, evidence, reviewFeedback,
     executionCapabilityId: step.capabilityId,
     workMethod: step.method, materialMethods,
-    outputFormat: outputContract?.format, outputFileName: outputContract?.fileName, outputAcceptance,
+    outputFormat: outputContract?.format, outputFileName: outputContract?.fileName,
+    markdown: outputContract?.markdown, outputAcceptance,
     requestableMaterials,
     humanHandoffs: [...humanHandoffs, ...requestedAnswers],
-    approvedSemanticNotes: approvedSemanticNotes(project, step.needsMaterials) };
+    approvedSemanticNotes: approvedSemanticNotes(project, requiredMaterials) };
 }
 
 /** Shared authoritative run lifecycle. Backends return proposals and cannot commit state. */
@@ -104,17 +99,24 @@ export async function executeOneAgentTask(projectId: string, requestedStepId?: s
   const projectBefore = getProject(projectId);
   const planned = requestedStepId
     ? projectBefore.package.steps.find(step => step.id === requestedStepId)
-    : projectBefore.package.steps.find(step => (step.kind === 'agent' || step.kind === 'script') &&
-      projectBefore.steps[step.id]?.state === 'ready');
+    : readyAgentSteps(projectBefore)[0];
+  const settings = planned?.kind === 'script' || override ? { provider: 'demo' as const, model: undefined } : getModelSettings();
+  const executors = { codex: codexExecutor, mastra: mastraExecutor, ollama: ollamaExecutor, demo: demoExecutor };
   const executor = planned?.kind === 'script'
     ? (planned.capabilityId === 'hh.render.markdown'
       ? markdownAssemblyExecutor : (() => { throw new Error('Unsupported script capability'); })())
-    : override ?? selectedExecutor();
+    : override ?? executors[settings.provider];
   const started = startAgent(projectId, requestedStepId);
   let abortHandler: (() => void) | undefined;
   try {
     if (signal?.aborted) throw new Error('Agent run cancelled by human operator');
-    const task = prepareTask(projectId, started.stepId, started.runId);
+    const task = { ...prepareTask(projectId, started.stepId, started.runId), model: settings.model };
+    if (task.packet.codexSkills?.length && executor.id !== codexExecutor.id) {
+      throw new Error('此任务需要指定的 Codex Skill。请在 HH_EXECUTOR=codex 的主机上重试。');
+    }
+    if (task.packet.codexMcp && executor.id !== codexExecutor.id) {
+      throw new Error('此任务需要 Codex MCP 查询。请在 HH_EXECUTOR=codex 的主机上重试。');
+    }
     const completion = executor.execute(task, event => {
       recordExecutorEvent(projectId, started.stepId, started.runId, event);
     }, signal);
@@ -128,7 +130,9 @@ export async function executeOneAgentTask(projectId: string, requestedStepId?: s
         if (signal.aborted) abortHandler();
       })
     ]) : completion;
-    const response = executorOutputSchema.parse(await responsePromise);
+    const outputSchema = executor === markdownAssemblyExecutor && task.markdown?.assembly === 'concatenate'
+      ? assembledMarkdownOutputSchema : executorOutputSchema;
+    const response = outputSchema.parse(await responsePromise);
     const project = getProject(projectId);
     // AI notes are candidates. An invented or cross-scope citation rejects the
     // entire run; only a human-reviewed output can become reusable knowledge.
@@ -141,7 +145,7 @@ export async function executeOneAgentTask(projectId: string, requestedStepId?: s
         a.kind === 'material' && a.ownerId === note.materialId);
       if (!source || !artifact || source.revision !== note.sourceRevision ||
           artifact.revision !== note.sourceRevision ||
-          !stepDef?.needsMaterials.includes(note.materialId)) {
+          !stepDef || !effectiveMaterials(project, stepDef.id, stepDef.needsMaterials).includes(note.materialId)) {
         throw new Error('Agent semantic note cites material outside this run\'s accepted evidence scope');
       }
     }

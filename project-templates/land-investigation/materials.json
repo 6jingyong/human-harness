@@ -1,0 +1,214 @@
+[
+  {
+    "id": "project-identity",
+    "title": "项目身份与调查目的",
+    "producer": "human",
+    "description": "地块位置、委托信息、调查目的、已有事实",
+    "formats": [
+      "text/plain"
+    ],
+    "acceptance": [
+      "说明项目身份、调查目的及其信息来源"
+    ],
+    "planningMinutes": 60
+  },
+  {
+    "id": "boundary",
+    "title": "地块红线与空间定位资料",
+    "producer": "human",
+    "description": "提供 KML、GeoJSON 或来源已核对的红线坐标表。CAD 原图先在项目 GIS 流程核对，再提交可读的导出及原图定位。",
+    "formats": [
+      ".kml",
+      ".geojson",
+      ".csv",
+      "application/geo+json",
+      "application/vnd.google-earth.kml+xml"
+    ],
+    "acceptance": [
+      "保留原始文件",
+      "确认边界对应的地块及坐标基准"
+    ],
+    "planningMinutes": 90
+  },
+  {
+    "id": "land-use",
+    "title": "规划土地用途及其依据",
+    "producer": "human",
+    "description": "说明地块拟定用途和依据文件",
+    "formats": [
+      "text/plain"
+    ],
+    "acceptance": [
+      "明确用途来源与适用时间"
+    ],
+    "planningMinutes": 60
+  },
+  {
+    "id": "field-records",
+    "title": "现场采样与样品流转记录",
+    "producer": "external_institution",
+    "description": "仅在专业机构完成相关工作后索取真正形成的记录",
+    "requiredWhen": {
+      "type": "decision",
+      "stepId": "investigation-route",
+      "option": "sampling"
+    },
+    "requestWhen": {
+      "type": "work_done",
+      "stepId": "lab-work-complete"
+    },
+    "formats": [
+      "application/pdf",
+      "text/plain"
+    ],
+    "acceptance": [
+      "点位与样品ID可追溯",
+      "采样和流转记录完整"
+    ],
+    "planningMinutes": 120
+  },
+  {
+    "id": "detection-report",
+    "title": "正式检测报告",
+    "producer": "external_institution",
+    "description": "机构实际开展检测后取得的原始报告",
+    "requiredWhen": {
+      "type": "decision",
+      "stepId": "investigation-route",
+      "option": "sampling"
+    },
+    "requestWhen": {
+      "type": "work_done",
+      "stepId": "lab-work-complete"
+    },
+    "formats": [
+      "application/pdf",
+      "text/plain"
+    ],
+    "acceptance": [
+      "检验项目、检测结果与样品ID对应",
+      "来源和签发信息可核验"
+    ],
+    "planningMinutes": 120
+  },
+  {
+    "id": "qc-evidence",
+    "title": "质控原始记录和质控报告",
+    "producer": "external_institution",
+    "description": "质控安排在方案阶段已考虑，但正式质控成果要在实际工作后取得",
+    "requiredWhen": {
+      "type": "decision",
+      "stepId": "investigation-route",
+      "option": "sampling"
+    },
+    "requestWhen": {
+      "type": "work_done",
+      "stepId": "lab-work-complete"
+    },
+    "formats": [
+      "application/pdf",
+      "text/plain"
+    ],
+    "acceptance": [
+      "与采样检测批次相对应",
+      "应有必要的现场与实验室质控数据",
+      "需要专业人员审核"
+    ],
+    "planningMinutes": 120
+  },
+  {
+    "id": "desk-records",
+    "title": "历史沿革、企业、周边及环境资料",
+    "producer": "human",
+    "description": "汇总可定位的历史影像解译、企业生产活动、区域环境、相邻地块和敏感目标资料。可提交人工核对的来源索引和摘录。",
+    "formats": [
+      "text/plain",
+      "application/json",
+      "application/pdf"
+    ],
+    "acceptance": [
+      "每条内容标明项目对象、时点和可核对的出处",
+      "历史复述与项目实地记录分开"
+    ],
+    "planningMinutes": 180
+  },
+  {
+    "id": "site-visit",
+    "title": "现场踏勘、人员访谈及图件来源登记",
+    "producer": "human",
+    "description": "提供可定位的现场和访谈记录。已有照片、影像、地图可附已核对的材料编号、版本、位置和对应图位清单。",
+    "formats": [
+      "text/plain",
+      "application/json",
+      "application/pdf"
+    ],
+    "acceptance": [
+      "区分现场所见和访谈记述",
+      "图件登记保留原文件编号和位置"
+    ],
+    "planningMinutes": 120
+  },
+  {
+    "id": "clarification",
+    "title": "必要的项目证据补件",
+    "producer": "human",
+    "onDemand": true,
+    "description": "仅当所需原始证据确有缺口时，由 Agent 发起带证据和理由的具体问题。",
+    "formats": [
+      "text/plain",
+      "application/json",
+      "application/pdf"
+    ],
+    "acceptance": [
+      "说明拟解决的问题及对应来源"
+    ]
+  },
+  {
+    "id": "survey-result",
+    "title": "地测机构成果及交付文件",
+    "producer": "external_institution",
+    "description": "提交实际地测结果。可用原始成果的 KML、GeoJSON、CSV 或经核对的文件导出。",
+    "formats": [
+      ".kml",
+      ".geojson",
+      ".csv",
+      "application/pdf"
+    ],
+    "acceptance": [
+      "地块、测绘范围和坐标基准与委托一致",
+      "来源、版本及交付日期可核验"
+    ],
+    "planningMinutes": 60,
+    "requiredWhen": {
+      "type": "work_order",
+      "orderId": "land-survey"
+    },
+    "requestWhen": {
+      "type": "work_done",
+      "stepId": "survey-return"
+    }
+  },
+  {
+    "id": "government-record",
+    "title": "政府调档取得的报告或正式答复",
+    "producer": "external_institution",
+    "description": "提交从办理机关取得的报告或可核验的书面答复。",
+    "formats": [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ],
+    "acceptance": [
+      "注明获取机关、档案编号、日期与适用范围",
+      "查无记录与已有报告分别说明"
+    ],
+    "planningMinutes": 60,
+    "requiredWhen": {
+      "type": "work_order",
+      "orderId": "government-archive"
+    },
+    "requestWhen": {
+      "type": "work_done",
+      "stepId": "archive-return"
+    }
+  }
+]

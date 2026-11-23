@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { HumanHarnessTaskPacket, HumanHarnessPackage } from '../protocol/v1';
+import { MAX_ASSEMBLED_MARKDOWN_LENGTH, type HumanHarnessTaskPacket, type HumanHarnessPackage } from '../protocol/v1';
 import { semanticNoteSchema, type SemanticNote } from '../protocol/semantics';
 
 /** Executor-visible context. Never expose the full project snapshot or private upload paths. */
@@ -17,6 +17,7 @@ export type AuthorizedEvidence = Readonly<{
 }>;
 
 export type ExecutorTask = Readonly<{
+  model?: string | null;
   packet: HumanHarnessTaskPacket;
   stepTitle: string;
   /** Trusted capability binding resolved from the pinned step definition. */
@@ -31,6 +32,7 @@ export type ExecutorTask = Readonly<{
   /** Renderer and content format are chosen by the template, not by the Agent. */
   outputFormat?: HumanHarnessPackage['outputs'][number]['format'];
   outputFileName?: string;
+  markdown?: HumanHarnessPackage['outputs'][number]['markdown'];
   /** Existing output contract acceptance is always a Human review gate. */
   outputAcceptance?: readonly string[];
   evidence: readonly AuthorizedEvidence[];
@@ -60,12 +62,18 @@ export const executorOutputSchema = z.strictObject({
     reason: z.string().min(1).max(4000)
   })).max(20)
 });
+export const assembledMarkdownOutputSchema = executorOutputSchema.extend({
+  body: z.string().min(1).max(MAX_ASSEMBLED_MARKDOWN_LENGTH)
+});
 export type ExecutorOutput = z.infer<typeof executorOutputSchema>;
 export type MethodCheckResult = NonNullable<ExecutorOutput['methodChecks']>[number];
 
 export type ExecutorRunEvent =
+  | { kind: 'model'; provider: 'codex' | 'mastra' | 'ollama'; model: string }
   | { kind: 'thread'; id: string }
   | { kind: 'turn'; id: string }
+  | { kind: 'skills'; selectors: string[] }
+  | { kind: 'mcpLookup'; selector: string }
   | { kind: 'progress'; message: string };
 
 export interface TaskExecutor {
@@ -110,6 +118,10 @@ export function renderTextContext(task: ExecutorTask): string {
     chunks.push('PINNED OUTPUT CONTRACT: format=' + task.outputFormat +
       ', filename=' + (task.outputFileName || 'unspecified') +
       '. If format is json, body MUST contain a syntactically valid JSON object (no Markdown fences).');
+  }
+  if (task.markdown?.headings?.length) {
+    chunks.push('Required Markdown headings, in this exact order. Preserve levels and titles verbatim:\n' +
+      task.markdown.headings.map(heading => '#'.repeat(heading.level) + ' ' + heading.title).join('\n'));
   }
   if (task.outputAcceptance?.length) {
     chunks.push('HUMAN OUTPUT ACCEPTANCE REQUIREMENTS:\n' +

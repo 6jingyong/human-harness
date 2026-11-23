@@ -1,3 +1,4 @@
+import land from '../examples/land-investigation.hh.json';
 import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -11,6 +12,7 @@ const temp = mkdtempSync(join(tmpdir(), 'hh-v1-runtime-'));
 process.env.HH_DATA_DIR = temp;
 process.env.HH_EXECUTOR = 'demo';
 const store = await import('../src/core/store');
+store.importPackage(land);
 const { executeOneAgentTask, configuredExecutorMode } = await import('../src/executors/runner');
 
 after(() => {

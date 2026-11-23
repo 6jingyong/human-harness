@@ -1,0 +1,227 @@
+{
+  "protocol": "hh.package/1",
+  "id": "general-report",
+  "version": "1.0.0",
+  "title": "通用报告撰写",
+  "description": "适用于专题、调研和内部分析报告。提交报告要求与已有资料，审核证据和提纲后成稿，可下载 Markdown 或 Word。",
+  "stages": [
+    {
+      "id": "intake",
+      "title": "准备素材",
+      "description": "确认报告对象、问题范围及可用证据"
+    },
+    {
+      "id": "prepare",
+      "title": "证据与提纲",
+      "description": "提取可复用的来源结论并确定章节目标"
+    },
+    {
+      "id": "deliver",
+      "title": "成稿与验收",
+      "description": "仅用已审核的提纲与证据写作，审批后导出"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "mastra.agent",
+      "kind": "agent",
+      "description": "受控 Agent 执行，输入遵循项目证据权限"
+    }
+  ],
+  "assets": [],
+  "materials": [
+    {
+      "id": "brief",
+      "title": "报告要求",
+      "producer": "human",
+      "formats": [
+        "text/plain"
+      ],
+      "description": "填写报告主题、读者、决策问题、覆盖范围和交付口径。可附现有提纲或风格要求。",
+      "acceptance": [
+        "报告的用途、核心问题和边界明确"
+      ],
+      "planningMinutes": 15
+    },
+    {
+      "id": "sources",
+      "title": "原始资料与来源索引",
+      "producer": "human",
+      "formats": [
+        "text/plain"
+      ],
+      "description": "上传 TXT，或粘贴已有材料的文字、Markdown 和 CSV 内容。逐项注明资料名称、日期、出处及页码或表行，有原始数据时保留单位。",
+      "acceptance": [
+        "原文摘录、已有结果和资料出处能相互对应"
+      ],
+      "planningMinutes": 45
+    },
+    {
+      "id": "supplement",
+      "title": "补充证据或口径确认",
+      "producer": "human",
+      "formats": [
+        "text/plain"
+      ],
+      "description": "在证据核对提出补问后，提供缺少的文字证据或由负责人说明采用口径。",
+      "acceptance": [
+        "可定位到所问事项及来源"
+      ],
+      "planningMinutes": 15,
+      "onDemand": true
+    }
+  ],
+  "steps": [
+    {
+      "id": "evidence",
+      "stageId": "prepare",
+      "kind": "agent",
+      "title": "整理来源证据和已有结论",
+      "instructions": "按报告问题整理来源已给出的数据、结果和结论，为每项分配可引用的证据编号，原样保留数值、单位、对象和定位。区分资料自身结论、用户确认和仍未证实的推断。关键事实缺失时提出具体补问，可说明的局限单列。",
+      "dependsOn": [],
+      "needsMaterials": [
+        "brief",
+        "sources"
+      ],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "evidence-output",
+      "requiresReview": true,
+      "planning": {
+        "workMinutes": 60,
+        "reviewMinutes": 30
+      },
+      "agentId": "evidence-agent",
+      "requestableMaterialIds": [
+        "supplement"
+      ]
+    },
+    {
+      "id": "outline",
+      "stageId": "prepare",
+      "kind": "agent",
+      "title": "拟定报告提纲和各章要回答的问题",
+      "instructions": "根据报告要求规划摘要、问题与范围、证据与发现、结论与建议、来源与局限。为每节写明要回答的问题、所需证据与篇幅重点，可为建议类报告细分二级以下小节。当前只规划结构，不填尚未经审核的事实。",
+      "dependsOn": [],
+      "needsMaterials": [
+        "brief"
+      ],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "outline-output",
+      "requiresReview": true,
+      "planning": {
+        "workMinutes": 30,
+        "reviewMinutes": 15
+      },
+      "agentId": "outline-agent"
+    },
+    {
+      "id": "report",
+      "stageId": "deliver",
+      "kind": "agent",
+      "title": "用已审证据撰写报告",
+      "instructions": "依据两份已审核成果撰写 Markdown。回答委托问题，引用证据编号及能定位的来源，保留边界和口径。推断和建议注明依据。重要缺口归入来源与局限，用专业表述说明影响。待补件和内部审核事项留在工作台。不要重读原文或虚构已做过的核查。 按以下顺序使用原样的 Markdown 二级标题：摘要、问题与范围、证据与发现、结论与建议、来源与局限。",
+      "dependsOn": [
+        "evidence",
+        "outline"
+      ],
+      "needsMaterials": [],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "report-output",
+      "requiresReview": true,
+      "planning": {
+        "workMinutes": 90,
+        "reviewMinutes": 45
+      },
+      "agentId": "writing-agent"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "evidence-output",
+      "title": "报告证据与来源结论",
+      "audience": "internal",
+      "fileName": "evidence.md",
+      "format": "markdown",
+      "producingStepId": "evidence",
+      "acceptance": [
+        "数据、单位、来源及定位一致",
+        "证据、来源结论和未确定事项可辨认"
+      ],
+      "humanSignoff": true
+    },
+    {
+      "id": "outline-output",
+      "title": "报告提纲",
+      "audience": "internal",
+      "fileName": "outline.md",
+      "format": "markdown",
+      "producingStepId": "outline",
+      "acceptance": [
+        "章节逐一对应委托问题",
+        "判断意见保留可追溯的证据要求"
+      ],
+      "humanSignoff": true
+    },
+    {
+      "id": "report-output",
+      "title": "项目报告",
+      "audience": "internal",
+      "fileName": "report.md",
+      "format": "markdown",
+      "producingStepId": "report",
+      "acceptance": [
+        "关键结论可逐项回溯到已审证据",
+        "范围与建议相符，事实、分析和结论能够对应",
+        "交付正文无内部待办和未获支持的断言"
+      ],
+      "humanSignoff": true,
+      "markdown": {
+        "headings": [
+          {
+            "level": 2,
+            "title": "摘要"
+          },
+          {
+            "level": 2,
+            "title": "问题与范围"
+          },
+          {
+            "level": 2,
+            "title": "证据与发现"
+          },
+          {
+            "level": 2,
+            "title": "结论与建议"
+          },
+          {
+            "level": 2,
+            "title": "来源与局限"
+          }
+        ]
+      },
+      "word": {
+        "fileName": "project-report.docx",
+        "title": "项目报告",
+        "tocDepth": 2
+      },
+      "deliverable": true
+    }
+  ],
+  "agents": [
+    {
+      "id": "evidence-agent",
+      "title": "资料整理",
+      "description": "锁定可引用数据和已有结论"
+    },
+    {
+      "id": "outline-agent",
+      "title": "提纲设计",
+      "description": "按问题和读者确定结构"
+    },
+    {
+      "id": "writing-agent",
+      "title": "成稿",
+      "description": "用已批准提纲与证据写作"
+    }
+  ]
+}
