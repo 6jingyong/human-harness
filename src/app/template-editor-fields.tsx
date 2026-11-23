@@ -114,12 +114,14 @@ type InspectorProps = {
   pkg: HumanHarnessPackage;
   node: FlowNode;
   graph: ReturnType<typeof templateFlow>;
+  mcpArgumentText?: string;
+  onMcpArgumentChange: (text?: string) => void;
   onChange: (pkg: HumanHarnessPackage) => void;
   onSelect: (node: FlowNode) => void;
   onRemove: (node: FlowNode) => void;
 };
 
-export function TemplateInspector({ pkg, node, graph, onChange, onSelect, onRemove }: InspectorProps) {
+export function TemplateInspector({ pkg, node, graph, mcpArgumentText, onMcpArgumentChange, onChange, onSelect, onRemove }: InspectorProps) {
   const stage = pkg.stages.find(stage => stage.id === node.stageId);
   const step = pkg.steps.find(item => item.id === node.id);
   const material = pkg.materials.find(item => item.id === node.id);
@@ -225,7 +227,10 @@ export function TemplateInspector({ pkg, node, graph, onChange, onSelect, onRemo
       {step.kind === 'agent' && <details open={Boolean(step.codexMcp) || undefined}>
         <summary>Codex MCP</summary>
         <label><input type="checkbox" checked={Boolean(step.codexMcp)} disabled={Boolean(step.codexSkills?.length)}
-          onChange={event => updateStep({ codexMcp: event.target.checked ? { server: '', tool: '' } : undefined })} />
+          onChange={event => {
+            onMcpArgumentChange();
+            updateStep({ codexMcp: event.target.checked ? { server: '', tool: '' } : undefined });
+          }} />
           调用一个只读 MCP 工具</label>
         {step.codexSkills?.length && <small>清空此任务的 Codex Skills 后可启用直接查询。</small>}
         {step.codexMcp && <>
@@ -233,7 +238,11 @@ export function TemplateInspector({ pkg, node, graph, onChange, onSelect, onRemo
             onChange={event => updateStep({ codexMcp: { ...step.codexMcp!, server: event.target.value } })} /></label>
           <label>MCP 工具名称<input value={step.codexMcp.tool}
             onChange={event => updateStep({ codexMcp: { ...step.codexMcp!, tool: event.target.value } })} /></label>
-          <small>工具由本机授权。可在模板 JSON 中填写固定查询参数。项目资料不会作为查询参数发送。</small>
+          <label>MCP 固定参数（JSON 对象）<textarea rows={4} spellCheck={false}
+            value={mcpArgumentText ?? (step.codexMcp.arguments ? JSON.stringify(step.codexMcp.arguments, null, 2) : '')}
+            placeholder={'{"sampleId":"DEMO-01"}'}
+            onChange={event => onMcpArgumentChange(event.target.value)} /></label>
+          <small>工具由本机授权。查询只发送这里填写的固定参数，留空即使用空对象。</small>
         </>}
       </details>}
       <Minutes label={step.kind === 'external_milestone' ? '外部预计工期（工作分钟）' : '预计投入分钟'}

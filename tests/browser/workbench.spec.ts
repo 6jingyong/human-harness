@@ -668,7 +668,7 @@ test('the template editor saves Codex Skills on the selected Agent task', async 
     .toEqual(['documents@local/pdf', 'docx']);
 });
 
-test('the template editor saves a direct Codex MCP lookup on an Agent task', async ({ page }) => {
+test('the template editor validates and preserves fixed arguments for direct Codex MCP lookups', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: '打开菜单' }).click();
   await page.getByRole('button', { name: /新建模板/ }).click();
@@ -680,13 +680,30 @@ test('the template editor saves a direct Codex MCP lookup on an Agent task', asy
   await editor.getByLabel('调用一个只读 MCP 工具').check();
   await editor.getByLabel('MCP 服务名称').fill('registry');
   await editor.getByLabel('MCP 工具名称').fill('sample_lookup');
+  const parameters = editor.getByLabel('MCP 固定参数（JSON 对象）');
+  await parameters.fill('{"sampleId":');
+  await editor.getByRole('button', { name: '验证并保存模板' }).click();
+  await expect(editor.getByRole('alert')).toContainText('MCP 固定参数无法解析');
+  await parameters.fill('[]');
+  await editor.getByRole('button', { name: '编辑完整 JSON' }).click();
+  await expect(editor.getByRole('alert')).toContainText('须为 JSON 对象');
+  const args = { sampleId: 'DEMO-01', options: { include: ['location'] } };
+  await parameters.fill(JSON.stringify(args));
+  await editor.locator('[data-flow-card="material:input-01"]').click();
+  await editor.locator('[data-flow-card="step:draft"]').click();
+  await expect(parameters).toHaveValue(JSON.stringify(args));
+  await editor.getByRole('button', { name: '编辑完整 JSON' }).click();
+  const jsonEditor = editor.getByLabel('Protocol 1.0 项目模板 JSON');
+  const edited = JSON.parse(await jsonEditor.inputValue());
+  expect(edited.steps.find((step: { id: string }) => step.id === 'draft').codexMcp.arguments).toEqual(args);
+  await editor.getByRole('button', { name: '应用 JSON 到流程图' }).click();
   await editor.getByRole('button', { name: '验证并保存模板' }).click();
   await expect(page.getByRole('status')).toContainText('workbench-mcp-lookup @ 1.0.0');
   const response = await page.request.get('/api/v1/packages?id=workbench-mcp-lookup');
   expect(response.ok()).toBe(true);
   const { package: saved } = await response.json();
   expect(saved.steps.find((step: { id: string }) => step.id === 'draft').codexMcp)
-    .toEqual({ server: 'registry', tool: 'sample_lookup' });
+    .toEqual({ server: 'registry', tool: 'sample_lookup', arguments: args });
 });
 
 test('the bundled land reference opens directly, exposes gated handoffs, and saves an independent template', async ({ page }) => {

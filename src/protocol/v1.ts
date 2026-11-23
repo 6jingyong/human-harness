@@ -7,13 +7,14 @@ const capabilityId = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/);
 const codexSkills = z.array(z.string().max(256)
   .regex(/^(?:[A-Za-z0-9][A-Za-z0-9_.-]*@[A-Za-z0-9][A-Za-z0-9_.-]*\/)?[A-Za-z0-9][A-Za-z0-9_.-]*$/))
   .min(1).max(8).refine(names => new Set(names).size === names.length, 'Codex Skills must be distinct');
-const codexMcp = z.strictObject({
+export const codexMcpArgumentsSchema = z.record(z.string(), z.json())
+  .refine(value => JSON.stringify(value).length <= 8000, 'MCP arguments exceed 8000 characters');
+export const codexMcpLookupSchema = z.strictObject({
   server: capabilityId,
   tool: capabilityId,
-  arguments: z.record(z.string(), z.json())
-    .refine(value => JSON.stringify(value).length <= 8000, 'MCP arguments exceed 8000 characters').optional()
+  arguments: codexMcpArgumentsSchema.optional()
 });
-export type CodexMcpLookup = z.infer<typeof codexMcp>;
+export type CodexMcpLookup = z.infer<typeof codexMcpLookupSchema>;
 const digest = z.string().regex(/^sha256:[0-9a-f]{64}$/);
 const description = z.string().min(1).max(4000);
 
@@ -71,7 +72,7 @@ const step = z.strictObject({
   requestableMaterialIds: z.array(id).max(20).optional(),
   when: condition.optional(), capabilityId: capabilityId.optional(),
   codexSkills: codexSkills.optional(),
-  codexMcp: codexMcp.optional(),
+  codexMcp: codexMcpLookupSchema.optional(),
   options: z.array(z.strictObject({ id, label: description })).min(2).max(20).optional(),
   requiresReview: z.boolean().optional(), outputContractId: id.optional(),
   resourceIds: z.array(id).max(30).optional(),
@@ -318,7 +319,7 @@ export const taskPacketSchema = z.strictObject({
   templateResources: z.array(z.strictObject({ resourceId: id, revision: z.number().int().positive(), role: z.literal('reference') })).max(100),
   toolsAllowed: z.array(capabilityId).max(100),
   codexSkills: codexSkills.optional(),
-  codexMcp: codexMcp.optional(),
+  codexMcp: codexMcpLookupSchema.optional(),
   outputContractId: id.optional(),
   reviewPolicy: z.enum(['human_required', 'automated_validation'])
 });
