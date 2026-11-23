@@ -1,0 +1,152 @@
+.template-author {
+  --flow-human: #f2c385;
+  --flow-machine: #a8d1ff;
+  display: grid;
+  gap: 16px;
+}
+.template-author-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.template-author-header h1 { margin: 6px 0 2px; }
+.template-author-header p, .flow-error { margin: 0; white-space: pre-line; }
+.flow-back { padding: 4px 0; color: var(--accent); border-color: transparent; background: none; }
+.flow-metadata, .flow-toolbar, .flow-inspector, .flow-chart {
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--panel);
+}
+.flow-metadata { padding: 12px 16px; }
+.flow-metadata summary, .flow-inspector summary { cursor: pointer; }
+.flow-metadata p { margin: 8px 0 0; font-size: 12px; }
+.flow-stages {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  gap: 9px;
+  margin-bottom: 9px;
+}
+.flow-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 11px 13px;
+}
+.flow-toolbar > div { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; }
+.flow-toolbar label, .flow-inspector label, .flow-option label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: #b8c7db;
+  font-size: 12px;
+}
+.flow-toolbar input, .flow-toolbar select { min-height: 37px; padding: 6px 8px; }
+.flow-toolbar button { min-height: 37px; padding: 6px 11px; }
+.flow-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(270px, .42fr);
+  align-items: start;
+  gap: 12px;
+}
+.flow-chart { min-width: 0; overflow: hidden; }
+.flow-lanes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.flow-lanes h2 { margin: 0; padding: 12px 14px; font-size: 14px; border-bottom: 1px solid var(--line); }
+.flow-lanes h2 + h2 { border-left: 1px solid var(--line); }
+.flow-dot { display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; }
+.flow-dot.human { background: var(--flow-human); }
+.flow-dot.machine { background: var(--flow-machine); }
+.flow-scroll { max-height: min(65vh, 700px); overflow-y: auto; scrollbar-width: thin; }
+.flow-canvas {
+  position: relative;
+  min-height: 164px;
+  padding: 14px 12px;
+  background:
+    linear-gradient(90deg, #09122100 calc(50% - .5px), #3c5165bf 50%, #09122100 calc(50% + .5px)),
+    radial-gradient(#8eaed32c 1px, transparent 1px) 0 0 / 16px 16px #101827;
+}
+.flow-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px; }
+.flow-row + .flow-row { margin-top: 16px; }
+.flow-lane { display: grid; gap: 7px; align-content: start; min-width: 0; }
+.flow-card {
+  z-index: 1;
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  min-height: 56px;
+  text-align: left;
+  background: #1a283b;
+  padding: 7px 10px;
+  border-color: #3e526b;
+  border-radius: 7px;
+}
+.flow-card.human { border-inline-start: 3px solid #b98c56; }
+.flow-card.machine { border-inline-end: 3px solid #769fce; }
+.flow-card.human small, .flow-inspector small.human { color: var(--flow-human); }
+.flow-card.machine small, .flow-inspector small.machine { color: var(--flow-machine); }
+.flow-card small { font-size: 10px; }
+.flow-card strong {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 650;
+}
+.flow-card.related { background: #24354a; border-color: #657c97; }
+.flow-card.selected { background: #2a4058; border-color: #b0d4f2; }
+.flow-arrows { position: absolute; inset: 0; pointer-events: none; }
+.flow-arrows > path { stroke: #839fbc; stroke-width: 1.3; fill: none; }
+.flow-arrows > .condition, .flow-arrows > .clarification { stroke-dasharray: 3 3; }
+.flow-legend { display: flex; flex-wrap: wrap; gap: 8px 13px; padding: 9px 12px; font-size: 11px; color: var(--muted); }
+.flow-legend i { display: inline-block; width: 17px; border-top: 1px solid #839fbc; vertical-align: middle; }
+.flow-legend span:nth-child(2) i { border-top-style: dashed; }
+.flow-empty { padding: 10px; position: relative; }
+.flow-inspector { display: grid; gap: 11px; padding: 13px; min-width: 0; }
+.flow-inspector header h2 { margin: 2px 0 0; overflow-wrap: anywhere; }
+.flow-inspector p { margin: 0; font-size: 12px; }
+.flow-inspector input, .flow-inspector select, .flow-inspector textarea { min-height: 34px; padding: 6px 8px; font-size: 13px; }
+.flow-inspector textarea { min-height: 66px; }
+.flow-inspector details { padding: 8px 0 1px; border-top: 1px solid var(--line); }
+.flow-inspector details > :not(summary) { margin-top: 8px; }
+.flow-inspector .flow-check { display: flex; align-items: center; gap: 7px; }
+.flow-check input { width: auto; min-height: 0; }
+.flow-condition {
+  border-inline-start: 2px solid #465875;
+  padding: 0 0 0 7px;
+  display: grid;
+  gap: 6px;
+}
+.flow-link-field {
+  min-width: 0;
+  margin: 0;
+  padding: 5px 7px 7px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+.flow-link-field legend { color: #c5d4e8; font-size: 12px; }
+.flow-link-item, .flow-option { display: flex; gap: 5px; align-items: end; }
+.flow-link-item { align-items: center; justify-content: space-between; }
+.flow-link-item span { font-size: 12px; overflow-wrap: anywhere; }
+.flow-link-item > div { display: flex; }
+.flow-link-item button, .flow-option button { flex: none; padding: 4px 7px; font-size: 12px; }
+.flow-option label { flex: 1; }
+.flow-link-field > :not(legend) + :not(legend) { margin-top: 5px; }
+.flow-connections button { display: grid; width: 100%; text-align: left; font-size: 12px; }
+.flow-connections button small { color: #adc2dc; font-size: 10px; }
+.flow-remove { justify-self: start; font-size: 11px; color: #ffc6cf; background: none; }
+@media (max-width: 830px) {
+  .flow-workspace { grid-template-columns: minmax(0, 1fr); }
+  .flow-scroll { max-height: min(50vh, 500px); }
+}
+@media (max-width: 460px) {
+  .flow-row { gap: 29px; }
+  .flow-canvas { padding-inline: 7px; }
+  .flow-card { padding: 6px; }
+  .flow-lanes h2 { padding: 10px 7px; font-size: 12px; }
+  .flow-toolbar select, .flow-toolbar input { max-width: 145px; }
+}

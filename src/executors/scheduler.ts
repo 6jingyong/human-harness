@@ -1,4 +1,5 @@
 import { executionPolicy } from '../core/runtime';
+import { automaticWindowOpen, readyAgentSteps } from '../core/planning-work';
 import { getProject, interruptOrphanedRuns, listProjects, markAgentFailed, RuntimeError } from '../core/store';
 import { executeOneAgentTask } from './runner';
 import type { TaskExecutor } from './contracts';
@@ -89,16 +90,16 @@ export class LocalScheduler {
     if (this.scanning || this.stopped) return;
     this.scanning = true;
     try {
+      const now = new Date();
       for (const row of listProjects()) {
         if (this.active.size >= this.globalLimit) break;
         const project = getProject(row.id);
         const policy = executionPolicy(project);
-        if (!policy.autoDispatch) continue;
+        if (!policy.autoDispatch || !automaticWindowOpen(project, now)) continue;
         let runningCount = Object.values(project.steps).filter(s => s.state === 'running').length;
         if (runningCount >= policy.maxParallel) continue;
-        for (const step of project.package.steps) {
+        for (const step of readyAgentSteps(project)) {
           if (this.active.size >= this.globalLimit || runningCount >= policy.maxParallel) break;
-          if (!['agent', 'script'].includes(step.kind) || project.steps[step.id]?.state !== 'ready') continue;
           if (this.active.has(this.key(project.id, step.id))) continue;
           try {
             this.dispatch(project.id, step.id);

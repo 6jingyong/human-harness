@@ -1,3 +1,4 @@
+import template from '../examples/eia-abc-pipeline.hh.json';
 import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -10,6 +11,7 @@ import type { TaskExecutor, ExecutorTask } from '../src/executors/contracts';
 const dataDir = mkdtempSync(join(tmpdir(), 'hh-abc-codex-rpc-'));
 process.env.HH_DATA_DIR = dataDir;
 const store = await import('../src/core/store');
+store.importPackage(template);
 const { executeOneAgentTask } = await import('../src/executors/runner');
 const { GET: exportOutput } = await import('../src/app/api/v1/projects/[id]/outputs/[artifactId]/route');
 const fixture = join(process.cwd(), 'tests/fixtures/fake-codex-app-server.cjs');

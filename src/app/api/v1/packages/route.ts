@@ -1,13 +1,21 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
-import { getPackage, importPackage, listPackages, RuntimeError } from '@/core/store';
+import { getLaunchablePackage, landInvestigationReference, listLaunchablePackages } from '@/app/launch-templates';
+import { importPackage, RuntimeError } from '@/core/store';
 
 export const runtime = 'nodejs'; export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    const id = new URL(request.url).searchParams.get('id');
-    return NextResponse.json(id ? { package: getPackage(id) } : { packages: listPackages() });
+    const params = new URL(request.url).searchParams;
+    if (params.has('reference')) {
+      if (params.get('reference') !== 'land-investigation') {
+        return NextResponse.json({ error: 'Reference template not found' }, { status: 404 });
+      }
+      return NextResponse.json({ package: landInvestigationReference });
+    }
+    const id = params.get('id');
+    return NextResponse.json(id ? { package: getLaunchablePackage(id, params.get('version') ?? undefined) } : { packages: listLaunchablePackages() });
   } catch { return NextResponse.json({ error: 'Project package not found' }, { status: 404 }); }
 }
 export async function POST(request: Request) {

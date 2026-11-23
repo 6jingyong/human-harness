@@ -3,10 +3,20 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ProjectState } from '@/core/runtime';
 import { deriveWorkbenchQueues } from './workbench-queue';
+import { ModelPicker } from './model-picker';
+import type { ModelSettings } from '@/protocol/model-settings';
+import './local-workspace.css';
 import { TaskWorkbench } from './task-workbench';
+import { ProjectDeliverables } from './project-deliverables';
+import { ProjectLaunchView } from './project-launch-view';
+import { ProjectRequirements } from './project-requirements';
+import { PlanAttention, ProjectPlanView } from './project-plan-view';
 import { ProjectMaterialLibrary } from './project-material-library';
 import type { HumanHarnessPackage } from '@/protocol/v1';
-import { manualProjectPackage } from '@/protocol/manual';
+import { TemplateEditor } from './template-editor';
+import { ProjectLedgerView } from './project-ledger-view';
+import { CompanyLedgerView } from './company-ledger-view';
+import type { LedgerReference } from '@/protocol/project-ledger';
 
 type PackageSummary = { id: string; version: string; title: string; description: string; builtin: boolean };
 type ProjectSummary = { id: string; title: string; package_id: string; package_version: string };
@@ -35,14 +45,14 @@ export function RuntimeWorkspace() {
   const [project, setProject] = useState<ProjectState | null>(null);
   const [packageId, setPackageId] = useState('document-handoff');
   const [name, setName] = useState('');
-  const [mode, setMode] = useState<'project' | 'editor' | 'library'>('project');
+  const [launchTemplate, setLaunchTemplate] = useState<HumanHarnessPackage>();
+  const [mode, setMode] = useState<'project' | 'editor' | 'library' | 'plan' | 'launch' | 'ledger' | 'company-ledger'>('project');
+  const [ledgerReference, setLedgerReference] = useState<LedgerReference>();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [executor, setExecutor] = useState('demo');
-  const [editor, setEditor] = useState('');
-  const [form, setForm] = useState({
-    id: 'my-document-project', title: '资料整理项目', description: '通用文档工作流',
-    inputs: '文件:原始资料A\n文件:原始资料B', objective: '根据已核验资料形成可审阅的内部成果'
-  });
+  const [settings, setSettings] = useState<ModelSettings>({ provider: 'demo', model: null });
+  const [modelsOpen, setModelsOpen] = useState(false);
+  const executor = settings.provider;
+  const [editor, setEditor] = useState({ source: '', revision: 0 });
   const [values, setValues] = useState<Record<string, string>>({});
   const [feedback, setFeedback] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<Record<string, File | undefined>>({});
@@ -53,24 +63,37 @@ export function RuntimeWorkspace() {
   const [pendingActions, setPendingActions] = useState<Record<string, boolean>>({});
   const pendingKeys = useRef(new Set<string>());
   const projectRequestSequence = useRef(0);
+  const focusProjectName = useRef(false);
+  useEffect(() => {
+    if (menuOpen && focusProjectName.current) {
+      document.getElementById('new-project-name')?.focus();
+      focusProjectName.current = false;
+    }
+  }, [menuOpen]);
 
   async function refreshIndex() {
     const data = await parseResponse(await fetch('/api/v1/projects', { cache: 'no-store' }));
     setPackages(data.packages);
     setProjects(data.projects);
-    setExecutor(data.executor);
+    setSettings(data.settings);
   }
-  async function openProject(id: string, silent = false) {
+  async function openProject(id: string, silent = false, destination: 'project' | 'ledger' = 'project') {
     const request = ++projectRequestSequence.current;
     const data = await parseResponse(await fetch('/api/v1/projects/' + encodeURIComponent(id), { cache: 'no-store' }));
     if (request !== projectRequestSequence.current) return;
-    setProject(withoutPaths(data.project));
-    if (!silent) { setMode('project'); setFocusedHandoff(''); setMenuOpen(false); }
+    const incoming = withoutPaths(data.project);
+    setProject(current => {
+      if (current?.id !== incoming.id) return incoming;
+      if ((current.coordination?.revision ?? 0) > (incoming.coordination?.revision ?? 0)) return current;
+      return (current.planning?.revision ?? 0) > (incoming.planning?.revision ?? 0)
+        ? { ...incoming, planning: current.planning } : incoming;
+    });
+    if (!silent) { setLedgerReference(undefined); setMode(destination); setFocusedHandoff(''); setMenuOpen(false); }
   }
   useEffect(() => { refreshIndex().catch(e => setError(e.message)); }, []);
   // Server owns active Codex turns. Refreshing the page does not interrupt them.
   useEffect(() => {
-    if (!project?.id || mode !== 'project') return;
+    if (!project?.id || (mode !== 'project' && mode !== 'plan' && mode !== 'ledger')) return;
     const projectId = project.id;
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible') {
@@ -80,57 +103,61 @@ export function RuntimeWorkspace() {
     return () => clearInterval(timer);
   }, [project?.id, mode]);
 
-  async function create(event: React.FormEvent) {
+  async function openLaunch(event: React.FormEvent) {
     event.preventDefault();
     if (!name.trim()) return;
     setBusy(true); setError(''); setNotice('');
     try {
-      const data = await parseResponse(await fetch('/api/v1/projects', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ packageId, title: name })
-      }));
+      const version = packages.find(item => item.id === packageId)?.version;
+      const query = new URLSearchParams({ id: packageId, ...(version ? { version } : {}) });
+      const { package: template } = await parseResponse(await fetch('/api/v1/packages?' + query));
       projectRequestSequence.current++;
-      setProject(withoutPaths(data.project)); setFocusedHandoff(''); setMode('project'); setMenuOpen(false); setName('');
-      await refreshIndex();
-      setNotice('项目已创建。请先完成当前显示的用户资料任务。');
+      setLaunchTemplate(template);
+      setMode('launch');
+      setMenuOpen(false);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
 
-  async function openTemplateEditor() {
+  function projectCreated(created: ProjectState) {
+    projectRequestSequence.current++;
+    setProject(withoutPaths(created));
+    setFocusedHandoff('');
+    setMode('project');
+    setMenuOpen(false);
+    setName('');
+    setNotice('项目已启动。请处理当前显示的 Human Todo。');
+    void refreshIndex().catch(error => setError(error.message));
+  }
+
+  function beginTemplateEditor(source: string) {
+    setEditor(current => ({ source, revision: current.revision + 1 }));
+    setError('');
+    setNotice('');
+    setMode('editor');
+    setMenuOpen(false);
+  }
+
+  async function openTemplateEditor(reference?: 'land-investigation') {
     setBusy(true); setError('');
     try {
-      const data = await parseResponse(await fetch('/api/v1/packages?id=' + encodeURIComponent(packageId)));
+      const query = new URLSearchParams(reference ? { reference } : { id: packageId });
+      const data = await parseResponse(await fetch('/api/v1/packages?' + query));
       const selected: HumanHarnessPackage = data.package;
-      // Built-ins are copied under a new ID; custom templates can be edited as a new immutable version.
-      const builtin = packages.some(p => p.id === selected.id && p.builtin);
-      const parts = selected.version.split('.').map(Number);
-      const nextVersion = parts.length === 3 && parts.every(Number.isInteger)
-        ? [parts[0], parts[1], parts[2] + 1].join('.') : '1.0.0';
-      const copy = {
-        ...selected,
-        id: builtin ? selected.id + '-custom' : selected.id,
-        version: builtin ? '1.0.0' : nextVersion
-      };
-      setEditor(JSON.stringify(copy, null, 2));
-      setMode('editor'); setMenuOpen(false);
+      const readonly = reference || packages.some(p => p.id === selected.id && p.builtin);
+      const id = readonly ? selected.id + '-custom' : selected.id;
+      const previous = readonly ? packages.find(item => item.id === id)?.version : selected.version;
+      const parts = previous?.split('.').map(Number);
+      const version = parts ? [parts[0], parts[1], parts[2] + 1].join('.') : '1.0.0';
+      beginTemplateEditor(JSON.stringify({ ...selected, id, version }));
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
-  function generateTemplate() {
-    setError(''); setNotice('');
-    try {
-      const generated = manualProjectPackage(form);
-      setEditor(JSON.stringify(generated, null, 2));
-      setNotice('模板草稿已生成，可继续编辑完整 JSON 并保存。');
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
-  }
-  async function saveTemplate() {
+  async function saveTemplate(body: string) {
     setBusy(true); setError(''); setNotice('');
     try {
-      if (!editor.trim()) throw new Error('请先生成或填写模板 JSON');
       const data = await parseResponse(await fetch('/api/v1/packages', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: editor
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body
       }));
       await refreshIndex();
       setPackageId(data.package.id);
@@ -144,14 +171,17 @@ export function RuntimeWorkspace() {
     event.currentTarget.value = '';
     if (!file) return;
     if (file.size > 200000) { setError('项目模板不能超过 200KB'); return; }
-    setEditor(await file.text());
-    setMode('editor');
-    setNotice('已载入本地模板。请检查内容并保存。');
+    try {
+      beginTemplateEditor(await file.text());
+      setNotice('已载入本地模板。请检查内容并保存。');
+    } catch {
+      setError('读取模板文件失败');
+    }
   }
 
   async function action(
     type: string,
-    extra: { stepId?: string; materialId?: string; requestId?: string; expectedArtifactId?: string; autoDispatch?: boolean; maxParallel?: number } = {}
+    extra: { stepId?: string; materialId?: string; requestId?: string; expectedArtifactId?: string; promisedOn?: string; autoDispatch?: boolean; maxParallel?: number } = {}
   ) {
     if (!project || busy) return;
     const projectId = project.id;
@@ -175,6 +205,7 @@ export function RuntimeWorkspace() {
       data.append('maxParallel', String(extra.maxParallel));
     }
     data.append('value', values[key] || '');
+    if (extra.promisedOn) data.append('promisedOn', extra.promisedOn);
     data.append('feedback', feedback[key] || '');
     if (files[key]) data.append('file', files[key]!);
     try {
@@ -182,8 +213,8 @@ export function RuntimeWorkspace() {
         method: 'POST', body: data
       }));
       if (['complete_human', 'submit_material', 'answer_human_request', 'replace_material',
-        'revise_approved_agent'].includes(type)) {
-        setValues(old => ({ ...old, [key]: '' }));
+        'revise_approved_agent', 'record_work_order_follow_up'].includes(type)) {
+        setValues(old => ({ ...old, [key]: '', ['promise:' + key]: '' }));
         setFiles(old => ({ ...old, [key]: undefined }));
       }
       if (type === 'revise_approved_agent') {
@@ -224,9 +255,13 @@ export function RuntimeWorkspace() {
     <header className="topbar">
       <button type="button" className="hamburger" aria-label={menuOpen ? '关闭菜单' : '打开菜单'}
         aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>☰</button>
-      <div className="brand"><span className="brand-mark">H/H</span><span>Human Harness<small>项目运行 · Protocol 1.0</small></span></div>
-      <div className="head-info"><span className="tiny-label">Executor</span><b>{executor === 'demo' ? 'Demo（不调用模型）' : executor === 'codex' ? 'Codex（本机 app-server）' : 'Mastra（真实模型）'}</b></div>
+      <div className="brand"><span className="brand-mark" aria-hidden="true">H/H</span><span>Human Harness<small>本地项目工作台</small></span></div>
+      <button className="model-trigger" aria-label="选择工作模型" onClick={() => setModelsOpen(true)}>
+        <i aria-hidden="true" /><span>{settings.provider === 'demo' ? '演示模式' : settings.model || 'Codex 默认模型'}</span><b aria-hidden="true">⌄</b>
+      </button>
     </header>
+    {modelsOpen && <ModelPicker settings={settings} onClose={() => setModelsOpen(false)}
+      onSaved={value => { setSettings(value); setModelsOpen(false); setNotice('工作模型设置已保存。'); }} />}
     <div className="shell">
       {menuOpen && <button type="button" className="menu-backdrop" aria-label="收起侧边栏"
           onClick={() => setMenuOpen(false)} />}
@@ -238,12 +273,13 @@ export function RuntimeWorkspace() {
            <button type="button" disabled={!project} onClick={() => { setMode('library'); setMenuOpen(false); }}>
              项目资料管理
            </button>
+           <button type="button" onClick={() => { setMode('company-ledger'); setMenuOpen(false); }}>公司账务</button>
          </div>
 
-        <div className="section-label">项目模板（手动）</div>
+        <div className="section-label">项目模板</div>
         <h2>创建项目</h2>
-        <form className="create-form" onSubmit={create}>
-          <label htmlFor="package-select">选择已安装模板</label>
+        <form className="create-form" onSubmit={openLaunch}>
+          <label htmlFor="package-select">选择项目模板</label>
           <select id="package-select" value={packageId} onChange={e => setPackageId(e.target.value)}>
             {packages.map(p => <option key={p.id} value={p.id}>{p.title} · {p.version}</option>)}
           </select>
@@ -269,8 +305,9 @@ export function RuntimeWorkspace() {
             })}>{policy.autoDispatch ? '暂停自动派发' : '恢复自动派发'}</button>
         </div>}
         <div className="section-label with-gap">模板管理</div>
-        <button onClick={() => { setEditor(''); setMode('editor'); setMenuOpen(false); }} disabled={busy}>＋ 新建模板</button>
-        <button onClick={openTemplateEditor} disabled={busy}>复制所选模板</button>
+        <button onClick={() => beginTemplateEditor('')} disabled={busy}>＋ 新建模板</button>
+        <button onClick={() => openTemplateEditor()} disabled={busy}>复制所选模板</button>
+        <button onClick={() => openTemplateEditor('land-investigation')} disabled={busy}>打开环评参考模板</button>
         <label className="upload-label">导入本地 JSON 模板<input type="file" accept=".json,application/json" onChange={importFile} disabled={busy} /></label>
         <div className="section-label with-gap">已有项目</div>
         <nav className="project-list">
@@ -282,11 +319,15 @@ export function RuntimeWorkspace() {
         </nav>
         <p className="sidebar-foot">当前为本地开发版本。未配置账户认证，请勿公开部署。</p>
       </aside>
-      <main className="main">
+      <main className="main" inert={menuOpen} aria-hidden={menuOpen || undefined}>
         {error && <div className="alert error" role="alert">{error}</div>}
         {notice && <div className="alert info" role="status">{notice}</div>}
 
-        {mode === 'library' && project ? <ProjectMaterialLibrary
+        {mode === 'launch' && launchTemplate ? <ProjectLaunchView
+          key={launchTemplate.id + '@' + launchTemplate.version} template={launchTemplate} title={name}
+          onCancel={() => { setMode('project'); setMenuOpen(true); }}
+          onCreated={projectCreated} /> :
+        mode === 'library' && project ? <ProjectMaterialLibrary
           project={project} onBack={() => setMode('project')}
           onReplace={materialId => action('replace_material', { materialId })}
           onRevise={(stepId, expectedArtifactId) =>
@@ -297,48 +338,58 @@ export function RuntimeWorkspace() {
           onFile={(key, file) => setFiles(old => ({ ...old, [key]: file }))}
           isPending={isPending}
           /> :
-        mode === 'editor' ? <section className="editor-screen">
-          <span className="eyebrow">MANUAL PACKAGE AUTHORING</span>
-          <h1>手动创建项目模板</h1>
-          <p>简单项目可由表单生成 Protocol 1.0 模板；复杂阶段、专业决策、未来资料和脚本引用使用下方 JSON 完整声明。</p>
-          <div className="author-grid">
-            <label>模板 ID<input value={form.id} onChange={e => setForm(f => ({ ...f, id: e.target.value }))} /></label>
-            <label>模板名称<input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} /></label>
-            <label className="wide">项目描述<input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></label>
-            <label>用户初始资料（每行一项）<textarea rows={4} value={form.inputs} onChange={e => setForm(f => ({ ...f, inputs: e.target.value }))} /></label>
-            <label>Agent 任务目标<textarea rows={4} value={form.objective} onChange={e => setForm(f => ({ ...f, objective: e.target.value }))} /></label>
-          </div>
-          <button type="button" onClick={generateTemplate} disabled={busy}>生成标准模板草稿</button>
-          <details className="advanced-editor" open>
-            <summary>完整模板 JSON（hh.package/1）</summary>
-            <textarea className="json-editor" aria-label="Protocol 1.0 项目模板 JSON" spellCheck={false}
-              value={editor} onChange={e => setEditor(e.target.value)} />
-          </details>
-          <div className="actions"><button className="primary" type="button" onClick={saveTemplate} disabled={busy}>验证并保存模板</button>
-            <button type="button" onClick={() => setMode('project')} disabled={busy}>返回项目</button></div>
-          <p className="muted">每次更新模板请修改 version。已有项目继续使用创建时冻结的版本。只有已安装执行能力的模板可以运行。</p>
-        </section> : !project ? <div className="empty">
-           <span className="eyebrow">HUMAN HARNESS</span>
-           <h1>Human Todo + Agent Todo</h1>
-           <p>用项目模板安排双方的工作。打开左上角 ☰ 菜单创建项目。</p>
-           <button type="button" className="primary" onClick={() => setMenuOpen(true)}>☰ 新建或选择项目</button>
-        </div> : <>
+        mode === 'plan' && project ? <ProjectPlanView key={project.id} project={project}
+          onBack={() => setMode('project')}
+          onOpen={key => { setFocusedHandoff(key); setMode('project'); }}
+          onSaved={(id, planning) => setProject(current => current?.id === id ? { ...current, planning } : current)}
+        /> :
+        mode === 'company-ledger' ? <CompanyLedgerView onBack={() => setMode('project')}
+          onOpen={id => void openProject(id, false, 'ledger').catch(error => setError(error.message))} /> :
+        mode === 'ledger' && project ? <ProjectLedgerView key={project.id} project={project}
+          projects={projects} initialReference={ledgerReference} onBack={() => setMode('project')} /> :
+        mode === 'editor' ? <TemplateEditor key={editor.revision} source={editor.source} busy={busy}
+          onSave={body => void saveTemplate(body)} onBack={() => setMode('project')} /> : !project ? <section className="studio-home">
+          <header className="studio-lead"><div><div className="workspace-kicker">本地工作台</div>
+            <h1>项目工作区</h1><p>从模板启动项目，或继续处理你的待办。</p></div>
+            <button type="button" className="primary" onClick={() => setMenuOpen(true)}>＋ 新建项目</button></header>
+          <h2>从模板开始</h2>
+          <div className="studio-templates">{[
+            { id: 'general-report', title: '报告撰写', detail: '整理证据、撰写初稿与交付', mark: '▤' },
+            { id: 'project-plan', title: '项目启动', detail: '明确目标、分工与时间表', mark: '◷' },
+            { id: 'meeting-actions', title: '会议纪要', detail: '提取决定并跟进后续行动', mark: '☷' }
+          ].map(item => <button key={item.id} type="button" onClick={() => {
+            focusProjectName.current = true; setPackageId(item.id); setMenuOpen(true);
+          }}><i aria-hidden="true">{item.mark}</i><strong>{item.title}</strong><small>{item.detail}</small><span aria-hidden="true">↗</span></button>)}</div>
+          <h2>最近项目</h2>
+          {projects.length ? <div className="studio-recent">{projects.slice(0,6).map(item =>
+            <button key={item.id} type="button" onClick={() => openProject(item.id).catch(e => setError(e.message))}>
+              <strong>{item.title}</strong><small>{packages.find(pkg => pkg.id === item.package_id)?.title || item.package_id}　↗</small>
+            </button>)}</div> : <p className="studio-no-project">创建的项目会显示在这里。</p>}
+        </section> : <>
           <div className="simple-project-title">
             <div><span className="eyebrow">{project.package.title}</span><h1>{project.title}</h1></div>
             <div className="simple-project-actions">
               <span>{humanCount} 项待你处理 · {agentRunning} 项 Agent 运行中</span>
+              <button type="button" onClick={() => setMode('plan')}>项目计划</button>
+              <button type="button" onClick={() => { setLedgerReference(undefined); setMode('ledger'); }}>项目账务</button>
               <button type="button" onClick={() => setMode('library')}>查看项目资料</button>
             </div>
           </div>
+          <ProjectRequirements key={project.id} project={project} onSaved={updated => {
+            setProject(current => current?.id === updated.id ? withoutPaths(updated) : current);
+          }} />
+          <PlanAttention project={project} onOpen={setFocusedHandoff} />
           <TaskWorkbench project={project} executor={executor}
             selectedKey={focusedHandoff} onSelect={setFocusedHandoff}
             onRefresh={() => openProject(project.id).catch(e => setError(e.message))}
+            onRecord={reference => { setLedgerReference(reference); setMode('ledger'); }}
             onAction={action} values={values} feedback={feedback} files={files}
             onValue={(key, value) => setValues(old => ({ ...old, [key]: value }))}
             onFeedback={(key, value) => setFeedback(old => ({ ...old, [key]: value }))}
             onFile={(key, file) => setFiles(old => ({ ...old, [key]: file }))}
             isPending={isPending}
           />
+          <ProjectDeliverables project={project} onOpen={setFocusedHandoff} />
         </>}
       </main>
     </div>

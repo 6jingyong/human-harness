@@ -5,6 +5,8 @@ const { join } = require('node:path');
 const mode = process.argv[2] || 'success';
 const send = value => process.stdout.write(JSON.stringify(value) + '\n');
 let initialized = false;
+let mcpCalls = 0;
+const directMcp = mode.startsWith('mcp-');
 createInterface({ input: process.stdin }).on('line', line => {
   const msg = JSON.parse(line);
   if (msg.method === 'initialize') {
@@ -14,32 +16,80 @@ createInterface({ input: process.stdin }).on('line', line => {
   } else if (!initialized) {
     send({ id: msg.id, error: { code: -32000, message: 'Not initialized' } });
   } else if (msg.method === 'model/list') {
-    send({ id: msg.id, result: { data: [{ id: 'test-model', model: 'test-model', isDefault: true }] } });
+    if (mode === 'inventory' || directMcp) process.exit(18);
+    else if (mode === 'select-model') {
+      send({ id: msg.id, result: msg.params.cursor === 'more' ? { data: [
+        { id: 'alternate', model: 'other-model', displayName: 'Other' }
+      ] } : { data: [{ id: 'test-model', model: 'test-model', isDefault: true }], nextCursor: 'more' } });
+    }
+    else send({ id: msg.id, result: { data: [{ id: 'test-model', model: 'test-model', isDefault: true }] } });
   } else if (msg.method === 'skills/list') {
+    const pluginSkill = { name: 'pdf', enabled: true, path: '/fixture/plugin/pdf/SKILL.md', pluginId: 'documents@local' };
+    const installedSkills = [
+      { name: 'pdf', enabled: true, path: '/fixture/skills/pdf/SKILL.md' },
+      { name: 'docx', enabled: true, path: '/fixture/skills/docx/SKILL.md' }
+    ];
+    if (['inventory', 'plugin-skill', 'document-mcp', 'plugin-disabled', 'ambiguous-skill'].includes(mode)) installedSkills.push(pluginSkill);
     send({ id: msg.id, result: { data: [{
-      cwd: msg.params.cwds[0],
-      skills: mode === 'no-skill' ? [] : [
-        { name: 'pdf', enabled: true, path: '/fixture/skills/pdf/SKILL.md' },
-        { name: 'docx', enabled: true, path: '/fixture/skills/docx/SKILL.md' }
-      ]
+      cwd: msg.params.cwds[0], skills: mode === 'no-skill' ? [] : installedSkills, errors: []
     }] } });
+  } else if (msg.method === 'plugin/installed') {
+    send({ id: msg.id, result: { marketplaces: [{ name: 'local', plugins: [
+      { id: 'documents@local', name: 'documents', installed: true, enabled: mode !== 'plugin-disabled' },
+      { id: 'suggested@local', name: 'suggested', installed: false, enabled: false }
+    ] }] } });
+  } else if (msg.method === 'mcpServerStatus/list') {
+    if (directMcp) {
+      if (msg.params.threadId !== 'thread-fixture' || msg.params.serverName !== 'registry' ||
+          msg.params.detail !== 'toolsAndAuthOnly') process.exit(19);
+      const server = {
+        name: 'registry', environmentId: 'fixture-local',
+        authStatus: mode === 'mcp-auth' ? 'notLoggedIn' : 'unsupported', serverCapabilities: {},
+        tools: { sample_lookup: { name: 'sample_lookup', annotations: { readOnlyHint: mode !== 'mcp-write' } } }
+      };
+      send({ id: msg.id, result: {
+        data: mode === 'mcp-ambiguous' ? [server, { ...server, environmentId: 'fixture-other' }] : [server]
+      } });
+      return;
+    }
+    if (mode !== 'inventory' || msg.params.detail !== 'toolsAndAuthOnly') process.exit(19);
+    send({ id: msg.id, result: msg.params.cursor ? { data: [{
+      name: 'uninitialized', authStatus: 'unsupported', tools: {}, serverCapabilities: null
+    }], nextCursor: null } : { data: [{
+      name: 'example', authStatus: 'notLoggedIn', tools: { query: {} }, serverCapabilities: {}
+    }], nextCursor: 'next-page' } });
+  } else if (msg.method === 'mcpServer/tool/call') {
+    const expected = {
+      threadId: 'thread-fixture', server: 'registry', tool: 'sample_lookup',
+      environmentId: 'fixture-local', arguments: { sampleId: 'DEMO-01' }
+    };
+    if (!['mcp-direct', 'mcp-tool-error'].includes(mode) || ++mcpCalls !== 1 ||
+        JSON.stringify(msg.params) !== JSON.stringify(expected)) process.exit(21);
+    send({ id: msg.id, result: {
+      content: [{ type: 'text', text: 'Synthetic registry record' }],
+      structuredContent: { sampleId: 'DEMO-01', source: 'Synthetic test catalog' },
+      isError: mode === 'mcp-tool-error'
+    } });
   } else if (msg.method === 'thread/start') {
+    if (mode === 'select-model' && msg.params.model !== 'other-model') process.exit(31);
     if (!['read-only', 'workspace-write'].includes(msg.params.sandbox) || msg.params.approvalPolicy !== 'never') {
       send({ id: msg.id, error: { code: -32602, message: 'Unsafe thread permissions' } });
     } else {
       send({ id: msg.id, result: { thread: { id: 'thread-fixture' } } });
     }
   } else if (msg.method === 'turn/start') {
-    if (mode === 'document') {
+    if (directMcp) process.exit(22);
+    if (['document', 'plugin-skill', 'document-mcp'].includes(mode)) {
       const policy = msg.params.sandboxPolicy;
       const files = readdirSync(join(process.cwd(), 'inputs'));
       const doc = files.find(name => name.endsWith('.pdf'));
       const data = doc ? readFileSync(join(process.cwd(), 'inputs', doc)) : null;
       const skillItems = msg.params.input.filter(x => x.type === 'skill');
+      const expectedPath = mode === 'document' ? '/fixture/skills/pdf/SKILL.md' : '/fixture/plugin/pdf/SKILL.md';
       if (policy?.type !== 'workspaceWrite' || policy?.networkAccess !== false ||
           policy?.writableRoots?.length !== 1 || !data ||
           !data.toString().startsWith('%PDF-') ||
-          !skillItems.some(x => x.name === 'pdf' && x.path === '/fixture/skills/pdf/SKILL.md')) {
+          skillItems.length !== 1 || skillItems[0].name !== 'pdf' || skillItems[0].path !== expectedPath) {
         send({ id: msg.id, error: { code: -32602, message: 'Invalid staged document / skill / sandbox' } });
         return;
       }
@@ -58,6 +108,12 @@ createInterface({ input: process.stdin }).on('line', line => {
       send({ method: 'item/started', params: {
         threadId: 'thread-fixture', turnId: 'turn-fixture',
         item: { id: 'tool-fixture', type: 'commandExecution', command: 'cat ../secret.txt' }
+      } });
+    }
+    if (mode === 'document-mcp') {
+      send({ method: 'item/started', params: {
+        threadId: 'thread-fixture', turnId: 'turn-fixture',
+        item: { id: 'mcp-fixture', type: 'mcpToolCall' }
       } });
     }
     const id = mode === 'wrong-turn' ? 'turn-foreign' : 'turn-fixture';
