@@ -650,6 +650,24 @@ test('the visual template editor connects a Human prerequisite and starts a proj
   await expect(page.getByRole('region', { name: '项目交付' }).getByRole('link', { name: '下载交付件' })).toBeVisible();
 });
 
+test('the template editor saves Codex Skills on the selected Agent task', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await page.locator('#package-select').selectOption('general-report');
+  await page.getByRole('button', { name: '复制所选模板' }).click();
+  const editor = page.getByRole('region', { name: '项目模板编辑器' });
+  await editor.locator('[data-flow-card="step:evidence"]').click();
+  await editor.getByText('Codex Skills', { exact: true }).click();
+  await editor.getByLabel('所需 Skill（每行一个）').fill('documents@local/pdf\ndocx');
+  await editor.getByRole('button', { name: '验证并保存模板' }).click();
+  await expect(page.getByRole('status')).toContainText('general-report-custom @ 1.0.0');
+  const response = await page.request.get('/api/v1/packages?id=general-report-custom');
+  expect(response.ok()).toBe(true);
+  const { package: saved } = await response.json();
+  expect(saved.steps.find((step: { id: string }) => step.id === 'evidence').codexSkills)
+    .toEqual(['documents@local/pdf', 'docx']);
+});
+
 test('the bundled land reference opens directly, exposes gated handoffs, and saves an independent template', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: '打开菜单' }).click();

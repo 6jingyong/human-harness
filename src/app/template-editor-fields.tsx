@@ -211,6 +211,17 @@ export function TemplateInspector({ pkg, node, graph, onChange, onSelect, onRemo
         {pkg.stages.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}
       </select></label>
       <label>任务说明<textarea value={step.instructions} onChange={event => updateStep({ instructions: event.target.value })} /></label>
+      {step.kind === 'agent' && <details open={Boolean(step.codexSkills) || undefined}>
+        <summary>Codex Skills</summary>
+        <label>所需 Skill（每行一个）<textarea key={step.id}
+          defaultValue={step.codexSkills?.join('\n') ?? ''} rows={3}
+          placeholder="例如 pdf，或 插件ID/Skill名称"
+          onBlur={event => {
+            const names = event.target.value.split(/\r?\n/).map(name => name.trim()).filter(Boolean);
+            updateStep({ codexSkills: names.length ? names : undefined });
+          }} /></label>
+        <small>使用本机 Codex 已启用的 Skill。指定后，此任务需要 Codex 执行器。</small>
+      </details>}
       <Minutes label={step.kind === 'external_milestone' ? '外部预计工期（工作分钟）' : '预计投入分钟'}
         value={step.planning?.workMinutes} onChange={workMinutes => updateStep({ planning: { ...step.planning, workMinutes } })} />
       {step.kind === 'human_decision' && step.options && <fieldset className="flow-link-field">

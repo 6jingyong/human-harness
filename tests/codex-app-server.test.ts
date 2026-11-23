@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runCodexTask } from '../src/executors/codex';
+import { inspectCodexCapabilities, runCodexTask } from '../src/executors/codex';
 import type { ExecutorTask, ExecutorRunEvent, TaskExecutor } from '../src/executors/contracts';
 import { manualProjectPackage } from '../src/protocol/manual';
 
@@ -135,7 +135,7 @@ test('PDF fixture verifies selected Skill path, staged original bytes and no-net
       onEvent: event => events.push(event)
     });
     assert.equal(output.body, 'Real protocol fixture answer');
-    assert.ok(events.some(e => e.kind === 'progress' && e.message.includes('Installed skill discovered')));
+    assert.deepEqual(events.find(e => e.kind === 'skills'), { kind: 'skills', selectors: ['pdf'] });
   } finally {
     if (old === undefined) delete process.env.HH_CODEX_DOCUMENTS;
     else process.env.HH_CODEX_DOCUMENTS = old;
@@ -150,6 +150,82 @@ test('missing document Skill never produces a candidate', async () => {
       () => runCodexTask(withPdf, { startProcess: start('no-skill'), timeoutMs: 3000 }),
       /Required local Codex Skill not installed/
     );
+  } finally {
+    if (old === undefined) delete process.env.HH_CODEX_DOCUMENTS;
+    else process.env.HH_CODEX_DOCUMENTS = old;
+  }
+});
+
+test('Codex inventories installed Skills and Plugins independently of model execution and makes MCP discovery optional', async () => {
+  const local = { startProcess: start('inventory'), timeoutMs: 3000 };
+  const inventory = await inspectCodexCapabilities(local);
+  assert.equal(inventory.mcp, null);
+  assert.ok(inventory.skills.ok);
+  assert.ok(inventory.plugins.ok);
+  assert.deepEqual(inventory.plugins.items.map(p => p.id), ['documents@local']);
+  assert.ok(inventory.skills.items.some(s => s.name === 'pdf' && s.pluginId === 'documents@local'));
+  assert.ok(inventory.skills.items.every(s => !('path' in s)));
+
+  const withMcp = await inspectCodexCapabilities({ ...local, includeMcp: true });
+  assert.ok(withMcp.mcp?.ok);
+  assert.deepEqual(withMcp.mcp.items.map(s => [s.name, s.initialized, s.toolCount]), [
+    ['example', true, 1], ['uninitialized', false, 0]
+  ]);
+});
+
+test('the template selects a Plugin Skill for an approved PDF and requires the Codex executor', async () => {
+  const pkg = manualProjectPackage({
+    id: 'codex-plugin-document-review', title: 'Plugin 文档审查', description: 'Protocol test',
+    inputs: '文件:已接受的测试 PDF', objective: '整理授权文件'
+  });
+  const selector = 'documents@local/pdf';
+  pkg.steps[0].codexSkills = [selector];
+  store.importPackage(pkg);
+  const { id } = store.createProject(pkg.id, 'Requested plugin PDF Skill');
+  store.submitMaterial(id, 'input-01', '', { name: 'accepted.pdf', buffer: samplePdf });
+  store.reviewReceivedMaterial(id, 'input-01', true, '');
+  await assert.rejects(() => executeOneAgentTask(id, 'draft', {
+    id: 'demo', async execute() { throw new Error('Demo should not have started'); }
+  }), /HH_EXECUTOR=codex/);
+  assert.equal(store.getProject(id).steps.draft.state, 'failed');
+  assert.equal(store.latestOutput(store.getProject(id), 'draft'), undefined);
+  store.retryFailedAgent(id, 'draft');
+
+  const old = process.env.HH_CODEX_DOCUMENTS;
+  process.env.HH_CODEX_DOCUMENTS = '1';
+  try {
+    const executor: TaskExecutor = {
+      id: 'codex',
+      execute: (input, onEvent) => {
+        assert.deepEqual(input.packet.codexSkills, [selector]);
+        return runCodexTask(input, { onEvent, timeoutMs: 3000,
+          startProcess: cwd => spawn(process.execPath, [fixture, 'plugin-skill'], { stdio: 'pipe', cwd }) });
+      }
+    };
+    const result = await executeOneAgentTask(id, 'draft', executor);
+    assert.equal(result.project.steps.draft.state, 'review');
+    assert.match(result.project.runs.at(-1)?.lastExecutorEvent ?? '', /agentMessage/);
+    assert.deepEqual(result.project.runs.at(-1)?.codexSkills, [selector]);
+    assert.ok(result.project.events.some(event => event.type === 'executor.skills' && event.detail === JSON.stringify([selector])));
+  } finally {
+    if (old === undefined) delete process.env.HH_CODEX_DOCUMENTS;
+    else process.env.HH_CODEX_DOCUMENTS = old;
+  }
+});
+
+test('ambiguous and disabled Plugin Skills and unexpected MCP execution reject results', async () => {
+  const old = process.env.HH_CODEX_DOCUMENTS;
+  process.env.HH_CODEX_DOCUMENTS = '1';
+  try {
+    for (const [mode, selector, error] of [
+      ['ambiguous-skill', 'pdf', /Ambiguous Codex Skill/],
+      ['plugin-disabled', 'documents@local/pdf', /Plugin not installed\/enabled/],
+      ['document-mcp', 'documents@local/pdf', /Document task attempted unauthorized tool use: mcpToolCall/]
+    ] as const) {
+      await assert.rejects(() => runCodexTask({
+        ...withPdf, packet: { ...withPdf.packet, codexSkills: [selector] }
+      }, { startProcess: cwd => spawn(process.execPath, [fixture, mode], { stdio: 'pipe', cwd }), timeoutMs: 3000 }), error);
+    }
   } finally {
     if (old === undefined) delete process.env.HH_CODEX_DOCUMENTS;
     else process.env.HH_CODEX_DOCUMENTS = old;

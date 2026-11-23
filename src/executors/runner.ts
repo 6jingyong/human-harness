@@ -118,6 +118,9 @@ export async function executeOneAgentTask(projectId: string, requestedStepId?: s
   try {
     if (signal?.aborted) throw new Error('Agent run cancelled by human operator');
     const task = prepareTask(projectId, started.stepId, started.runId);
+    if (task.packet.codexSkills?.length && executor.id !== codexExecutor.id) {
+      throw new Error('此任务需要指定的 Codex Skill。请在 HH_EXECUTOR=codex 的主机上重试。');
+    }
     const completion = executor.execute(task, event => {
       recordExecutorEvent(projectId, started.stepId, started.runId, event);
     }, signal);

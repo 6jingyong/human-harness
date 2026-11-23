@@ -70,6 +70,7 @@ export type MethodCheckResult = NonNullable<ExecutorOutput['methodChecks']>[numb
 export type ExecutorRunEvent =
   | { kind: 'thread'; id: string }
   | { kind: 'turn'; id: string }
+  | { kind: 'skills'; selectors: string[] }
   | { kind: 'progress'; message: string };
 
 export interface TaskExecutor {

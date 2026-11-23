@@ -1,6 +1,6 @@
 # 原生 Codex Plugin 优先：Human Harness 的能力复用策略
 
-> **设计决策：2026-11-08。** 本文替代此前“先开发通用 PDF/DOCX 解析器，再包装插件”的默认路线。**尚未接入 Codex app-server，亦未实测插件安装或调用。**
+> **当前接入。** 工作台已通过 app-server 查询已安装插件与 Skills，可选探测 MCP 状态。模板可绑定本机已启用的 Skill，包括已安装插件里的 Skill。文档能力的真实模型验收仍待完成。
 >
 > 官方依据：[Codex / ChatGPT Plugins 架构](https://developers.openai.com/plugins/concepts/plugins) · [Plugin 打包规范](https://developers.openai.com/plugins/build/plugins) · [Codex app-server 源码协议](https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md)
 
@@ -76,7 +76,18 @@ https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md#thread-p
 
 ## 3. 项目模板只需要引用能力和定义业务检查
 
-**示例为设计草案，不是现有 `hh.package/1` 有效字段。**
+在项目模板编辑器选中 Agent 任务，展开 **Codex Skills**，每行填写一个名称。也可以直接在 `hh.package/1` 的 Agent step 设置 `"codexSkills": ["pdf"]`。同名 Skill 有多个来源时，可用 `插件ID/Skill名称`，例如 `documents@local/pdf`。插件 ID 和 Skill 名称以本机查询结果为准。
+
+```sh
+npm run codex:capabilities
+npm run codex:capabilities -- --mcp
+```
+
+第一条查询本机插件与 Skills。第二条还会探测已配置的 MCP 服务，可能启动相应连接。查询不发起模型会话，也不向插件交付项目素材。模板执行时需使用 `HH_EXECUTOR=codex`，读取已验收的 PDF/DOCX 还需启用 `HH_CODEX_DOCUMENTS=1`。停用、缺失或重名的能力会留下失败记录，成功绑定的 Skill 会记录在对应运行和任务详情里。
+
+通用 MCP 工具执行暂未开放。任务结果仍由 Human Todo 验收，绑定记录只表明该 Skill 已提交给 Codex 任务的准备阶段。运行时能拒绝已经观察到的越界工具事件，权限仍由本机 Codex 的沙盒和配置负责。
+
+下面是更完整的能力编排设计草案。
 
 ```json
 {
@@ -162,4 +173,4 @@ my-document-helper/
 
 > **同一个 Human Harness 项目方法，能由 Codex 环境中的真实现成工具执行，并返回可用于项目流转的候选结果。**
 
-这是产品方向，而非当前完成状态；现在仓库仍由 Mastra 模式运行，Codex plugin/list 尚未接入。
+目前已覆盖 `plugin/installed`、`skills/list`、按需 `mcpServerStatus/list` 和任务 Skill 绑定的协议回归。下一轮验收需要在已认证的 Codex 主机上，用实际插件样本生成候选成果并核验来源引用。

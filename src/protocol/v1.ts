@@ -4,6 +4,9 @@ import { estimateMinutes } from './planning';
 /** Canonical Human Harness Protocol v1 — no legacy schemaVersion adapters. */
 const id = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/);
 const capabilityId = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/);
+const codexSkills = z.array(z.string().max(256)
+  .regex(/^(?:[A-Za-z0-9][A-Za-z0-9_.-]*@[A-Za-z0-9][A-Za-z0-9_.-]*\/)?[A-Za-z0-9][A-Za-z0-9_.-]*$/))
+  .min(1).max(8).refine(names => new Set(names).size === names.length, 'Codex Skills must be distinct');
 const digest = z.string().regex(/^sha256:[0-9a-f]{64}$/);
 const description = z.string().min(1).max(4000);
 
@@ -60,6 +63,7 @@ const step = z.strictObject({
   dependsOn: z.array(id).max(50), needsMaterials: z.array(id).max(50),
   requestableMaterialIds: z.array(id).max(20).optional(),
   when: condition.optional(), capabilityId: capabilityId.optional(),
+  codexSkills: codexSkills.optional(),
   options: z.array(z.strictObject({ id, label: description })).min(2).max(20).optional(),
   requiresReview: z.boolean().optional(), outputContractId: id.optional(),
   resourceIds: z.array(id).max(30).optional(),
@@ -219,6 +223,7 @@ export const packageSchema = z.strictObject({
         error(s.id + ': missing or mismatched declared execution capability');
       }
     } else if (s.capabilityId) error(s.id + ': human/external steps cannot execute tools');
+    if (s.codexSkills && s.kind !== 'agent') error(s.id + ': only Agent tasks can select Codex Skills');
     if (s.outputContractId && outputs.get(s.outputContractId)?.producingStepId !== s.id) {
       error(s.id + ': output contract must belong to producing step');
     }
@@ -298,6 +303,7 @@ export const taskPacketSchema = z.strictObject({
   readableInputs: z.array(artifactPointer).max(100),
   templateResources: z.array(z.strictObject({ resourceId: id, revision: z.number().int().positive(), role: z.literal('reference') })).max(100),
   toolsAllowed: z.array(capabilityId).max(100),
+  codexSkills: codexSkills.optional(),
   outputContractId: id.optional(),
   reviewPolicy: z.enum(['human_required', 'automated_validation'])
 });

@@ -2,8 +2,9 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createInterface, type Interface } from 'node:readline';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { stageAuthorizedDocuments } from './document-workspace';
+import { readCodexCapabilities, resolveCodexSkills } from './codex-capabilities';
 import {
   executorOutputSchema, renderTextContext, type ExecutorOutput,
   type ExecutorRunEvent, type ExecutorTask, type TaskExecutor
@@ -44,6 +45,7 @@ class AppServerClient {
 
   constructor(private readonly child: ChildProcessWithoutNullStreams) {
     this.lines = createInterface({ input: child.stdout, crlfDelay: Infinity });
+    child.stderr.resume();
     this.lines.on('line', line => this.consume(line));
     child.on('error', error => this.fail(new Error('Cannot start local Codex app-server: ' + error.message)));
     child.stdin.on('error', error => this.fail(new Error('Codex stdin closed: ' + error.message)));
@@ -119,6 +121,40 @@ export type CodexLaunchOptions = {
   onEvent?: (event: ExecutorRunEvent) => void;
 };
 
+function startLocalCodex(workspace: string) {
+  return spawn(/*turbopackIgnore: true*/ process.env.HH_CODEX_COMMAND || 'codex', ['app-server'], {
+    cwd: workspace, stdio: 'pipe', shell: false, windowsHide: true, env: codexEnvironment()
+  });
+}
+
+async function initializeCodex(client: AppServerClient, experimentalApi: boolean) {
+  await client.call('initialize', {
+    clientInfo: { name: 'human_harness', title: 'Human Harness', version: '0.1.0' },
+    capabilities: { experimentalApi, explicitGatewayOauth: true }
+  });
+  client.notify('initialized');
+}
+
+/** Probe the local app-server in the same working-directory scope as a task. */
+export async function inspectCodexCapabilities(options: Pick<CodexLaunchOptions, 'startProcess' | 'timeoutMs'> & {
+  includeMcp?: boolean;
+} = {}) {
+  const workspace = mkdtempSync(join(tmpdir(), 'hh-codex-inventory-'));
+  let client: AppServerClient | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const connection = new AppServerClient((options.startProcess ?? startLocalCodex)(workspace));
+    client = connection;
+    timer = setTimeout(() => connection.fail(new Error('Codex capability discovery timed out')), options.timeoutMs ?? 15000);
+    await initializeCodex(connection, true);
+    return await readCodexCapabilities(connection.call.bind(connection), workspace, options.includeMcp === true);
+  } finally {
+    if (timer) clearTimeout(timer);
+    client?.close();
+    rmSync(workspace, { recursive: true, force: true });
+  }
+}
+
 function parseOutput(text: string): ExecutorOutput {
   const cleaned = text.trim().replace(/^```(?:json)?\s*\n/i, '').replace(/\n```$/, '').trim();
   let raw: unknown;
@@ -143,11 +179,7 @@ export async function runCodexTask(task: ExecutorTask, options: CodexLaunchOptio
     rmSync(workspace, { recursive: true, force: true });
     throw error;
   }
-  const child = (options.startProcess ?? (() =>
-    spawn(/*turbopackIgnore: true*/ process.env.HH_CODEX_COMMAND || 'codex', ['app-server'], {
-      cwd: workspace, stdio: 'pipe', shell: false, windowsHide: true,
-      env: codexEnvironment()
-    })))(workspace);
+  const child = (options.startProcess ?? startLocalCodex)(workspace);
   const client = new AppServerClient(child);
   const onAbort = () => {
     client.fail(new Error('Agent run cancelled by human operator'));
@@ -167,21 +199,21 @@ export async function runCodexTask(task: ExecutorTask, options: CodexLaunchOptio
   void completion.catch(() => undefined);
   let threadId = '', turnId = '', observedTurnId = '', completedText = '', streamedText = '';
   let progressCount = 0;
+  const externalTools = new Set([
+    'mcpToolCall', 'dynamicToolCall', 'webSearch', 'collabToolCall',
+    'collabAgentToolCall', 'multiAgentV2ToolCall'
+  ]);
+  const documentTools = new Set(['commandExecution', 'fileChange', 'imageView']);
   client.onFatal = rejectTurn;
   client.onNotification = ({ method, params }) => {
     if (threadId && string(params.threadId) && params.threadId !== threadId) return;
     if (turnId && string(params.turnId) && params.turnId !== turnId) return;
-    // Text-only A/B/C work has zero authorized file or shell tools.
-    // A prompt saying "do not use tools" is not a security boundary.
-    // Fail the candidate on *any* observed tool execution attempt instead of
-    // accepting a reply that may have reread data outside this task capsule.
-    if (!documents.length && (method === 'item/started' || method === 'item/completed')) {
+    // Reject a candidate on observed tool activity outside the supported task scope.
+    if (method === 'item/started' || method === 'item/completed') {
       const type = string(object(params.item).type);
-      if (new Set([
-        'commandExecution', 'fileChange', 'mcpToolCall', 'dynamicToolCall',
-        'webSearch', 'imageView', 'collabToolCall'
-      ]).has(type)) {
-        const reason = new Error('Text-only task attempted unauthorized tool use: ' + type);
+      if (externalTools.has(type) || (!documents.length && documentTools.has(type))) {
+        const reason = new Error((documents.length ? 'Document task' : 'Text-only task') +
+          ' attempted unauthorized tool use: ' + type);
         rejectTurn(reason);
         client.fail(reason);
         return;
@@ -216,10 +248,14 @@ export async function runCodexTask(task: ExecutorTask, options: CodexLaunchOptio
   }, timeoutMs);
 
   try {
-    await client.call('initialize', {
-      clientInfo: { name: 'human_harness', title: 'Human Harness', version: '0.1.0' }
-    });
-    client.notify('initialized');
+    const skillSelectors = task.packet.codexSkills ?? [...new Set(documents.map(d =>
+      process.env[d.format === 'pdf' ? 'HH_CODEX_PDF_SKILL' : 'HH_CODEX_DOCX_SKILL'] || d.format))];
+    await initializeCodex(client, skillSelectors.length > 0);
+    const selectedSkills = await resolveCodexSkills(client.call.bind(client), workspace, skillSelectors);
+    if (selectedSkills.length) {
+      options.onEvent?.({ kind: 'skills', selectors: selectedSkills.map(skill =>
+        skill.pluginId ? skill.pluginId + '/' + skill.name : skill.name) });
+    }
     const listed = await client.call('model/list', { limit: 100, includeHidden: false });
     const models = Array.isArray(listed.data) ? listed.data.map(object) : [];
     if (!models.length) throw new Error('Codex returned no available models; check local login and model configuration');
@@ -230,27 +266,6 @@ export async function runCodexTask(task: ExecutorTask, options: CodexLaunchOptio
     if (!chosen) throw new Error('Configured HH_CODEX_MODEL is not available in Codex model/list: ' + requested);
     const model = string(chosen.model) || string(chosen.id);
     if (!model) throw new Error('Codex model/list did not contain a valid model identifier');
-
-    // For document tasks, use Codex's existing installed Skills rather than a second parser.
-    // Explicit Skill injection requires a verified absolute SKILL.md path from skills/list.
-    const selectedSkills: Array<{ name: string; path: string }> = [];
-    if (documents.length) {
-      const listedSkills = await client.call('skills/list', { cwds: [workspace], forceReload: true });
-      const groups = Array.isArray(listedSkills.data) ? listedSkills.data.map(object) : [];
-      const installed = groups.flatMap(g => Array.isArray(g.skills) ? g.skills.map(object) : []);
-      for (const format of new Set(documents.map(d => d.format))) {
-        const override = process.env[format === 'pdf' ? 'HH_CODEX_PDF_SKILL' : 'HH_CODEX_DOCX_SKILL'];
-        const preferredName = override || format;
-        const skill = installed.find(v => v.enabled !== false && v.name === preferredName);
-        if (!skill) throw new Error('Required local Codex Skill not installed/enabled: ' + preferredName);
-        const path = string(skill.path);
-        if (!isAbsolute(path) || !path.endsWith('SKILL.md')) {
-          throw new Error('Codex skills/list has no usable absolute SKILL.md path for ' + preferredName);
-        }
-        selectedSkills.push({ name: preferredName, path });
-        options.onEvent?.({ kind: 'progress', message: 'Installed skill discovered: ' + preferredName });
-      }
-    }
 
     const started = await client.call('thread/start', {
       cwd: workspace, model, ephemeral: true,

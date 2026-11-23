@@ -18,7 +18,7 @@ import { projectLedgerCommandSchema, type ProjectLedger } from '../protocol/proj
 import { externalWaits, ledgerReferenceExists, ledgerSummary } from './project-ledger';
 import { readyAgentSteps } from './planning-work';
 import type { SemanticNote } from '../protocol/semantics';
-import type { MethodCheckResult } from '../executors/contracts';
+import type { ExecutorRunEvent, MethodCheckResult } from '../executors/contracts';
 import {
   amendAndApproveAgent, answerHumanRequest, applyHumanStep, attachHumanRequestArtifact, createTaskPacket, expireAbandonedRun, failAgent, finishAgent, freshId, holdAgentForHuman, newProject, now, receiveMaterial, reviseApprovedOutput,
   affectedStepsForOutput, invalidateSteps, reconcile, recordEvent, reserveAgent, retryAgent, reviewAgent, reviewMaterial,
@@ -502,8 +502,7 @@ export function getTaskPacket(id: string, stepId: string, runId: string) {
 }
 
 /** Store only Codex runtime identities/brief event types, never model-controlled project mutations. */
-export function recordExecutorEvent(id: string, stepId: string, runId: string,
-  event: { kind: 'thread'; id: string } | { kind: 'turn'; id: string } | { kind: 'progress'; message: string }) {
+export function recordExecutorEvent(id: string, stepId: string, runId: string, event: ExecutorRunEvent) {
   return mutate(id, p => {
     const run = p.runs.find(r => r.id === runId && r.stepId === stepId);
     if (!run || run.status !== 'running' || p.steps[stepId]?.runId !== runId ||
@@ -519,6 +518,9 @@ export function recordExecutorEvent(id: string, stepId: string, runId: string,
       if (run.codexTurnId && run.codexTurnId !== event.id) throw new RuntimeError('Codex turn identity changed');
       run.codexTurnId = event.id;
       recordEvent(p, 'executor.turn', stepId, event.id);
+    } else if (event.kind === 'skills') {
+      run.codexSkills = event.selectors;
+      recordEvent(p, 'executor.skills', stepId, JSON.stringify(event.selectors));
     } else {
       run.lastExecutorEvent = event.message.slice(0, 150);
       // Progress is a status snapshot. Avoid a large SQLite event ledger for every token.

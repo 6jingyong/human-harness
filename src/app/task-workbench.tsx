@@ -407,6 +407,11 @@ export function TaskWorkbench({
                 </div>
               </section>}
             {(step.kind === 'agent' || step.kind === 'script') && <>
+              {(step.codexSkills?.length || activeRun?.codexSkills?.length) && <section className="inspector-section">
+                <h3>Codex Skills</h3>
+                {step.codexSkills?.length && <p>模板要求 · {step.codexSkills.join('、')}</p>}
+                {activeRun?.codexSkills?.length && <p>已绑定 · {activeRun.codexSkills.join('、')}</p>}
+              </section>}
               {currentStepState.state === 'ready' && <section className="inspector-section">
                 <h3>准备执行</h3>
                 {policy.autoDispatch ? <p className="dispatch-hint">已进入自动派发队列，满足资源与依赖条件后执行。</p> :
