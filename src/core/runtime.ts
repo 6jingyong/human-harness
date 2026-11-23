@@ -1,11 +1,18 @@
 import { randomUUID } from 'node:crypto';
+import { validateMarkdownHeadings } from './markdown-headings';
 import type { HumanHarnessPackage, Condition, HumanHarnessTaskPacket, HumanHarnessTaskResult } from '../protocol/v1';
 import type { SemanticNote } from '../protocol/semantics';
+import type { ProjectCoordination } from '../protocol/coordination';
+import { effectiveMaterials, workOrderForMaterial } from './work-orders';
+import type { ProjectPlanning } from '../protocol/planning';
 import type { MethodCheckResult } from '../executors/contracts';
 
 export type WorkState = 'dormant' | 'blocked' | 'ready' | 'running' | 'waiting_input' | 'review' | 'done' | 'not_applicable' | 'failed';
 export type RequirementState = 'dormant' | 'expected' | 'requested' | 'received' | 'accepted' | 'rejected' | 'not_applicable';
-export type RuntimeStep = { state: WorkState; runId?: string; startedAt?: string };
+export type RuntimeStep = { state: WorkState; runId?: string; startedAt?: string;
+  /** HEAD: explicitly adopted revision, null when upstream invalidation clears adoption. */
+  approvedArtifactId?: string;
+};
 export type RuntimeMaterial = { state: RequirementState; artifactIds: string[]; acceptedArtifactId?: string };
 export type RuntimeArtifact = {
   id: string; kind: 'material' | 'agent_output'; name: string; content: string | null;
@@ -14,8 +21,12 @@ export type RuntimeArtifact = {
   semanticNotes?: SemanticNote[];
   methodChecks?: MethodCheckResult[];
   invalidatedAt?: string;
+  /** Approved Human replacement of an Agent candidate; its predecessor is retained. */
+  humanCorrection?: { basedOnArtifactId: string; rationale: string; correctedAt: string };
+  /** Concrete artifacts consumed by this result's run, not merely template graph inputs. */
+  inputArtifactIds?: string[];
 };
-export type RuntimeRun = { id: string; stepId: string; status: 'running' | 'needs_input' | 'review' | 'failed'; startedAt: string; endedAt?: string; result?: HumanHarnessTaskResult; error?: string; codexThreadId?: string; codexTurnId?: string; lastExecutorEvent?: string };
+export type RuntimeRun = { id: string; stepId: string; status: 'running' | 'needs_input' | 'review' | 'failed'; startedAt: string; endedAt?: string; result?: HumanHarnessTaskResult; error?: string; provider?: string; model?: string; codexThreadId?: string; codexTurnId?: string; codexSkills?: string[]; codexMcpLookup?: string; lastExecutorEvent?: string; inputArtifactIds?: string[] };
 /** Runtime-only Human Todo spawned by a material question against a template-declared input.
  * The model may request clarification, but cannot add arbitrary requirements to the template.
  */
@@ -33,6 +44,8 @@ export const executionPolicy = (project: ProjectState): ExecutionPolicy =>
 
 export type ProjectState = {
   execution?: ExecutionPolicy;
+  planning?: ProjectPlanning;
+  coordination?: ProjectCoordination;
   id: string; title: string; templateId: string; templateVersion: string;
   packageDigest: string; createdAt: string;
   package: HumanHarnessPackage;
@@ -63,6 +76,7 @@ export function evaluateCondition(condition: Condition | undefined, project: Pro
     const step = project.steps[condition.stepId];
     return step?.state === 'done' ? true : step?.state === 'not_applicable' ? false : 'unknown';
   }
+  if (condition.type === 'work_order') return Object.hasOwn(project.coordination?.requirements ?? {}, condition.orderId);
   const entries = condition.clauses.map(c => evaluateCondition(c, project));
   if (condition.type === 'all') {
     return entries.includes(false) ? false : entries.every(x => x === true) ? true : 'unknown';
@@ -102,7 +116,7 @@ export function reconcile(project: ProjectState): ProjectState {
       if (!step || ['running', 'waiting_input', 'review', 'done', 'failed'].includes(step.state)) continue;
       const branch = evaluateCondition(def.when, project);
       const upstream = def.dependsOn.map(id => project.steps[id]?.state);
-      const materials = def.needsMaterials.map(id => project.materials[id]?.state);
+      const materials = effectiveMaterials(project, def.id, def.needsMaterials).map(id => project.materials[id]?.state);
       const next: WorkState = branch === false || upstream.includes('not_applicable') || materials.includes('not_applicable')
         ? 'not_applicable'
         : branch === 'unknown' ? 'dormant'
@@ -119,16 +133,19 @@ export function reconcile(project: ProjectState): ProjectState {
   throw new Error('Project activation failed to converge');
 }
 
-export function newProject(pkg: HumanHarnessPackage, id: string, title: string, packageDigest: string): ProjectState {
+export function newProject(pkg: HumanHarnessPackage, id: string, title: string, packageDigest: string,
+  setup?: Pick<ProjectState, 'planning' | 'coordination'>): ProjectState {
   const project: ProjectState = {
     id, title, templateId: pkg.id, templateVersion: pkg.version, packageDigest,
     execution: { autoDispatch: true, maxParallel: 2 },
-    createdAt: now(), package: pkg,
+    ...setup, createdAt: now(), package: pkg,
     steps: Object.fromEntries(pkg.steps.map(s => [s.id, { state: 'dormant' as const }])),
     materials: Object.fromEntries(pkg.materials.map(m => [m.id, { state: 'dormant' as const, artifactIds: [] }])),
     decisions: {}, artifacts: [], runs: [], humanRequests: [], events: []
   };
   recordEvent(project, 'project.created', pkg.id, pkg.version);
+  if (setup?.planning) recordEvent(project, 'plan.initialized', project.id, JSON.stringify(setup.planning.settings));
+  if (setup?.coordination) recordEvent(project, 'work_order.scope_saved', project.id, JSON.stringify(setup.coordination.requirements));
   return reconcile(project);
 }
 
@@ -160,9 +177,79 @@ export function acceptedMaterialArtifact(p: ProjectState, materialId: string): R
   return p.artifacts.find(a => a.id === artifactId && a.kind === 'material' && a.ownerId === materialId);
 }
 
+/** Resolve the adopted HEAD, never the most recently generated rejected/review candidate.
+ * Older stored projects can still resolve their last valid approved artifact.
+ */
+export function currentApprovedOutput(project: ProjectState, stepId: string): RuntimeArtifact | undefined {
+  const state = project.steps[stepId];
+  if (state?.state !== 'done') return undefined;
+  const revisions = project.artifacts.filter(a =>
+    a.kind === 'agent_output' && a.ownerId === stepId && !a.invalidatedAt);
+  if (state.approvedArtifactId) return revisions.find(a => a.id === state.approvedArtifactId);
+  return revisions.at(-1);
+}
+
+/** Scope effect propagation to actual descendants and work activated by their conditions. */
+export function affectedStepsForOutput(project: ProjectState, sourceStepId: string): Set<string> {
+  const affected = new Set<string>();
+  const upstream = new Set([sourceStepId]);
+  for (let pass = 0; pass < project.package.steps.length; pass++) {
+    let changed = false;
+    for (const step of project.package.steps) {
+      if (upstream.has(step.id)) continue;
+      const viaStep = step.dependsOn.some(id => upstream.has(id)) ||
+        conditionMentionsStep(step.when, upstream);
+      const viaMaterialCondition = effectiveMaterials(project, step.id, step.needsMaterials).some(id => {
+        const material = project.package.materials.find(m => m.id === id);
+        return Boolean(material && (conditionMentionsStep(material.requiredWhen, upstream) ||
+          conditionMentionsStep(material.requestWhen, upstream)));
+      });
+      if (viaStep || viaMaterialCondition) {
+        affected.add(step.id);
+        upstream.add(step.id);
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+  return affected;
+}
+
+export function invalidateOutputDependents(project: ProjectState, sourceStepId: string): string[] {
+  return invalidateSteps(project, affectedStepsForOutput(project, sourceStepId),
+    'Adopted upstream output revised: ' + sourceStepId);
+}
+
+export function invalidateSteps(project: ProjectState, affected: Set<string>, reason: string,
+  conflict = 'Dependent Agent work is active; finish or cancel it before accepting a revision'): string[] {
+  for (const id of affected) {
+    if (['running', 'waiting_input'].includes(project.steps[id]?.state)) throw new Error(conflict);
+  }
+  const invalidated: string[] = [];
+  for (const id of affected) {
+    const state = project.steps[id];
+    if (!state || !['done', 'review', 'failed'].includes(state.state)) continue;
+    state.state = 'blocked';
+    delete state.runId; delete state.startedAt;
+    delete state.approvedArtifactId;
+    delete project.decisions[id];
+    for (const req of project.humanRequests ?? []) {
+      if (req.stepId === id) req.invalidatedAt ??= now();
+    }
+    for (const artifact of project.artifacts) {
+      if (artifact.kind === 'agent_output' && artifact.ownerId === id) artifact.invalidatedAt ??= now();
+    }
+    recordEvent(project, 'work.invalidated', id, reason);
+    invalidated.push(id);
+  }
+  reconcile(project);
+  return invalidated;
+}
+
 const conditionMentionsStep = (condition: Condition | undefined, stepIds: Set<string>): boolean => {
   if (!condition) return false;
   if (condition.type === 'decision' || condition.type === 'work_done') return stepIds.has(condition.stepId);
+  if (condition.type === 'work_order') return false;
   return condition.clauses.some(clause => conditionMentionsStep(clause, stepIds));
 };
 
@@ -171,7 +258,7 @@ const conditionMentionsStep = (condition: Condition | undefined, stepIds: Set<st
  */
 export function affectedStepsForMaterial(p: ProjectState, materialId: string): Set<string> {
   const affected = new Set(p.package.steps.filter(step =>
-    step.needsMaterials.includes(materialId) ||
+    effectiveMaterials(p, step.id, step.needsMaterials).includes(materialId) ||
     (step.requestableMaterialIds ?? []).includes(materialId)
   ).map(step => step.id));
   for (let i = 0; i < p.package.steps.length; i++) {
@@ -195,39 +282,22 @@ export function affectedStepsForMaterial(p: ProjectState, materialId: string): S
  */
 export function invalidateMaterialDependents(p: ProjectState, materialId: string, exemptStepId?: string) {
   const affected = affectedStepsForMaterial(p, materialId);
-  for (const stepId of affected) {
-    if (stepId === exemptStepId) continue;
-    if (['running', 'waiting_input'].includes(p.steps[stepId]?.state)) {
-      throw new Error('Dependent Agent work is active; finish or cancel it before accepting a replacement');
-    }
+  if (exemptStepId) affected.delete(exemptStepId);
+  const invalidated = invalidateSteps(p, affected, 'Source material replaced: ' + materialId,
+    'Dependent Agent work is active; finish or cancel it before accepting a replacement');
+  if (invalidated.length) recordEvent(p, 'material.dependents_invalidated', materialId, String(invalidated.length));
+}
+
+function requireActiveWorkOrderForMaterial(project: ProjectState, materialId: string) {
+  const order = workOrderForMaterial(project, materialId);
+  if (order && !Object.hasOwn(project.coordination?.requirements ?? {}, order.id)) {
+    throw new Error('Material is not currently requested because its work order is inactive');
   }
-  let invalidated = 0;
-  for (const stepId of affected) {
-    if (stepId === exemptStepId) continue;
-    const state = p.steps[stepId];
-    if (!state) continue;
-    if (state.state === 'done' || state.state === 'review' || state.state === 'failed') {
-      state.state = 'blocked';
-      delete state.runId; delete state.startedAt;
-      delete p.decisions[stepId];
-      for (const request of p.humanRequests ?? []) {
-        if (request.stepId === stepId) request.invalidatedAt ??= now();
-      }
-      for (const artifact of p.artifacts) {
-        if (artifact.kind === 'agent_output' && artifact.ownerId === stepId) {
-          artifact.invalidatedAt ??= now();
-        }
-      }
-      recordEvent(p, 'work.invalidated', stepId, 'Source material replaced: ' + materialId);
-      invalidated++;
-    }
-  }
-  if (invalidated) recordEvent(p, 'material.dependents_invalidated', materialId, String(invalidated));
-  reconcile(p);
 }
 
 export function receiveMaterial(project: ProjectState, materialId: string,
   artifact: RuntimeArtifact, replaceAccepted = false): void {
+  requireActiveWorkOrderForMaterial(project, materialId);
   const material = project.materials[materialId];
   if (!material || !(['requested', 'rejected'].includes(material.state) ||
         (replaceAccepted && material.state === 'accepted'))) {
@@ -247,6 +317,7 @@ export function receiveMaterial(project: ProjectState, materialId: string,
 }
 
 export function reviewMaterial(project: ProjectState, materialId: string, accepted: boolean, feedback: string): void {
+  requireActiveWorkOrderForMaterial(project, materialId);
   const material = project.materials[materialId];
   if (material?.state !== 'received') throw new Error('Only received material can be reviewed');
   if (!accepted && !feedback.trim()) throw new Error('A rejection must include an explanation');
@@ -286,7 +357,10 @@ export function reserveAgent(project: ProjectState, stepId: string): string {
   if (!def || !state || state.state !== 'ready' || !isAgentStep(def.kind)) throw new Error('Agent work item is not ready');
   const runId = freshId();
   state.state = 'running'; state.runId = runId; state.startedAt = now();
-  project.runs.push({ id: runId, stepId, status: 'running', startedAt: now() });
+  const run: RuntimeRun = { id: runId, stepId, status: 'running', startedAt: now() };
+  project.runs.push(run);
+  // Snapshot the exact readable input refs at reservation time.
+  run.inputArtifactIds = createTaskPacket(project, stepId, runId).readableInputs.map(x => x.artifactId);
   recordEvent(project, 'run.started', stepId, runId);
   return runId;
 }
@@ -301,6 +375,11 @@ export function finishAgent(project: ProjectState, stepId: string, runId: string
   if (result.outcome !== 'submitted_for_review' || !result.producedArtifacts.some(a => a.artifactRef === artifact.id)) {
     throw new Error('The current adapter must submit a verifiable candidate artifact');
   }
+  const inputIds = createTaskPacket(project, stepId, runId).readableInputs.map(x => x.artifactId);
+  if (run.inputArtifactIds && JSON.stringify(inputIds) !== JSON.stringify(run.inputArtifactIds)) {
+    throw new Error('Run input revisions changed; stale output cannot be submitted');
+  }
+  artifact.inputArtifactIds = [...(run.inputArtifactIds ?? inputIds)];
   project.artifacts.push(artifact);
   run.status = 'review'; run.endedAt = now(); run.result = result;
   state.state = 'review';
@@ -324,7 +403,7 @@ export function holdAgentForHuman(project: ProjectState, stepId: string, runId: 
   }
   const stepDef = project.package.steps.find(item => item.id === stepId);
   const declared = new Set([
-    ...(stepDef?.needsMaterials ?? []), ...(stepDef?.requestableMaterialIds ?? [])
+    ...effectiveMaterials(project, stepId, stepDef?.needsMaterials ?? []), ...(stepDef?.requestableMaterialIds ?? [])
   ]);
   const outstanding = project.humanRequests ?? [];
   const unique = new Set<string>();
@@ -405,13 +484,17 @@ export function answerHumanRequest(project: ProjectState, requestId: string, raw
   resumeAfterHumanAnswers(project, item.stepId);
 }
 
-export function reviewAgent(project: ProjectState, stepId: string, approved: boolean, feedback: string): void {
+export function reviewAgent(project: ProjectState, stepId: string, approved: boolean, feedback: string,
+  expectedCandidateId?: string): void {
   const state = project.steps[stepId];
   if (!state || state.state !== 'review') throw new Error('Task is not pending review');
   if (!approved && !feedback.trim()) throw new Error('Rejection requires feedback');
   const def = project.package.steps.find(step => step.id === stepId);
   const current = project.artifacts.filter(a =>
     a.kind === 'agent_output' && a.ownerId === stepId).at(-1);
+  if (expectedCandidateId && current?.id !== expectedCandidateId) {
+    throw new Error('待审稿已更新，请重新审核最新版本。');
+  }
   if (approved && def?.method && (!current?.methodChecks ||
       current.methodChecks.length !== def.method.checks.length)) {
     throw new Error('Template method checklist is missing; cannot approve');
@@ -420,9 +503,130 @@ export function reviewAgent(project: ProjectState, stepId: string, approved: boo
       !feedback.trim()) {
     throw new Error('Unresolved method checks require explicit Human approval rationale');
   }
+  if (approved) {
+    if (!current || current.invalidatedAt) throw new Error('No valid candidate to adopt');
+    const contract = project.package.outputs.find(output => output.id === def?.outputContractId);
+    validateMarkdownHeadings(current.content ?? '', contract?.markdown?.headings);
+    state.approvedArtifactId = current.id;
+  } else {
+    delete state.approvedArtifactId;
+  }
   state.state = approved ? 'done' : 'ready';
   recordEvent(project, approved ? 'work.approved' : 'work.rejected', stepId, feedback.slice(0, 1000));
   reconcile(project);
+}
+
+/** Human Todo may correct a candidate instead of spending model tokens on a redo.
+ * This is a NEW attributed revision, not a rewrite of the Agent's original output.
+ * Downstream tasks see only the Human-approved latest revision.
+ */
+export function amendAndApproveAgent(project: ProjectState, stepId: string, rawContent: string, rationale: string): void {
+  const state = project.steps[stepId];
+  if (state?.state !== 'review') throw new Error('Only a pending Agent candidate can be corrected');
+  const note = rationale.trim();
+  if (!note || note.length > 1000) throw new Error('Human correction requires a 1–1000 character rationale');
+  const content = rawContent.trim();
+  if (!content || content.length > 120000) throw new Error('Human correction must contain 1–120000 characters');
+  const definition = project.package.steps.find(step => step.id === stepId);
+  if (!definition || (definition.kind !== 'agent' && definition.kind !== 'script')) {
+    throw new Error('Only Agent or script outputs can be corrected');
+  }
+  const contract = project.package.outputs.find(output => output.id === definition.outputContractId);
+  if (!contract || !['json', 'markdown'].includes(contract.format)) {
+    throw new Error('Human text correction supports only JSON or Markdown outputs');
+  }
+  if (contract.format === 'json') {
+    try { JSON.parse(content); } catch { throw new Error('Corrected output must be valid JSON'); }
+  }
+  if (contract.markdown?.assembly === 'concatenate') {
+    throw new Error('Revise the source sections and regenerate the assembled output');
+  }
+  validateMarkdownHeadings(content, contract.markdown?.headings);
+  const previous = project.artifacts.filter(artifact =>
+    artifact.kind === 'agent_output' && artifact.ownerId === stepId).at(-1);
+  if (!previous || previous.content === null || previous.invalidatedAt) {
+    throw new Error('No current Agent candidate available for correction');
+  }
+  if (content === previous.content.trim()) throw new Error('Correction does not change the candidate content');
+  // Previous Agent semantic notes and self-check verdicts cannot certify the edited text.
+  const methodChecks: MethodCheckResult[] | undefined = definition.method?.checks.map(check => ({
+    checkId: check.id, status: 'unverified',
+    explanation: 'Human changed the candidate; original Agent self-check does not cover this revision.',
+    evidenceRefs: []
+  }));
+  const correctedAt = now();
+  const replacement: RuntimeArtifact = {
+    id: freshId(), kind: 'agent_output', name: previous.name, content,
+    ownerId: stepId,
+    revision: project.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === stepId).length + 1,
+    createdAt: correctedAt,
+    humanCorrection: { basedOnArtifactId: previous.id, rationale: note, correctedAt },
+    ...(methodChecks ? { methodChecks } : {})
+  };
+  project.artifacts.push(replacement);
+  recordEvent(project, 'work.human_corrected', stepId, previous.id + ' -> ' + replacement.id);
+  reviewAgent(project, stepId, true, note);
+}
+
+/** Revise an ALREADY approved result. Human authority is recorded, never silent overwrite.
+ * Caller must present HEAD observed by the user (compare-and-swap).
+ */
+export function reviseApprovedOutput(project: ProjectState, stepId: string, expectedHead: string,
+  rawContent: string, rationale: string): string[] {
+  const head = currentApprovedOutput(project, stepId);
+  if (!head || project.steps[stepId]?.state !== 'done') {
+    throw new Error('Only an already approved result can be revised');
+  }
+  if (!expectedHead || head.id !== expectedHead) {
+    throw new Error('Approved output HEAD changed; refresh and review the latest version');
+  }
+  const note = rationale.trim();
+  if (!note || note.length > 1000) throw new Error('Human revision requires a 1–1000 character rationale');
+  const content = rawContent.trim();
+  if (!content || content.length > 120000) throw new Error('Human revision must contain 1–120000 characters');
+  if (content === head.content?.trim()) throw new Error('Revision does not change the approved content');
+  const definition = project.package.steps.find(step => step.id === stepId);
+  const contract = project.package.outputs.find(out => out.id === definition?.outputContractId);
+  if (!contract || !['markdown', 'json'].includes(contract.format)) {
+    throw new Error('Human text revision supports only JSON or Markdown outputs');
+  }
+  if (contract.format === 'json') {
+    try { JSON.parse(content); } catch { throw new Error('Revised output must be valid JSON'); }
+  }
+  if (contract.markdown?.assembly === 'concatenate') {
+    throw new Error('Revise the source sections and regenerate the assembled output');
+  }
+  validateMarkdownHeadings(content, contract.markdown?.headings);
+  // A running dependent cannot be silently reinterpreted against a new upstream.
+  const affected = affectedStepsForOutput(project, stepId);
+  for (const id of affected) {
+    if (['running', 'waiting_input'].includes(project.steps[id]?.state)) {
+      throw new Error('Dependent Agent work is active; finish or cancel it before accepting a revision');
+    }
+  }
+  const revisedAt = now();
+  const methodChecks: MethodCheckResult[] | undefined = definition?.method?.checks.map(check => ({
+    checkId: check.id, status: 'unverified',
+    explanation: 'Human revised an already approved result; prior Agent checks are not inherited.',
+    evidenceRefs: []
+  }));
+  const revised: RuntimeArtifact = {
+    id: freshId(), kind: 'agent_output', name: head.name, content, ownerId: stepId,
+    revision: project.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === stepId).length + 1,
+    createdAt: revisedAt, humanCorrection: {
+      basedOnArtifactId: head.id, rationale: note, correctedAt: revisedAt
+    },
+    ...(head.inputArtifactIds ? { inputArtifactIds: [...head.inputArtifactIds] } : {}),
+    ...(methodChecks ? { methodChecks } : {})
+  };
+  project.artifacts.push(revised);
+  project.steps[stepId].approvedArtifactId = revised.id;
+  const invalidated = invalidateOutputDependents(project, stepId);
+  recordEvent(project, 'work.human_revised_after_approval', stepId, JSON.stringify({
+    actor: 'human', fromArtifactId: head.id, toArtifactId: revised.id,
+    rationale: note, invalidatedSteps: invalidated
+  }));
+  return invalidated;
 }
 
 export function failAgent(project: ProjectState, stepId: string, runId: string, error: string): void {
@@ -463,13 +667,15 @@ export function createTaskPacket(project: ProjectState, stepId: string, runId: s
     .filter(request => request.stepId === stepId && !request.invalidatedAt && request.status === 'answered' &&
       request.attachmentArtifactId)
     .map(request => request.materialId);
-  const materialIds = [...new Set([...def.needsMaterials, ...attachedIds])];
+  const materialIds = [...new Set([...effectiveMaterials(project, def.id, def.needsMaterials), ...attachedIds])];
   const materials = materialIds.flatMap(id =>
     project.materials[id]?.state === 'accepted'
       ? [acceptedMaterialArtifact(project, id)].filter((a): a is RuntimeArtifact => Boolean(a))
       : []);
-  const upstreamOutputs = def.dependsOn.flatMap(id => project.steps[id]?.state === 'done'
-    ? project.artifacts.filter(a => a.kind === 'agent_output' && a.ownerId === id).slice(-1) : []);
+  const upstreamOutputs = def.dependsOn.flatMap(id => {
+    const approved = currentApprovedOutput(project, id);
+    return approved ? [approved] : [];
+  });
   const inputs = [...materials, ...upstreamOutputs];
   return {
     protocol: 'hh.task/1', runId, projectId: project.id, workItemId: stepId,
@@ -479,6 +685,8 @@ export function createTaskPacket(project: ProjectState, stepId: string, runId: s
       role: a.kind === 'material' ? 'case_evidence' : 'approved_derived', viewId: a.id
     })),
     templateResources: [], toolsAllowed: [],
+    ...(def.codexSkills ? { codexSkills: def.codexSkills } : {}),
+    ...(def.codexMcp ? { codexMcp: def.codexMcp } : {}),
     ...(def.outputContractId ? { outputContractId: def.outputContractId } : {}),
     reviewPolicy: 'human_required'
   };

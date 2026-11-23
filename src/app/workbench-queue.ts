@@ -1,4 +1,7 @@
 import type { ProjectState } from '@/core/runtime';
+import { coordinationOverview, type ExternalFollowUp, type WorkTiming } from '@/core/project-coordination';
+import { workOrderForMaterial } from '@/core/work-orders';
+import { priorityKeys } from '@/core/planning-work';
 
 export type WorkbenchItem = {
   key: string;
@@ -8,12 +11,16 @@ export type WorkbenchItem = {
   state: string;
   owner: 'human' | 'agent' | 'history';
   agentId?: string;
+  expedited?: boolean;
+  timing?: WorkTiming;
+  followUp?: ExternalFollowUp;
 };
 
 export type WorkbenchQueues = {
   human: WorkbenchItem[];
   agent: WorkbenchItem[];
   history: WorkbenchItem[];
+  external: WorkbenchItem[];
 };
 
 const activeMaterials = new Set(['requested', 'received', 'rejected']);
@@ -26,13 +33,16 @@ const agentSort: Record<string, number> = { running: 0, ready: 1, waiting_input:
  * A step keeps the SAME key when it transfers from Agent execution to Human review.
  * No task state is created or modified by this UI projection.
  */
-export function deriveWorkbenchQueues(project: ProjectState): WorkbenchQueues {
+export function deriveWorkbenchQueues(project: ProjectState, asOf = new Date()): WorkbenchQueues {
   const human: WorkbenchItem[] = [];
   const agent: WorkbenchItem[] = [];
   const history: WorkbenchItem[] = [];
+  const { timings, followUps } = coordinationOverview(project, asOf);
 
   for (const material of project.package.materials) {
     const state = project.materials[material.id]?.state;
+    const order = workOrderForMaterial(project, material.id);
+    if (order && !Object.hasOwn(project.coordination?.requirements ?? {}, order.id) && state !== 'accepted') continue;
     // When an active Agent question targets this material, one Human Todo is
     // enough; its inspector owns clarification AND optional file acceptance.
     if (activeMaterials.has(state) && (project.humanRequests ?? []).some(request =>
@@ -74,15 +84,29 @@ export function deriveWorkbenchQueues(project: ProjectState): WorkbenchQueues {
     // Future Human actions are shown through the dependency summary, not requested prematurely.
   }
 
-  agent.sort((a, b) => agentSort[a.state] - agentSort[b.state]);
-  return { human, agent, history };
+  const expedited = priorityKeys(project);
+  for (const item of [...human, ...agent]) {
+    const planKey = item.state === 'review' ? 'review:' + item.id : item.key;
+    if (expedited.has(planKey)) item.expedited = true;
+    item.timing = timings.get(planKey);
+    if (item.kind === 'human') item.followUp = followUps.get(item.id);
+  }
+  const byPriority = (a: WorkbenchItem, b: WorkbenchItem) => Number(Boolean(b.expedited)) - Number(Boolean(a.expedited));
+  const urgency = (item: WorkbenchItem) => item.followUp?.due ? 0
+    : item.followUp ? 3
+    : item.timing?.lateToStart || item.timing?.dueSoon ? 1 : 2;
+  human.sort((a, b) => urgency(a) - urgency(b) || byPriority(a, b) ||
+    (a.timing?.latestStart ?? Number.MAX_SAFE_INTEGER) - (b.timing?.latestStart ?? Number.MAX_SAFE_INTEGER));
+  agent.sort((a, b) => agentSort[a.state] - agentSort[b.state] || byPriority(a, b));
+  const external = human.filter(item => item.followUp && !item.followUp.due);
+  return { human: human.filter(item => !item.followUp || item.followUp.due), agent, history, external };
 }
 
 export function currentWorkbenchItem(
   queues: WorkbenchQueues,
   selectedKey: string
 ): WorkbenchItem | undefined {
-  const active = [...queues.human, ...queues.agent];
+  const active = [...queues.human, ...queues.agent, ...queues.external];
   return active.find(item => item.key === selectedKey) ??
     queues.history.find(item => item.key === selectedKey) ??
     active[0] ?? queues.history[0];

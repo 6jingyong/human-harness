@@ -2,10 +2,10 @@ import { Agent } from '@mastra/core/agent';
 import { executorOutputSchema, renderTextContext, type TaskExecutor } from './contracts';
 
 /** Existing model adapter. It does not read or change Human Harness project state. */
-const taskAgent = new Agent({
+const createTaskAgent = (model: string) => new Agent({
   id: 'human-harness-runtime-agent',
   name: 'Human Harness Task Worker',
-  model: (process.env.HH_MODEL || 'openai/gpt-6.1-sol') as 'openai/gpt-6.1-sol',
+  model: model as `${string}/${string}`,
   instructions: [
     'You complete one task within a human-led project. Respond in Chinese.',
     'Do not claim external research, GIS inspection, field sampling, lab testing, or file parsing unless tools actually performed them.',
@@ -18,15 +18,17 @@ const taskAgent = new Agent({
 
 export const mastraExecutor: TaskExecutor = {
   id: 'mastra',
-  async execute(task) {
+  async execute(task, onEvent, signal) {
+    const model = task.model || process.env.HH_MODEL || 'openai/gpt-6.1-sol';
     if (task.packet.toolsAllowed.length) {
       throw new Error('Uninstalled tools were requested; the Mastra adapter has no project tools');
     }
-    if (!process.env.OPENAI_API_KEY && (process.env.HH_MODEL || 'openai/').startsWith('openai/')) {
+    if (!process.env.OPENAI_API_KEY && model.startsWith('openai/')) {
       throw new Error('Missing OPENAI_API_KEY for real Mastra model calls');
     }
-    const response = await taskAgent.generate(renderTextContext(task), {
-      structuredOutput: { schema: executorOutputSchema }
+    onEvent?.({ kind: 'model', provider: 'mastra', model });
+    const response = await createTaskAgent(model).generate(renderTextContext(task), {
+      abortSignal: signal, structuredOutput: { schema: executorOutputSchema }
     });
     return executorOutputSchema.parse(response.object);
   }

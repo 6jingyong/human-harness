@@ -10,6 +10,7 @@ import { type ExecutorTask, type TaskExecutor } from '../src/executors/contracts
 const folder = mkdtempSync(join(tmpdir(), 'hh-abc-stage-pipeline-'));
 process.env.HH_DATA_DIR = folder;
 const store = await import('../src/core/store');
+store.importPackage(template);
 const { executeOneAgentTask } = await import('../src/executors/runner');
 const { LocalScheduler } = await import('../src/executors/scheduler');
 const { groupAgentTasks, deriveWorkbenchQueues } = await import('../src/app/workbench-queue');

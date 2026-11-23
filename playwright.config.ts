@@ -14,12 +14,13 @@ export default defineConfig({
     screenshot: 'only-on-failure'
   },
   webServer: {
-    command: 'npm run start -- -p 3100',
+    command: 'npm run start -- --hostname 127.0.0.1 -p 3100',
     url: 'http://127.0.0.1:3100',
     timeout: 120_000,
     reuseExistingServer: !process.env.CI,
     env: {
       HH_EXECUTOR: 'demo',
+      HH_CODEX_MCP_READ_ONLY: '',
       HH_DATA_DIR: process.env.HH_DATA_DIR || '.human-harness-browser-smoke'
     }
   }

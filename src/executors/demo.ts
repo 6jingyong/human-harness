@@ -7,9 +7,8 @@ export const demoExecutor: TaskExecutor = {
     if (task.packet.toolsAllowed.length) {
       throw new Error('Demo executor cannot claim a run requiring external tools');
     }
-    const body = [
-      '# ' + task.stepTitle,
-      '',
+    const headings = task.markdown?.headings;
+    const preview = [
       '【演示结果：没有调用真实大模型或专业调查工具】',
       '',
       '当前任务：' + task.packet.objective,
@@ -19,6 +18,10 @@ export const demoExecutor: TaskExecutor = {
       '',
       '下一步：人工审核；本输出仅用于检验任务流程。'
     ].join('\n');
+    const body = headings?.length
+      ? headings.map((heading, index) => '#'.repeat(heading.level) + ' ' + heading.title +
+        '\n\n' + (index === 0 ? preview : '【演示占位】')).join('\n\n')
+      : '# ' + task.stepTitle + '\n\n' + preview;
     return {
       body: task.outputFormat === 'json'
         ? JSON.stringify({

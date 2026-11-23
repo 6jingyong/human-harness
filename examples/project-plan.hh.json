@@ -1,0 +1,169 @@
+{
+  "protocol": "hh.package/1",
+  "id": "project-plan",
+  "version": "1.0.0",
+  "title": "项目方案与启动",
+  "description": "把委托目标、资源与约束变成可执行的项目方案。比较可行路径，由负责人选定方案，再形成范围、里程碑及交接表。",
+  "stages": [
+    {
+      "id": "intake",
+      "title": "启动准备",
+      "description": "收集委托目标及资源约束"
+    },
+    {
+      "id": "selection",
+      "title": "方案选择",
+      "description": "比较可行路径并由负责人定案"
+    },
+    {
+      "id": "deliver",
+      "title": "计划交付",
+      "description": "把选定方案写成可验收的启动计划"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "mastra.agent",
+      "kind": "agent",
+      "description": "受控 Agent 执行，输入遵循项目证据权限"
+    }
+  ],
+  "assets": [],
+  "materials": [
+    {
+      "id": "mission",
+      "title": "委托目标与交付要求",
+      "producer": "human",
+      "formats": [
+        "text/plain"
+      ],
+      "description": "填写发起原因、交付物、预计交期，以及哪些内容明确排除。",
+      "acceptance": [
+        "目标可判断是否实现，期望交付物明确"
+      ],
+      "planningMinutes": 30
+    },
+    {
+      "id": "constraints",
+      "title": "人员、预算和约束",
+      "producer": "human",
+      "formats": [
+        "text/plain"
+      ],
+      "description": "填写可投入人天、预算口径、依赖、风险以及可能需要联络的外部事项。",
+      "acceptance": [
+        "硬性限制与暂估资源分别注明"
+      ],
+      "planningMinutes": 30
+    }
+  ],
+  "steps": [
+    {
+      "id": "options",
+      "stageId": "selection",
+      "kind": "agent",
+      "title": "比较方案和主要取舍",
+      "instructions": "根据目标和约束提出可行路径，比较范围、工期、资源、依赖和风险。为每条列出需要负责人决定的取舍。假设明确标记，材料不足时说明会影响哪个选择。",
+      "dependsOn": [],
+      "needsMaterials": [
+        "mission",
+        "constraints"
+      ],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "options-output",
+      "requiresReview": true,
+      "planning": {
+        "workMinutes": 60,
+        "reviewMinutes": 30
+      }
+    },
+    {
+      "id": "choose",
+      "stageId": "selection",
+      "kind": "human_action",
+      "title": "负责人确认采用方案与调整项",
+      "instructions": "记录选用的方案、修改边界、预算或工期条件和不得擅自承诺的事项。可采用组合方案，并注明来源。",
+      "dependsOn": [
+        "options"
+      ],
+      "needsMaterials": [],
+      "planning": {
+        "workMinutes": 30
+      }
+    },
+    {
+      "id": "kickoff",
+      "stageId": "deliver",
+      "kind": "agent",
+      "title": "形成可执行的启动计划",
+      "instructions": "把已审方案和负责人决策变成项目范围、里程碑、负责人及交接动作。给每项工作写明输入、输出、完成标准和建议时点。把外部等待、已有约束及未落实承诺标清。 按以下顺序使用原样的 Markdown 二级标题：目标与范围、工作与里程碑、负责人与验收、风险与依赖。",
+      "dependsOn": [
+        "options",
+        "choose"
+      ],
+      "needsMaterials": [],
+      "capabilityId": "mastra.agent",
+      "outputContractId": "kickoff-output",
+      "requiresReview": true,
+      "planning": {
+        "workMinutes": 60,
+        "reviewMinutes": 30
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "id": "options-output",
+      "title": "方案比选表",
+      "audience": "internal",
+      "fileName": "options.md",
+      "format": "markdown",
+      "producingStepId": "options",
+      "acceptance": [
+        "方案比较采用统一的范围、工期与成本口径",
+        "未确认的资源估算可辨认"
+      ],
+      "humanSignoff": true
+    },
+    {
+      "id": "kickoff-output",
+      "title": "项目启动计划",
+      "audience": "internal",
+      "fileName": "kickoff.md",
+      "format": "markdown",
+      "producingStepId": "kickoff",
+      "acceptance": [
+        "计划与负责人选择一致",
+        "每个里程碑有交付物、负责人和验收标准",
+        "时点与资源约束相符"
+      ],
+      "humanSignoff": true,
+      "markdown": {
+        "headings": [
+          {
+            "level": 2,
+            "title": "目标与范围"
+          },
+          {
+            "level": 2,
+            "title": "工作与里程碑"
+          },
+          {
+            "level": 2,
+            "title": "负责人与验收"
+          },
+          {
+            "level": 2,
+            "title": "风险与依赖"
+          }
+        ]
+      },
+      "word": {
+        "fileName": "project-kickoff.docx",
+        "title": "项目启动计划",
+        "tocDepth": 2
+      },
+      "deliverable": true
+    }
+  ]
+}

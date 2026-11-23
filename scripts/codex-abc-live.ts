@@ -15,6 +15,7 @@
  * - This verifies authorized *model input packets* and observes tool attempts.
  *   It is not proof of OS-level filesystem-read isolation on all Codex versions.
  */
+import template from '../examples/eia-abc-pipeline.hh.json';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -96,6 +97,7 @@ async function main() {
   const { codexExecutor } = await import('../src/executors/codex');
   const { GET: download } = await import('../src/app/api/v1/projects/[id]/outputs/[artifactId]/route');
 
+  store.importPackage(template);
   const project = store.createProject('eia-abc-pipeline', 'Stage isolation live drill ' + randomUUID().slice(0, 8));
   report.projectId = project.id;
   store.setExecutionPolicy(project.id, false, 2);
