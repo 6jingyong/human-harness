@@ -108,8 +108,8 @@ test('Agent candidate review and completed download are handled in the same deta
   assert.doesNotMatch(done, /批准并交接下游/);
   const library = renderToStaticMarkup(createElement(ProjectMaterialLibrary, {
     project: p, onBack: () => undefined, onReplace: () => undefined,
-    values: {}, files: {}, onValue: () => undefined,
-    onFile: () => undefined, isPending: () => false
+    onRevise: () => undefined, values: {}, feedback: {}, files: {}, onValue: () => undefined,
+    onFeedback: () => undefined, onFile: () => undefined, isPending: () => false
   }));
   assert.match(library, /套用项目模板后的资料说明/);
   assert.match(library, /候选字段及来源/);

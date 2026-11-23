@@ -262,3 +262,19 @@ Do not add compatibility shims. If the development DB has experimental data, res
 7. Attach real GIS, SamplingPlan and DOCX skills only after their capability/permissions/provenance interfaces are verified.
 
 Core objective: **real projects proceed correctly, including gaps and external handoffs, regardless of which LLM executes a task.**
+
+### 固定 Markdown 标题与确定性组装
+
+Markdown 输出契约可在 `markdown.headings` 声明有序的 `{level, title}` 列表。采用和修订时，运行时检查 ATX 标题的级别、文字和顺序。允许在项目成果支持的情况下补充其他标题。
+
+可信的 `hh.render.markdown` 脚本可以选用 `markdown.assembly: "concatenate"`。程序按依赖顺序拼接已审核成果的正文。对组装稿的修改从各依赖成果发起，之后重新生成并送审。
+
+### 启动预览与最终交付
+
+项目模板可用 `outputs[].deliverable: true` 标记出现在启动与交付视图中的输出。一旦声明任意交付标记，仅标为 `true` 的输出进入交付。所有输出都省略标记的模板沿用终点输出作为默认交付项。仅含人工任务的模板可声明空的 `outputs` 列表。
+
+`POST /api/v1/projects/preview` 与 `POST /api/v1/projects` 共享项目创建契约。启动请求可带 `packageVersion` 和 `setup`。后者包含实际 `planning` 与模板声明范围内的 `requirements`。预览和启动调用同一任务状态机。首次持久化时一起保存模板快照、项目设置与任务状态。
+
+### 审核稿的 Word 下载
+
+Markdown 输出可通过 `outputs[].word` 声明 Word 下载，参数包含安全的文件名、文档标题、目录层级和字体。该输出沿用 Human Todo 验收。下载地址追加 `?format=docx` 后，工作台从当前采用稿生成本地文档，使用原有成果版本检查。Markdown 负责正文和表格内容，导出器负责页码、目录、标题和样式。图件引用以文字保留。

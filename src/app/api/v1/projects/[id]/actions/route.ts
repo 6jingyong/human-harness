@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import {
-  approveHumanCorrectedOutput, answerRequestedInput, getProject, completeHuman, recoverAbandonedAgent, retryFailedAgent, reviewAgentOutput, reviewReceivedMaterial,
-  RuntimeError, submitMaterial, setExecutionPolicy
+  approveHumanCorrectedOutput, reviseHumanApprovedOutput, answerRequestedInput, getProject, completeHuman, recoverAbandonedAgent, retryFailedAgent, reviewAgentOutput, reviewReceivedMaterial,
+  RuntimeError, submitMaterial, setExecutionPolicy, recordWorkOrderFollowUp
 } from '@/core/store';
 import { ensureLocalScheduler } from '@/executors/scheduler';
 
@@ -17,6 +17,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const materialId = String(form.get('materialId') ?? '');
     const value = String(form.get('value') ?? '');
     const feedback = String(form.get('feedback') ?? '');
+    const promisedOn = String(form.get('promisedOn') ?? '') || undefined;
     let project;
     if (action === 'answer_human_request') {
       const requestId = String(form.get('requestId') ?? '');
@@ -34,7 +35,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         project = answerRequestedInput(id, requestId, value);
       }
     } else if (action === 'complete_human') {
-      project = completeHuman(id, stepId, value);
+      project = completeHuman(id, stepId, value, promisedOn);
+    } else if (action === 'record_work_order_follow_up') {
+      project = recordWorkOrderFollowUp(id, stepId, value, promisedOn);
     } else if (action === 'submit_material') {
       const candidate = form.get('file');
       const file = candidate instanceof File && candidate.size ? candidate : undefined;
@@ -49,10 +52,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         { replaceAccepted: true });
     } else if (action === 'accept_material' || action === 'reject_material') {
       project = reviewReceivedMaterial(id, materialId, action === 'accept_material', feedback);
+    } else if (action === 'revise_approved_agent') {
+      project = reviseHumanApprovedOutput(id, stepId,
+        String(form.get('expectedArtifactId') ?? ''), value, feedback);
     } else if (action === 'amend_agent') {
       project = approveHumanCorrectedOutput(id, stepId, value, feedback);
     } else if (action === 'approve_agent' || action === 'reject_agent') {
-      project = reviewAgentOutput(id, stepId, action === 'approve_agent', feedback);
+      project = reviewAgentOutput(id, stepId, action === 'approve_agent', feedback,
+        String(form.get('expectedArtifactId') ?? '') || undefined);
     } else if (action === 'retry_agent') {
       project = retryFailedAgent(id, stepId);
     } else if (action === 'recover_agent') {
@@ -75,7 +82,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   } catch (error) {
     const text = error instanceof ZodError ? error.issues.slice(0, 5).map(e => e.message).join('; ')
       : error instanceof Error ? error.message : 'Unknown runtime error';
-    const conflict = /Dependent Agent work is active/.test(text);
+    const conflict = /Dependent Agent work is active|Approved output HEAD changed|待审稿已更新/.test(text);
     const known = conflict || error instanceof RuntimeError || error instanceof ZodError ||
       /not (ready|actionable|requested|pending)|Only |required|mismatch|cannot|invalid|does not|Decision|rejection/i.test(text);
     if (!known) console.error('Action error', error);

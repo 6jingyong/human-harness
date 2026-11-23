@@ -10,6 +10,7 @@ import { type TaskExecutor } from '../src/executors/contracts';
 const dir = mkdtempSync(join(tmpdir(), 'hh-eia-replay-'));
 process.env.HH_DATA_DIR = dir;
 const store = await import('../src/core/store');
+store.importPackage(eia);
 const { executeOneAgentTask } = await import('../src/executors/runner');
 const { groupAgentTasks, deriveWorkbenchQueues } = await import('../src/app/workbench-queue');
 const { demoExecutor } = await import('../src/executors/demo');
@@ -50,7 +51,7 @@ test('EIA real-source replay project template is valid and no private sources ar
   assert.ok(pkg.materials.find(m => m.id === 'qc-scan')?.method?.verification.some(x => x.includes('PDF')));
   assert.ok(pkg.steps.find(s => s.id === 'qc-audit')?.requestableMaterialIds?.includes('qc-source-proof'));
   assert.ok(pkg.steps.find(s => s.id === 'internal-review')?.method?.onMissing === 'record_limitation');
-  assert.ok(store.listPackages().some(pkg => pkg.id === 'eia-source-replay' && pkg.builtin));
+  assert.ok(store.listPackages().some(pkg => pkg.id === 'eia-source-replay' && !pkg.builtin));
   const external = structuredClone(eia) as any;
   external.outputs[0].audience = 'external';
   external.outputs[0].humanSignoff = false;
