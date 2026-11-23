@@ -1,0 +1,319 @@
+{
+  "protocol": "hh.package/1",
+  "id": "land-investigation",
+  "version": "1.0.0",
+  "title": "土地污染调查 · 项目运行示例",
+  "description": "示范建设用地调查资料接收、第一阶段专业决策、采样方案、机构委托、检测质控资料及内部草稿。不是正式技术报告模板。",
+  "stages": [
+    {
+      "id": "intake",
+      "title": "项目启动",
+      "description": "收集项目范围、边界和用途依据"
+    },
+    {
+      "id": "history",
+      "title": "第一阶段调查",
+      "description": "整理已提供的证据并作专业分支判断"
+    },
+    {
+      "id": "sampling",
+      "title": "采样与委托",
+      "description": "方案批准后委托机构执行实际采样与检测"
+    },
+    {
+      "id": "assessment",
+      "title": "资料审核",
+      "description": "收到正式记录后完成资料完整性审查"
+    },
+    {
+      "id": "delivery",
+      "title": "内部交付",
+      "description": "人工审阅内部草稿，不生成虚构监管报告"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "mastra.agent",
+      "kind": "agent",
+      "description": "使用Mastra执行单项受约束的LLM工作，演示模式不调用真实模型"
+    }
+  ],
+  "assets": [],
+  "materials": [
+    {
+      "id": "project-identity",
+      "title": "项目身份与调查目的",
+      "producer": "human",
+      "description": "地块位置、委托信息、调查目的、已有事实",
+      "formats": [
+        "text/plain"
+      ],
+      "acceptance": [
+        "说明项目身份、调查目的及其信息来源"
+      ]
+    },
+    {
+      "id": "boundary",
+      "title": "地块红线与空间定位资料",
+      "producer": "human",
+      "description": "上传原始KML、GeoJSON、CAD或其他边界资料；尚未接GIS解析技能",
+      "formats": [
+        "application/octet-stream",
+        "application/xml",
+        "application/json"
+      ],
+      "acceptance": [
+        "保留原始文件",
+        "确认边界对应的地块及坐标基准"
+      ]
+    },
+    {
+      "id": "land-use",
+      "title": "规划土地用途及其依据",
+      "producer": "human",
+      "description": "说明地块拟定用途和依据文件",
+      "formats": [
+        "text/plain"
+      ],
+      "acceptance": [
+        "明确用途来源与适用时间"
+      ]
+    },
+    {
+      "id": "field-records",
+      "title": "现场采样与样品流转记录",
+      "producer": "external_institution",
+      "description": "仅在专业机构完成相关工作后索取真正形成的记录",
+      "requiredWhen": {
+        "type": "decision",
+        "stepId": "stage1-route",
+        "option": "sampling"
+      },
+      "requestWhen": {
+        "type": "work_done",
+        "stepId": "lab-work-complete"
+      },
+      "formats": [
+        "application/pdf",
+        "text/plain"
+      ],
+      "acceptance": [
+        "点位与样品ID可追溯",
+        "采样和流转记录完整"
+      ]
+    },
+    {
+      "id": "detection-report",
+      "title": "正式检测报告",
+      "producer": "external_institution",
+      "description": "机构实际开展检测后取得的原始报告",
+      "requiredWhen": {
+        "type": "decision",
+        "stepId": "stage1-route",
+        "option": "sampling"
+      },
+      "requestWhen": {
+        "type": "work_done",
+        "stepId": "lab-work-complete"
+      },
+      "formats": [
+        "application/pdf",
+        "text/plain"
+      ],
+      "acceptance": [
+        "检验项目、检测结果与样品ID对应",
+        "来源和签发信息可核验"
+      ]
+    },
+    {
+      "id": "qc-evidence",
+      "title": "质控原始记录和质控报告",
+      "producer": "external_institution",
+      "description": "质控安排在方案阶段已考虑，但正式质控成果要在实际工作后取得",
+      "requiredWhen": {
+        "type": "decision",
+        "stepId": "stage1-route",
+        "option": "sampling"
+      },
+      "requestWhen": {
+        "type": "work_done",
+        "stepId": "lab-work-complete"
+      },
+      "formats": [
+        "application/pdf",
+        "text/plain"
+      ],
+      "acceptance": [
+        "与采样检测批次相对应",
+        "应有必要的现场与实验室质控数据",
+        "需要专业人员审核"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "id": "inventory",
+      "stageId": "history",
+      "kind": "agent",
+      "title": "整理第一阶段证据",
+      "instructions": "仅根据真实已收到且可读取的资料，形成证据清单、适用条件与缺口说明。不得声称已完成历史影像采集、GIS、踏勘和专业调查。",
+      "dependsOn": [],
+      "needsMaterials": [
+        "project-identity",
+        "boundary",
+        "land-use"
+      ],
+      "capabilityId": "mastra.agent",
+      "requiresReview": true
+    },
+    {
+      "id": "stage1-route",
+      "stageId": "history",
+      "kind": "human_decision",
+      "title": "专业判断后续调查路线",
+      "instructions": "此示例中的批准仅表示人工输入。真实项目应在完成适用的资料收集、踏勘、访谈及必要审核后决定。",
+      "dependsOn": [
+        "inventory"
+      ],
+      "needsMaterials": [],
+      "options": [
+        {
+          "id": "finish",
+          "label": "第一阶段结束"
+        },
+        {
+          "id": "sampling",
+          "label": "进入采样调查"
+        }
+      ]
+    },
+    {
+      "id": "first-stage-draft",
+      "stageId": "delivery",
+      "kind": "agent",
+      "title": "形成第一阶段内部草稿",
+      "instructions": "根据已核实的第一阶段资料形成供审阅的草稿。不得虚构采样和检测结果。",
+      "dependsOn": [
+        "stage1-route"
+      ],
+      "needsMaterials": [],
+      "when": {
+        "type": "decision",
+        "stepId": "stage1-route",
+        "option": "finish"
+      },
+      "capabilityId": "mastra.agent",
+      "requiresReview": true,
+      "outputContractId": "stage1-draft"
+    },
+    {
+      "id": "sampling-plan",
+      "stageId": "sampling",
+      "kind": "agent",
+      "title": "提出候选布点原则",
+      "instructions": "提出候选采样方法、布点需要的空间证据和逐点说明要求；没有GIS能力时不编造点位坐标。",
+      "dependsOn": [
+        "stage1-route"
+      ],
+      "needsMaterials": [],
+      "when": {
+        "type": "decision",
+        "stepId": "stage1-route",
+        "option": "sampling"
+      },
+      "capabilityId": "mastra.agent",
+      "requiresReview": true
+    },
+    {
+      "id": "plan-approved",
+      "stageId": "sampling",
+      "kind": "human_action",
+      "title": "专业审核并冻结采样方案",
+      "instructions": "须经专业人员确认真实点位、深度、检测指标与方案版本。填写批准信息。",
+      "dependsOn": [
+        "sampling-plan"
+      ],
+      "needsMaterials": []
+    },
+    {
+      "id": "commission",
+      "stageId": "sampling",
+      "kind": "human_action",
+      "title": "委托专业机构采样检测",
+      "instructions": "根据冻结的方案与机构建立委托，说明委托范围、日期和方案版本。",
+      "dependsOn": [
+        "plan-approved"
+      ],
+      "needsMaterials": []
+    },
+    {
+      "id": "lab-work-complete",
+      "stageId": "sampling",
+      "kind": "external_milestone",
+      "title": "确认现场与实验室工作完成",
+      "instructions": "实际收到机构工作完成证明或明确通知后，由用户确认；未完成不能确认。",
+      "dependsOn": [
+        "commission"
+      ],
+      "needsMaterials": []
+    },
+    {
+      "id": "qc-review",
+      "stageId": "assessment",
+      "kind": "agent",
+      "title": "核对检测、现场及质控资料",
+      "instructions": "核对资料是否可读、关联的点位和样品是否一致。若附件为未解析的PDF，仅列可查元数据与尚待专业审核的问题，不得认定质控合格。",
+      "dependsOn": [
+        "lab-work-complete"
+      ],
+      "needsMaterials": [
+        "field-records",
+        "detection-report",
+        "qc-evidence"
+      ],
+      "capabilityId": "mastra.agent",
+      "requiresReview": true
+    },
+    {
+      "id": "sampling-draft",
+      "stageId": "delivery",
+      "kind": "agent",
+      "title": "形成采样调查内部草稿",
+      "instructions": "仅基于已审阅的调查和检测资料形成内部文字，不将缺证据清单混入正式商业报告。不得臆造检测数据。",
+      "dependsOn": [
+        "qc-review"
+      ],
+      "needsMaterials": [],
+      "capabilityId": "mastra.agent",
+      "requiresReview": true,
+      "outputContractId": "sampling-draft"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "stage1-draft",
+      "title": "第一阶段调查内部草稿",
+      "audience": "internal",
+      "fileName": "first-stage-draft.md",
+      "format": "markdown",
+      "producingStepId": "first-stage-draft",
+      "acceptance": [
+        "注明证据依据与未验证事项"
+      ],
+      "humanSignoff": true
+    },
+    {
+      "id": "sampling-draft",
+      "title": "采样调查内部草稿",
+      "audience": "internal",
+      "fileName": "sampling-investigation-draft.md",
+      "format": "markdown",
+      "producingStepId": "sampling-draft",
+      "acceptance": [
+        "不得虚构检测数值",
+        "资料与结论须留专业复核入口"
+      ],
+      "humanSignoff": true
+    }
+  ]
+}

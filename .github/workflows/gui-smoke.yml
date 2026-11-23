@@ -1,0 +1,72 @@
+name: gui-smoke
+on:
+  pull_request:
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:browser
+        env:
+          CI: 'true'
+          HH_EXECUTOR: demo
+          HH_DATA_DIR: ${{ runner.temp }}/human-harness-gui-smoke
+      - name: Verify a project handoff through the native Codex app-server
+        shell: bash
+        run: |
+          npm install --prefix "$RUNNER_TEMP/hh-native-tools" --no-audit --no-fund @openai/codex@0.171.0
+          export HH_CODEX_COMMAND="$RUNNER_TEMP/hh-native-tools/node_modules/.bin/codex"
+          "$HH_CODEX_COMMAND" --version
+          "$HH_CODEX_COMMAND" mcp add hh_smoke -- node "$GITHUB_WORKSPACE/tests/fixtures/read-only-mcp-server.mjs"
+          npm run test:codex:mcp
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: human-harness-gui-evidence
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+
+  windows-local:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+      - name: Launch the Windows workbench from a clean checkout
+        shell: pwsh
+        env:
+          PORT: '3140'
+          NEXT_TELEMETRY_DISABLED: '1'
+          HH_EXECUTOR: demo
+        run: |
+          $env:HH_DATA_DIR = Join-Path $env:RUNNER_TEMP 'hh-windows-workbench'
+          $stdout = Join-Path $env:RUNNER_TEMP 'hh-stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'hh-stderr.log'
+          $app = Start-Process -PassThru -FilePath $env:ComSpec -ArgumentList '/d /c "Start-Human-Harness.cmd --no-open <nul"' -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          try {
+            $deadline = (Get-Date).AddMinutes(8)
+            do {
+              if ($app.HasExited) { throw "Launcher exited with code $($app.ExitCode)" }
+              try { $index = Invoke-RestMethod 'http://127.0.0.1:3140/api/v1/projects' -TimeoutSec 8 } catch { Start-Sleep 2 }
+            } until ($index.settings.provider -eq 'demo' -or (Get-Date) -gt $deadline)
+            if ($index.settings.provider -ne 'demo') { throw 'The local workbench did not become ready.' }
+            $selection = '{"provider":"mastra","model":"openai/workbench-test"}'
+            Invoke-RestMethod 'http://127.0.0.1:3140/api/v1/models' -Method Put -ContentType 'application/json' -Body $selection
+            $index = Invoke-RestMethod 'http://127.0.0.1:3140/api/v1/projects'
+            if ($index.settings.model -ne 'openai/workbench-test') { throw 'Model selection was not saved.' }
+          } finally {
+            if (!$app.HasExited) { taskkill /PID $app.Id /T /F }
+            Get-Content $stdout -Tail 25
+            Get-Content $stderr -Tail 25
+          }
