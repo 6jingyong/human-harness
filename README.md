@@ -7,7 +7,7 @@ Define a project once, then let people and agents work through its real-world de
 
 > **Status: early local-development prototype.** The project now includes a generic PDF/DOCX → Agent → Human → Agent handoff example and a protocol-fixture-tested local Codex Skill bridge. Neither actual Codex document parsing nor official DOCX/PDF report generation has been verified.  The task engine and no-key demo workflow work; real model calls, third-party connectors, office document parsing, and production deployment are **not verified or supported**. This repository is not a regulatory compliance tool.
 
-The first reference project template, [land investigation](project-templates/land-investigation/), imports through the standard package editor. It covers project launch, external work, evidence review, and delivery of an approved internal report in Markdown or Word. The default template list contains general-purpose examples. Existing projects use their saved package snapshots.
+The first reference project template, [land investigation](project-templates/land-investigation/), opens directly in the package editor via the menu action 「打开环评参考模板」. It covers project launch, external work, evidence review, and delivery of an approved internal report in Markdown or Word. The default template list contains general-purpose examples. Existing projects use their saved package snapshots.
 
 The [project requirements workflow](docs/project-coordination.md) materializes optional outside work and follows it through acceptance in the Human Todo.
 

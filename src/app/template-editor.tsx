@@ -44,6 +44,7 @@ export function TemplateEditor({ source, busy, onBack, onSave }: EditorProps) {
   const [error, setError] = useState(initial.error);
   const [stageId, setStageId] = useState('');
   const [filter, setFilter] = useState('');
+  const [focused, setFocused] = useState(false);
   const [taskType, setTaskType] = useState<AuthorableType>('human_action');
   const [selected, setSelected] = useState('');
   const flow = useMemo(() => draft && templateFlow(draft), [draft]);
@@ -52,6 +53,15 @@ export function TemplateEditor({ source, busy, onBack, onSave }: EditorProps) {
     (!filter.trim() || node.title.toLowerCase().includes(filter.trim().toLowerCase()) ||
       flowTaskLabels[node.kind].includes(filter.trim()))), [flow, stageId, filter]);
   const current = flow?.nodes.get(selected) ?? nodes.find(node => node.lane === 'human') ?? nodes[0];
+  const visible = useMemo(() => {
+    if (!focused || !flow || !current) return nodes;
+    const related = new Set([
+      current.key,
+      ...(flow.incoming.get(current.key) ?? []).map(edge => edge.from),
+      ...(flow.outgoing.get(current.key) ?? []).map(edge => edge.to)
+    ]);
+    return [...flow.nodes.values()].filter(node => related.has(node.key));
+  }, [focused, flow, current, nodes]);
 
   function update(pkg: HumanHarnessPackage) {
     setDraft(pkg);
@@ -94,6 +104,7 @@ export function TemplateEditor({ source, busy, onBack, onSave }: EditorProps) {
       setSelected('');
       setStageId('');
       setFilter('');
+      setFocused(false);
     }
     setJsonMode(toJson);
   }
@@ -154,6 +165,7 @@ export function TemplateEditor({ source, busy, onBack, onSave }: EditorProps) {
           const next = addFlowStage(draft);
           update(next);
           setStageId(next.stages.at(-1)?.id ?? '');
+          setFocused(false);
           setFilter('');
         }}>新增阶段</button>
         <p>每次保存用独立版本。已有项目沿用启动时的模板。</p>
@@ -163,12 +175,20 @@ export function TemplateEditor({ source, busy, onBack, onSave }: EditorProps) {
           <label>阶段<select aria-label="筛选阶段" value={stageId} onChange={event => {
             setStageId(event.target.value);
             setSelected('');
+            setFocused(false);
           }}>
             <option value="">全部阶段</option>
             {draft.stages.map(stage => <option key={stage.id} value={stage.id}>{stage.title || stage.id}</option>)}
           </select></label>
           <label>查找<input type="search" aria-label="查找任务" placeholder="任务名称或类型" value={filter} onChange={event =>
-            { setFilter(event.target.value); setSelected(''); }} /></label>
+            { setFilter(event.target.value); setSelected(''); setFocused(false); }} /></label>
+          <button type="button" aria-pressed={focused} disabled={!current} onClick={() => {
+            if (focused) { setFocused(false); return; }
+            if (current) setSelected(current.key);
+            setFilter('');
+            setStageId('');
+            setFocused(true);
+          }}>{focused ? '显示完整流程' : '聚焦关联'}</button>
         </div>
         <div>
           <label>任务类型<select aria-label="新增任务类型" value={taskType} onChange={event => setTaskType(event.target.value as AuthorableType)}>
@@ -183,7 +203,7 @@ export function TemplateEditor({ source, busy, onBack, onSave }: EditorProps) {
         </div>
       </div>
       <div className="flow-workspace">
-        <TemplateFlowChart nodes={nodes} links={flow.links} selected={current?.key ?? ''} onSelect={select} />
+        <TemplateFlowChart nodes={visible} links={flow.links} selected={current?.key ?? ''} onSelect={select} />
         {current && <TemplateInspector key={current.key} pkg={draft} node={current} graph={flow} onChange={update}
           onSelect={node => select(node, true)} onRemove={remove} />}
       </div>

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
+import landInvestigation from '../../../../../project-templates/land-investigation/land-investigation.hh.json';
+import { packageSchema } from '@/protocol/v1';
 import { getPackage, importPackage, listPackages, RuntimeError } from '@/core/store';
 
 export const runtime = 'nodejs'; export const dynamic = 'force-dynamic';
@@ -7,6 +9,12 @@ export const runtime = 'nodejs'; export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     const params = new URL(request.url).searchParams;
+    if (params.has('reference')) {
+      if (params.get('reference') !== 'land-investigation') {
+        return NextResponse.json({ error: 'Reference template not found' }, { status: 404 });
+      }
+      return NextResponse.json({ package: packageSchema.parse(landInvestigation) });
+    }
     const id = params.get('id');
     return NextResponse.json(id ? { package: getPackage(id, params.get('version') ?? undefined) } : { packages: listPackages() });
   } catch { return NextResponse.json({ error: 'Project package not found' }, { status: 404 }); }

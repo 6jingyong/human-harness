@@ -649,3 +649,24 @@ test('the visual template editor connects a Human prerequisite and starts a proj
   await page.getByRole('button', { name: '批准并交接下游' }).click();
   await expect(page.getByRole('region', { name: '项目交付' }).getByRole('link', { name: '下载交付件' })).toBeVisible();
 });
+
+test('the bundled land reference opens directly, exposes gated handoffs, and saves an independent template', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await page.getByRole('button', { name: '打开环评参考模板' }).click();
+  const editor = page.getByRole('region', { name: '项目模板编辑器' });
+  const graph = editor.getByRole('region', { name: '项目双轴流程图' });
+  await expect(editor).toContainText('环评 · 地块土壤污染状况调查');
+  await editor.getByLabel('查找任务').fill('确认采样和检测机构已完成工作');
+  await graph.locator('[data-flow-card="step:lab-work-complete"]').click();
+  await editor.getByRole('button', { name: '聚焦关联' }).click();
+  await expect(graph.locator('[data-flow-card="step:commission"]')).toBeVisible();
+  await expect(graph.locator('[data-flow-card="material:detection-report"]')).toBeVisible();
+  await expect(graph.locator('[data-flow-card="step:extract-project"]')).toHaveCount(0);
+  await editor.getByRole('button', { name: '验证并保存模板' }).click();
+  await expect(page.getByRole('status')).toContainText('land-investigation-report-custom @ 1.0.0');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await expect(page.locator('#package-select')).toHaveValue('land-investigation-report-custom');
+  await page.getByRole('button', { name: '打开环评参考模板' }).click();
+  await expect(editor).toContainText('v1.0.1');
+});

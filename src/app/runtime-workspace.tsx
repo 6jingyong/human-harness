@@ -122,22 +122,18 @@ export function RuntimeWorkspace() {
     setMenuOpen(false);
   }
 
-  async function openTemplateEditor() {
+  async function openTemplateEditor(reference?: 'land-investigation') {
     setBusy(true); setError('');
     try {
-      const data = await parseResponse(await fetch('/api/v1/packages?id=' + encodeURIComponent(packageId)));
+      const query = new URLSearchParams(reference ? { reference } : { id: packageId });
+      const data = await parseResponse(await fetch('/api/v1/packages?' + query));
       const selected: HumanHarnessPackage = data.package;
-      // Built-ins are copied under a new ID; custom templates can be edited as a new immutable version.
-      const builtin = packages.some(p => p.id === selected.id && p.builtin);
-      const parts = selected.version.split('.').map(Number);
-      const nextVersion = parts.length === 3 && parts.every(Number.isInteger)
-        ? [parts[0], parts[1], parts[2] + 1].join('.') : '1.0.0';
-      const copy = {
-        ...selected,
-        id: builtin ? selected.id + '-custom' : selected.id,
-        version: builtin ? '1.0.0' : nextVersion
-      };
-      beginTemplateEditor(JSON.stringify(copy));
+      const readonly = reference || packages.some(p => p.id === selected.id && p.builtin);
+      const id = readonly ? selected.id + '-custom' : selected.id;
+      const previous = readonly ? packages.find(item => item.id === id)?.version : selected.version;
+      const parts = previous?.split('.').map(Number);
+      const version = parts ? [parts[0], parts[1], parts[2] + 1].join('.') : '1.0.0';
+      beginTemplateEditor(JSON.stringify({ ...selected, id, version }));
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
@@ -289,7 +285,8 @@ export function RuntimeWorkspace() {
         </div>}
         <div className="section-label with-gap">模板管理</div>
         <button onClick={() => beginTemplateEditor('')} disabled={busy}>＋ 新建模板</button>
-        <button onClick={openTemplateEditor} disabled={busy}>复制所选模板</button>
+        <button onClick={() => openTemplateEditor()} disabled={busy}>复制所选模板</button>
+        <button onClick={() => openTemplateEditor('land-investigation')} disabled={busy}>打开环评参考模板</button>
         <label className="upload-label">导入本地 JSON 模板<input type="file" accept=".json,application/json" onChange={importFile} disabled={busy} /></label>
         <div className="section-label with-gap">已有项目</div>
         <nav className="project-list">
