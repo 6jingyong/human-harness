@@ -250,10 +250,10 @@ function mutate<T>(id: string, fn: (p: ProjectState) => T): { project: ProjectSt
   })();
 }
 
-function buildProjectSnapshot(packageId: string, rawTitle: string, rawSetup?: unknown, version?: string): ProjectState {
+function buildProjectSnapshot(template: string | HumanHarnessPackage, rawTitle: string, rawSetup?: unknown, version?: string): ProjectState {
   const title = rawTitle.trim();
   if (!title || title.length > 150) throw new RuntimeError('Project title must be between 1 and 150 characters');
-  const pkg = getPackage(packageId, version);
+  const pkg = typeof template === 'string' ? getPackage(template, version) : template;
   const readiness = inspectReadiness(pkg);
   if (readiness.errors.length) throw new RuntimeError(readiness.errors.join('; '));
   const setup = rawSetup === undefined ? undefined : projectSetupSchema.parse(rawSetup);
@@ -269,12 +269,12 @@ function buildProjectSnapshot(packageId: string, rawTitle: string, rawSetup?: un
   });
 }
 
-export function previewProject(packageId: string, title: string, setup?: unknown, version?: string) {
-  return buildProjectSnapshot(packageId, title, setup, version);
+export function previewProject(template: string | HumanHarnessPackage, title: string, setup?: unknown, version?: string) {
+  return buildProjectSnapshot(template, title, setup, version);
 }
 
-export function createProject(packageId: string, rawTitle: string, setup?: unknown, version?: string): ProjectState {
-  const project = buildProjectSnapshot(packageId, rawTitle, setup, version);
+export function createProject(template: string | HumanHarnessPackage, rawTitle: string, setup?: unknown, version?: string): ProjectState {
+  const project = buildProjectSnapshot(template, rawTitle, setup, version);
   db.transaction(() => {
     db.prepare('INSERT INTO projects VALUES (?, ?, ?, ?, ?, ?)').run(
       project.id, project.title, project.templateId, project.templateVersion, JSON.stringify(project), project.createdAt
@@ -553,8 +553,9 @@ export function succeedAgent(id: string, stepId: string, runId: string, rawResul
   }).project;
 }
 
-export const reviewAgentOutput = (id: string, stepId: string, accepted: boolean, feedback: string) =>
-  mutate(id, p => reviewAgent(p, stepId, accepted, feedback)).project;
+export const reviewAgentOutput = (id: string, stepId: string, accepted: boolean, feedback: string,
+  expectedCandidateId?: string) =>
+  mutate(id, p => reviewAgent(p, stepId, accepted, feedback, expectedCandidateId)).project;
 /** Atomic audit trail: retain the Agent original, add corrected Human version, then approve. */
 export const approveHumanCorrectedOutput = (id: string, stepId: string, content: string, rationale: string) =>
   mutate(id, p => amendAndApproveAgent(p, stepId, content, rationale)).project;

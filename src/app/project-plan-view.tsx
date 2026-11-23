@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { calculateProjectPlan, defaultPlan, type ScheduledWork } from '@/core/project-plan';
-import { civilDate, dayMinutes } from '@/core/planning-calendar';
+import { civilDate, dateMinute, dayMinutes } from '@/core/planning-calendar';
 import type { ProjectState } from '@/core/runtime';
 import { planSettingsSchema, type ProjectPlanning, type Pool } from '@/protocol/planning';
 import { deriveWorkbenchQueues } from './workbench-queue';
@@ -255,11 +255,15 @@ function Gantt({ rows, now, deadline, baseline, selectedKey, onSelect }: {
       </div>
       {rows.map(row => {
         const planned = baseline?.tasks[row.key];
-        const title = `${row.title} · ${timestamp(row.start)} 至 ${timestamp(row.finish)}`;
-        const blocks = stride === 1 ? row.segments : [{ start: row.start, finish: row.finish }];
+        const title = `${row.title} · ${timestamp(row.start)} 至 ${timestamp(row.finish)}` +
+          (row.promisedOn ? ' · 对方承诺回件 ' + row.promisedOn : '');
+        const blocks = stride === 1 ? row.segments :
+          [{ start: row.start, finish: row.segments.at(-1)?.finish ?? row.finish }];
+        const promise = row.promisedOn ? dateMinute(row.promisedOn) + dayMinutes - 1 : undefined;
         return <div key={row.key} className={'gantt-row' + (selectedKey === row.key ? ' selected' : '')}>
           <button className="gantt-label" type="button" onClick={() => onSelect(row.key)} aria-pressed={selectedKey === row.key} title={title}>
-            <strong>{row.title}</strong><small>{row.overdue ? '逾期' : row.missesTaskDue ? '预计超期' : row.delayed ? '晚于基准' : row.critical ? '制约工期' : statuses[row.status]}</small>
+            <strong>{row.title}</strong><small>{row.overdue ? '逾期' : row.missesTaskDue ? '预计超期' : row.delayed ? '晚于基准' : row.critical ? '制约工期' : statuses[row.status]}
+              {row.promisedOn && ' · 承诺回件 ' + row.promisedOn}</small>
           </button>
           <div className="gantt-plot" style={plotStyle}
             onClick={() => onSelect(row.key)} title={title}>
@@ -268,6 +272,8 @@ function Gantt({ rows, now, deadline, baseline, selectedKey, onSelect }: {
             {blocks.map(block => <span key={block.start} className={`gantt-bar ${row.pool} ${row.status}`} style={{
               left: position(block.start) + '%', width: Math.max(position(block.finish) - position(block.start), 0) + '%'
             }} />)}
+            {promise !== undefined && promise >= start &&
+              <span className="gantt-promise" style={{ left: position(promise) + '%' }} />}
             <span className="gantt-today" style={{ left: position(now) + '%' }} />
             {deadline !== undefined && deadline >= start &&
               <span className="gantt-due" style={{ left: position(deadline) + '%' }} />}

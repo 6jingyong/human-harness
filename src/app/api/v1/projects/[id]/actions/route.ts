@@ -58,7 +58,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     } else if (action === 'amend_agent') {
       project = approveHumanCorrectedOutput(id, stepId, value, feedback);
     } else if (action === 'approve_agent' || action === 'reject_agent') {
-      project = reviewAgentOutput(id, stepId, action === 'approve_agent', feedback);
+      project = reviewAgentOutput(id, stepId, action === 'approve_agent', feedback,
+        String(form.get('expectedArtifactId') ?? '') || undefined);
     } else if (action === 'retry_agent') {
       project = retryFailedAgent(id, stepId);
     } else if (action === 'recover_agent') {
@@ -81,7 +82,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   } catch (error) {
     const text = error instanceof ZodError ? error.issues.slice(0, 5).map(e => e.message).join('; ')
       : error instanceof Error ? error.message : 'Unknown runtime error';
-    const conflict = /Dependent Agent work is active|Approved output HEAD changed/.test(text);
+    const conflict = /Dependent Agent work is active|Approved output HEAD changed|待审稿已更新/.test(text);
     const known = conflict || error instanceof RuntimeError || error instanceof ZodError ||
       /not (ready|actionable|requested|pending)|Only |required|mismatch|cannot|invalid|does not|Decision|rejection/i.test(text);
     if (!known) console.error('Action error', error);

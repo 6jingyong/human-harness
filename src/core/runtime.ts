@@ -484,13 +484,17 @@ export function answerHumanRequest(project: ProjectState, requestId: string, raw
   resumeAfterHumanAnswers(project, item.stepId);
 }
 
-export function reviewAgent(project: ProjectState, stepId: string, approved: boolean, feedback: string): void {
+export function reviewAgent(project: ProjectState, stepId: string, approved: boolean, feedback: string,
+  expectedCandidateId?: string): void {
   const state = project.steps[stepId];
   if (!state || state.state !== 'review') throw new Error('Task is not pending review');
   if (!approved && !feedback.trim()) throw new Error('Rejection requires feedback');
   const def = project.package.steps.find(step => step.id === stepId);
   const current = project.artifacts.filter(a =>
     a.kind === 'agent_output' && a.ownerId === stepId).at(-1);
+  if (expectedCandidateId && current?.id !== expectedCandidateId) {
+    throw new Error('待审稿已更新，请重新审核最新版本。');
+  }
   if (approved && def?.method && (!current?.methodChecks ||
       current.methodChecks.length !== def.method.checks.length)) {
     throw new Error('Template method checklist is missing; cannot approve');

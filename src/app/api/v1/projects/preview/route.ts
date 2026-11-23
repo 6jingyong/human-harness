@@ -5,6 +5,7 @@ import { previewProject, RuntimeError } from '@/core/store';
 import { calculateProjectPlan } from '@/core/project-plan';
 import { coordinationOverview } from '@/core/project-coordination';
 import { deriveWorkbenchQueues } from '@/app/workbench-queue';
+import { getLaunchablePackage } from '@/app/launch-templates';
 
 export const runtime = 'nodejs';
 
@@ -12,7 +13,7 @@ export async function POST(request: Request) {
   try {
     const { packageId, packageVersion, title, setup } = projectLaunchSchema.parse(await request.json());
     if (!setup) throw new RuntimeError('预览需要项目的时间和资源设置。');
-    const project = previewProject(packageId, title, setup, packageVersion);
+    const project = previewProject(getLaunchablePackage(packageId, packageVersion), title, setup);
     const asOf = new Date();
     const { human, agent } = deriveWorkbenchQueues(project, asOf);
     const plan = calculateProjectPlan(project, setup.planning, asOf);

@@ -459,12 +459,12 @@ test('approved output can be Human-revised from the library; dependent review re
   await expect(page.getByRole('region', { name: 'Agent TodoList' })).toContainText('等待依赖');
 });
 
-test('the local JSON import installs the optional land investigation template and starts the dual Todo', async ({ page }) => {
+test('the bundled land template is selectable and a local JSON import can still be edited and launched', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: '打开菜单' }).click();
   const packageSelect = page.locator('#package-select');
   await expect(packageSelect).toContainText('双文档信息核对与交付');
-  await expect(packageSelect).not.toContainText('环评 · 地块土壤污染状况调查');
+  await expect(packageSelect).toContainText('环评 · 地块土壤污染状况调查 · 0.5.0');
   await page.getByLabel('导入本地 JSON 模板').setInputFiles(fileURLToPath(
     new URL('../../project-templates/land-investigation/land-investigation.hh.json', import.meta.url)
   ));

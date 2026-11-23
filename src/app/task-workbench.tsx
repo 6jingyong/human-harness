@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import type { LedgerReference } from '@/protocol/project-ledger';
 
 import { formatLatestStart } from '@/core/project-coordination';
@@ -15,7 +16,7 @@ const materialStates: Record<string, string> = {
   requested: '待提交', received: '待核验', accepted: '已接受', rejected: '已退回',
   dormant: '未来阶段', expected: '尚未需要', not_applicable: '不适用'
 };
-type ActionOptions = { stepId?: string; materialId?: string; requestId?: string; promisedOn?: string };
+type ActionOptions = { stepId?: string; materialId?: string; requestId?: string; promisedOn?: string; expectedArtifactId?: string };
 
 type Props = {
   project: ProjectState;
@@ -52,12 +53,52 @@ function TaskOption({ item, selected, onSelect }: {
   </button>;
 }
 
+function ReviewDecision({ stepId, candidateId, labelId, note, needsReason, disabled, onFeedback, onAction }: {
+  stepId: string; candidateId?: string; labelId: string; note: string; needsReason: boolean; disabled: boolean;
+  onFeedback: Props['onFeedback']; onAction: Props['onAction'];
+}) {
+  const target = { stepId, expectedArtifactId: candidateId };
+  return <>
+    {needsReason && <p className="error-text">有模板检查未通过或未确认。若仍批准，须记录人工判断依据。</p>}
+    <label htmlFor={labelId}>审核说明</label>
+    <textarea id={labelId} value={note}
+      onChange={event => onFeedback(stepId, event.target.value)}
+      placeholder="记录修改意见或不符合验收条件的原因" />
+    <div className="actions">
+      <button type="button" className="primary" disabled={disabled || !candidateId || (needsReason && !note.trim())}
+        onClick={() => onAction('approve_agent', target)}>批准并交接下游</button>
+      <button type="button" disabled={disabled || !candidateId || !note.trim()}
+        onClick={() => onAction('reject_agent', target)}>退回 Agent 重做</button>
+    </div>
+  </>;
+}
+
 export function TaskWorkbench({
   project, executor, selectedKey, onSelect, onRefresh, onAction, onRecord,
   values, feedback, files, onValue, onFeedback, onFile, isPending
 }: Props) {
   const queues = deriveWorkbenchQueues(project);
   const agentGroups = groupAgentTasks(project, queues.agent);
+  const [openedReview, setOpenedReview] = useState<{ projectId: string; outputId: string }>();
+  const pendingById = new Map(queues.human.filter(item => item.state === 'review').map(item => [item.id, item]));
+  const bundledSections = new Set<string>();
+  const reviewGroups = project.package.outputs.flatMap(output => {
+    if (output.markdown?.assembly !== 'concatenate') return [];
+    const assembler = project.package.steps.find(def => def.id === output.producingStepId);
+    if (!assembler || project.steps[assembler.id]?.state === 'not_applicable') return [];
+    const sections = assembler.dependsOn.filter(id => project.package.outputs.some(part =>
+      part.producingStepId === id && part.format === 'markdown' && !part.deliverable));
+    if (sections.length < 2) return [];
+    const items = sections.flatMap(id => {
+      const item = pendingById.get(id);
+      if (!item || bundledSections.has(id)) return [];
+      bundledSections.add(id);
+      return [item];
+    });
+    return items.length ? [{ output, items }] : [];
+  });
+  const reviewGroup = openedReview?.projectId === project.id
+    ? reviewGroups.find(group => group.output.id === openedReview.outputId) : undefined;
   const current = selectedKey ?
     [...queues.human, ...queues.agent, ...queues.external].find(item => item.key === selectedKey) : undefined;
   const material = current?.kind === 'material'
@@ -108,9 +149,18 @@ export function TaskWorkbench({
       <section className="todo-column" aria-label="人类 TodoList">
         <header className="todo-column-heading"><h2>Human TodoList</h2><small>{queues.human.length} 项待处理</small></header>
         <div className="todo-vertical-list">
-          {queues.human.map(item => <TaskOption key={item.key} item={item}
+          {queues.human.filter(item => !bundledSections.has(item.id) || item.state !== 'review').map(item => <TaskOption key={item.key} item={item}
             selected={current?.key === item.key}
             onSelect={key => onSelect(selectedKey === key ? '' : key)} />)}
+          {reviewGroups.map(group => <button key={group.output.id} type="button" className="workbench-item"
+            aria-expanded={reviewGroup?.output.id === group.output.id} onClick={() => {
+              onSelect('');
+              setOpenedReview(reviewGroup?.output.id === group.output.id
+                ? undefined : { projectId: project.id, outputId: group.output.id });
+            }}>
+            <span className="workbench-item-label">集中审阅分节 · {group.output.title}</span>
+            <span className="task-state review">{group.items.length} 节待审</span>
+          </button>)}
           {!queues.human.length && <p className="todo-empty">当前无需人工处理</p>}
           {queues.external.length > 0 && <details className="external-waiting" open={queues.external.some(item => item.key === selectedKey) || undefined}>
             <summary>等待外部回件 · {queues.external.length}</summary>
@@ -144,6 +194,39 @@ export function TaskWorkbench({
         </div>
       </section>
     </div>
+    {reviewGroup && !current && <section className="todo-detail-wrap section-review" aria-label="报告分节审阅">
+      <div className="todo-detail-top"><h2>{reviewGroup.output.title} · {reviewGroup.items.length} 节待审</h2>
+        <button type="button" onClick={() => setOpenedReview(undefined)}>关闭集中审阅</button>
+      </div>
+      {reviewGroup.items.map(item => {
+        const state = project.steps[item.id];
+        const candidate = project.artifacts.findLast(artifact =>
+          artifact.kind === 'agent_output' && artifact.ownerId === item.id);
+        const contract = project.package.outputs.find(output => output.producingStepId === item.id);
+        const limitations = project.runs.find(run => run.id === state?.runId)?.result?.limitations ?? [];
+        return <article key={item.id} className="workbench-inspector" aria-label={item.title}>
+          <div className="todo-detail-top"><h3>{item.title}</h3>
+            <button type="button" onClick={() => onSelect(item.key)}>完整任务详情</button>
+          </div>
+          <pre className="result">{candidate?.content}</pre>
+          <details>
+            <summary>验收条件与输入版本</summary>
+            <ul>{contract?.acceptance.map(rule => <li key={rule}>{rule}</li>)}</ul>
+            <ul>{candidate?.inputArtifactIds?.map(id => {
+              const input = project.artifacts.find(artifact => artifact.id === id);
+              return input ? <li key={id}>{input.name}（v{input.revision}）</li> : null;
+            })}</ul>
+          </details>
+          {limitations.length > 0 && <details open>
+            <summary>内部核查事项</summary>
+            <ul>{limitations.map((limitation, index) => <li key={index}>{limitation}</li>)}</ul>
+          </details>}
+          <ReviewDecision stepId={item.id} candidateId={candidate?.id} labelId={'section-review-' + item.id}
+            note={feedback[item.id] ?? ''} needsReason={Boolean(candidate?.methodChecks?.some(check => check.status !== 'passed'))}
+            disabled={isPending(item.id)} onFeedback={onFeedback} onAction={onAction} />
+        </article>;
+      })}
+    </section>}
     {current && <div className="todo-detail-wrap">
       <div className="todo-detail-top"><span>任务详情</span>
         <button type="button" onClick={() => onSelect('')} aria-label="关闭任务详情">× 关闭</button>
@@ -388,24 +471,13 @@ export function TaskWorkbench({
               {currentStepState.state === 'review' && <section className="inspector-section approval-section">
                 <h3>审核 Agent 候选结果</h3>
                 <p>批准后才会解除依赖并推进后续任务；退回必须说明原因。</p>
-                {unresolvedMethodChecks.length > 0 && <p className="error-text">
-                  有 {unresolvedMethodChecks.length} 项模板检查未通过或未确认。若仍批准，必须填写人工判断依据。
-                </p>}
                 {runLimitations.length > 0 && <div>
                   <h4>内部核查事项</h4>
                   <ul>{runLimitations.map((item, index) => <li key={index}>{item}</li>)}</ul>
                 </div>}
-                <label htmlFor={'agent-review-' + key}>审核说明</label>
-                <textarea id={'agent-review-' + key} value={note}
-                  onChange={event => onFeedback(key, event.target.value)}
-                  placeholder="记录修改意见或不符合验收条件的原因" />
-                <div className="actions">
-                  <button type="button" className="primary"
-                    disabled={disabled || (unresolvedMethodChecks.length > 0 && !note.trim())}
-                    onClick={() => onAction('approve_agent', { stepId: key })}>批准并交接下游</button>
-                  <button type="button" disabled={disabled || !note.trim()}
-                    onClick={() => onAction('reject_agent', { stepId: key })}>退回 Agent 重做</button>
-                </div>
+                <ReviewDecision stepId={key} candidateId={outputRevisions[0]?.id} labelId={'agent-review-' + key}
+                  note={note} needsReason={unresolvedMethodChecks.length > 0} disabled={disabled}
+                  onFeedback={onFeedback} onAction={onAction} />
                 {outputContract?.markdown?.assembly === 'concatenate' ? <p>要修改正文，请修订已审核的小节并重新组装。</p> :
                 <details className="template-work-method">
                   <summary>人工直接修订候选结果（不重新调用模型）</summary>

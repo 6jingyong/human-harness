@@ -260,10 +260,10 @@ export function RuntimeWorkspace() {
            <button type="button" onClick={() => { setMode('company-ledger'); setMenuOpen(false); }}>公司账务</button>
          </div>
 
-        <div className="section-label">项目模板（手动）</div>
+        <div className="section-label">项目模板</div>
         <h2>创建项目</h2>
         <form className="create-form" onSubmit={openLaunch}>
-          <label htmlFor="package-select">选择已安装模板</label>
+          <label htmlFor="package-select">选择项目模板</label>
           <select id="package-select" value={packageId} onChange={e => setPackageId(e.target.value)}>
             {packages.map(p => <option key={p.id} value={p.id}>{p.title} · {p.version}</option>)}
           </select>
