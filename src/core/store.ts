@@ -4,6 +4,10 @@ import { basename, extname, join, resolve } from 'node:path';
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import documentHandoff from '../../examples/document-handoff.hh.json';
 import technicalSpecReview from '../../examples/technical-spec-review.hh.json';
+import generalReport from '../../examples/general-report.hh.json';
+import projectPlan from '../../examples/project-plan.hh.json';
+import meetingActions from '../../examples/meeting-actions.hh.json';
+import projectRetrospective from '../../examples/project-retrospective.hh.json';
 import { MAX_ASSEMBLED_MARKDOWN_LENGTH, packageSchema, taskPacketSchema, taskResultSchema, type HumanHarnessPackage, type HumanHarnessTaskResult } from '../protocol/v1';
 import { coordinationSettingsSchema, requirementSchema } from '../protocol/coordination';
 import { enabledWorkOrders, workOrderHandoffTarget } from './work-orders';
@@ -38,7 +42,8 @@ db.exec([
   'CREATE INDEX IF NOT EXISTS idx_runtime_events ON event_log(project_id, created_at)'
 ].join(';') + ';');
 
-const builtinPackages = [documentHandoff, technicalSpecReview].map(pkg => packageSchema.parse(pkg));
+const builtinPackages = [documentHandoff, generalReport, projectPlan, meetingActions, projectRetrospective, technicalSpecReview]
+  .map(pkg => packageSchema.parse(pkg));
 const digest = (value: unknown) => 'sha256:' + createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const asError = (e: unknown) => e instanceof Error ? e : new Error(String(e));
 

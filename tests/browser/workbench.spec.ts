@@ -732,3 +732,41 @@ test('project ledger records cash and task time, compares a baseline and rolls u
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
 });
+
+test('the general report can be copied, launched from the menu and delivered as Word', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  const picker = page.locator('#package-select');
+  await picker.selectOption('general-report');
+  await page.getByRole('button', { name: '复制所选模板' }).click();
+  const editor = page.getByRole('region', { name: '项目模板编辑器' });
+  await expect(editor).toContainText('通用报告撰写');
+  await expect(editor.locator('[data-flow-card="step:evidence"]')).toBeVisible();
+  await expect(editor.locator('[data-flow-card="step:outline"]')).toBeVisible();
+  await page.getByRole('button', { name: /返回项目/ }).click();
+
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await expect(picker).toHaveValue('general-report');
+  await page.getByLabel('本次项目名称').fill('报告模板浏览器试跑');
+  await page.getByRole('button', { name: /创建项目/ }).click();
+  await expect(page.getByText(/MARKDOWN \/ DOCX/)).toBeVisible();
+  await page.getByRole('button', { name: '确认并启动项目' }).click();
+
+  const human = page.getByRole('region', { name: '人类 TodoList' });
+  for (const [title, text] of [
+    ['报告要求', '供项目负责人判断方案可行性，关注工期及人员。'],
+    ['原始资料与来源索引', '项目计划 A 第 2 段记录总工期 15 天。']
+  ]) {
+    await human.getByRole('button', { name: new RegExp(title) }).click();
+    await page.getByLabel('资料内容 / 来源说明').fill(text);
+    await page.getByRole('button', { name: '提交资料，等待人工核验' }).click();
+    await page.getByRole('button', { name: '确认接受材料' }).click();
+  }
+  for (const title of ['拟定报告提纲', '整理来源证据', '用已审证据撰写报告']) {
+    await human.getByRole('button', { name: new RegExp(title) }).click();
+    await page.getByRole('button', { name: '批准并交接下游' }).click();
+  }
+  const delivery = page.getByRole('region', { name: '项目交付' });
+  await expect(delivery.getByRole('link', { name: '下载 Markdown' })).toBeVisible();
+  await expect(delivery.getByRole('link', { name: '下载 Word' })).toHaveAttribute('href', /format=docx$/);
+});

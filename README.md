@@ -13,6 +13,8 @@ The [project requirements workflow](docs/project-coordination.md) materializes o
 
 The [project planning view](docs/project-planning.md) schedules the same tasks against workday capacity, records a baseline and identifies actionable delays.
 
+The built-in [general project templates](docs/README.zh-CN.md#通用项目模板) include report writing, project kickoff, meeting minutes and actions, and project retrospectives. They produce reviewed Markdown and Word deliverables.
+
 The local project ledger tracks cash, contract receivables and actual human time. It reads external waiting from project events, compares related projects or a historical baseline, and rolls up company cash by currency.
 
 ## Why does this exist?
