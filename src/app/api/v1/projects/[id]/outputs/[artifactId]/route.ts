@@ -1,10 +1,11 @@
 import { getProject } from '@/core/store';
 import { currentApprovedOutput } from '@/core/runtime';
+import { renderApprovedWord } from '@/core/word-export';
 
 export const runtime = 'nodejs'; export const dynamic = 'force-dynamic';
 
 /** Download only an explicitly reviewed output contract from the current project. */
-export async function GET(_request: Request, ctx: { params: Promise<{ id: string; artifactId: string }> }) {
+export async function GET(request: Request, ctx: { params: Promise<{ id: string; artifactId: string }> }) {
   try {
     const { id, artifactId } = await ctx.params;
     const project = getProject(id);
@@ -20,10 +21,28 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
     if (!['markdown', 'json'].includes(contract.format) || typeof artifact.content !== 'string') {
       return Response.json({ error: 'Export renderer is not installed' }, { status: 409 });
     }
-    return new Response(artifact.content, {
+    const requested = new URL(request.url).searchParams.get('format');
+    if (requested !== null && requested !== 'docx') {
+      return Response.json({ error: 'Unsupported download format' }, { status: 400 });
+    }
+    if (requested === 'docx' && !contract.word) {
+      return Response.json({ error: 'Word export is not enabled by this template' }, { status: 404 });
+    }
+    const word = requested === 'docx' ? contract.word : undefined;
+    let body: BodyInit = artifact.content;
+    if (word) {
+      try { body = renderApprovedWord(artifact.content, project.title, word); }
+      catch (error) {
+        console.error('Approved Word export failed for artifact', artifactId, error instanceof Error ? error.name : '');
+        return Response.json({ error: 'Word export could not be generated' }, { status: 500 });
+      }
+    }
+    const contentType = word ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      : contract.format === 'json' ? 'application/json; charset=utf-8' : 'text/markdown; charset=utf-8';
+    return new Response(body, {
       headers: {
-        'Content-Type': contract.format === 'json' ? 'application/json; charset=utf-8' : 'text/markdown; charset=utf-8',
-        'Content-Disposition': 'attachment; filename="' + contract.fileName + '"',
+        'Content-Type': contentType,
+        'Content-Disposition': 'attachment; filename="' + (word?.fileName ?? contract.fileName) + '"',
         'Cache-Control': 'no-store',
         'X-Content-Type-Options': 'nosniff'
       }

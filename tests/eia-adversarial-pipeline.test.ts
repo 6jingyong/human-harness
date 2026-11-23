@@ -1,3 +1,4 @@
+import template from '../examples/eia-abc-pipeline.hh.json';
 import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -9,6 +10,7 @@ import { deriveWorkbenchQueues } from '../src/app/workbench-queue';
 const folder = mkdtempSync(join(tmpdir(), 'hh-adversarial-abc-'));
 process.env.HH_DATA_DIR = folder;
 const store = await import('../src/core/store');
+store.importPackage(template);
 const { executeOneAgentTask } = await import('../src/executors/runner');
 const { GET: exportOutput } = await import('../src/app/api/v1/projects/[id]/outputs/[artifactId]/route');
 after(() => { try { rmSync(folder, { recursive: true, force: true }); } catch {} });

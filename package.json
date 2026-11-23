@@ -11,26 +11,28 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts",
-    "codex:smoke": "tsx scripts/codex-smoke.ts",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "codex:smoke": "node --import tsx scripts/codex-smoke.ts",
     "test:browser": "playwright test",
-    "codex:abc:live": "tsx scripts/codex-abc-live.ts"
+    "codex:abc:live": "node --import tsx scripts/codex-abc-live.ts"
   },
   "dependencies": {
     "@mastra/core": "1.82.0",
     "better-sqlite3": "13.0.3",
+    "fflate": "0.8.3",
+    "marked": "18.2.1",
     "next": "16.4.5",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "zod": "^4.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "1.56.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.15.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "typescript": "^5.9.0",
     "tsx": "^4.20.0",
-    "@playwright/test": "1.56.1"
+    "typescript": "^5.9.0"
   }
 }

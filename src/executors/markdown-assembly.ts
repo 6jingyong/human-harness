@@ -1,3 +1,4 @@
+import { MAX_ASSEMBLED_MARKDOWN_LENGTH } from '../protocol/v1';
 import type { ExecutorOutput, ExecutorTask, TaskExecutor } from './contracts';
 
 /**
@@ -18,18 +19,11 @@ export const markdownAssemblyExecutor: TaskExecutor = {
     if (task.evidence.some(e => e.role !== 'approved_derived' || typeof e.content !== 'string')) {
       throw new Error('Markdown assembly may consume only readable, reviewed upstream outputs');
     }
-    // Do not combine source material or old rejected output. The runtime task
-    // packet already resolves precisely the currently accepted dependencies.
-    const sections = task.evidence.map(e => '## ' + e.name.replace(/[\r\n]+/g, ' ') +
-      '\n\n' + e.content!.trim());
-    const human = (task.humanHandoffs ?? []).map(h =>
-      '### ' + h.stepId.replace(/[\r\n]+/g, ' ') + '\n\n' + h.value.trim());
-    const body = [
-      '# ' + task.stepTitle.replace(/[\r\n]+/g, ' '),
-      ...sections,
-      ...(human.length ? ['## 人工交接记录（原文）', ...human] : [])
-    ].join('\n\n') + '\n';
-    if (body.length > 120000) {
+    const concatenated = task.markdown?.assembly === 'concatenate';
+    const body = concatenated
+      ? task.evidence.map(e => e.content!).join('\n\n') + '\n'
+      : assembleWithLabels(task);
+    if (body.length > (concatenated ? MAX_ASSEMBLED_MARKDOWN_LENGTH : 120000)) {
       throw new Error('Assembled Markdown exceeds output contract size limit');
     }
     return {
@@ -47,3 +41,15 @@ export const markdownAssemblyExecutor: TaskExecutor = {
     };
   }
 };
+
+function assembleWithLabels(task: ExecutorTask): string {
+  const sections = task.evidence.map(e => '## ' + e.name.replace(/[\r\n]+/g, ' ') +
+    '\n\n' + e.content!.trim());
+  const human = (task.humanHandoffs ?? []).map(h =>
+    '### ' + h.stepId.replace(/[\r\n]+/g, ' ') + '\n\n' + h.value.trim());
+  return [
+    '# ' + task.stepTitle.replace(/[\r\n]+/g, ' '),
+    ...sections,
+    ...(human.length ? ['## 人工交接记录（原文）', ...human] : [])
+  ].join('\n\n') + '\n';
+}

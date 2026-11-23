@@ -23,7 +23,10 @@ function codexEnvironment(): NodeJS.ProcessEnv {
     'PATH', 'HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'HOMEDRIVE',
     'HOMEPATH', 'TMP', 'TEMP', 'TMPDIR', 'SystemRoot', 'WINDIR',
     'PATHEXT', 'COMSPEC', 'LANG', 'LC_ALL', 'LC_CTYPE', 'CODEX_HOME',
-    'TERM', 'ProgramFiles', 'ProgramFiles(x86)'
+    'TERM', 'ProgramFiles', 'ProgramFiles(x86)',
+    'HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'NO_PROXY',
+    'http_proxy', 'https_proxy', 'all_proxy', 'no_proxy',
+    'SSL_CERT_FILE', 'SSL_CERT_DIR', 'NODE_EXTRA_CA_CERTS'
   ];
   return { NODE_ENV: process.env.NODE_ENV ?? 'development', ...Object.fromEntries(allowed.flatMap(key =>
     process.env[key] === undefined ? [] : [[key, process.env[key]]]
@@ -141,7 +144,7 @@ export async function runCodexTask(task: ExecutorTask, options: CodexLaunchOptio
     throw error;
   }
   const child = (options.startProcess ?? (() =>
-    spawn(process.env.HH_CODEX_COMMAND || 'codex', ['app-server'], {
+    spawn(/*turbopackIgnore: true*/ process.env.HH_CODEX_COMMAND || 'codex', ['app-server'], {
       cwd: workspace, stdio: 'pipe', shell: false, windowsHide: true,
       env: codexEnvironment()
     })))(workspace);

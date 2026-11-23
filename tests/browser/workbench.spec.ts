@@ -1,5 +1,17 @@
 import { test, expect } from '@playwright/test';
 import { Buffer } from 'node:buffer';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+async function installFixture(page: import('@playwright/test').Page, id: string) {
+  const installed = await page.request.get('/api/v1/packages?id=' + id);
+  if (installed.ok()) return;
+  const file = new URL('../../examples/' + id + '.hh.json', import.meta.url);
+  const response = await page.request.post('/api/v1/packages', {
+    data: JSON.parse(readFileSync(file, 'utf8'))
+  });
+  expect(response.status()).toBe(201);
+}
 
 test.beforeEach(async ({ page }) => {
   page.on('pageerror', error => console.error('BROWSER PAGE ERROR:', error.message));
@@ -14,6 +26,7 @@ async function createProject(page: import('@playwright/test').Page, title: strin
   await expect(page.locator('#package-select')).toContainText('双文档信息核对与交付');
   await page.getByLabel('本次项目名称').fill(title + ' ' + Date.now());
   await page.getByRole('button', { name: /创建项目/ }).click();
+  await page.getByRole('button', { name: '确认并启动项目' }).click();
   await expect(page.getByRole('heading', { name: /Human Todo/ })).toBeVisible();
   await expect(page.getByRole('heading', { name: /Agent Todo/ })).toBeVisible();
   // Wait for the off-canvas menu's closing transition before snapshots.
@@ -63,10 +76,12 @@ test('simple two-row UI completes Human → Agent → Human → Agent and opens 
     .fill('人工核对已完成，并说明冲突修正依据。');
   await page.getByRole('button', { name: '确认完成并交接' }).click();
 
-  await human.getByRole('button', { name: /根据资料与人工核对生成成果/ }).click();
+  const delivery = page.getByRole('region', { name: '项目交付' });
+  await delivery.getByRole('button', { name: '打开验收待办' }).click();
   await expect(page.getByRole('button', { name: '批准并交接下游' })).toBeVisible();
   await page.getByRole('button', { name: '批准并交接下游' }).click();
   await expect(human.getByRole('button')).toHaveCount(0);
+  await expect(delivery.getByRole('link', { name: '下载交付件' })).toBeVisible();
 
   await page.getByRole('button', { name: '查看项目资料' }).click();
   await expect(page.getByRole('heading', { name: '项目资料' })).toBeVisible();
@@ -204,6 +219,7 @@ test('template-defined method checks reach the Human reviewer without implying a
   await page.locator('#package-select').selectOption('technical-spec-review');
   await page.getByLabel('本次项目名称').fill('方法模板界面验收 ' + Date.now());
   await page.getByRole('button', { name: /创建项目/ }).click();
+  await page.getByRole('button', { name: '确认并启动项目' }).click();
   const human = page.getByRole('region', { name: '人类 TodoList' });
   const agents = page.getByRole('region', { name: 'Agent TodoList' });
   await expect(agents.locator('.agent-folder')).toHaveCount(3);
@@ -240,12 +256,14 @@ test('template-defined method checks reach the Human reviewer without implying a
 
 
 test('EIA pilot template appears in dual Todos and never grants Demo professional approval', async ({ page }) => {
+  await installFixture(page, 'eia-source-replay');
   await page.goto('/');
   await page.getByRole('button', { name: '打开菜单' }).click();
   await expect(page.locator('#package-select')).toContainText('环评素材来源与半成品复核');
   await page.locator('#package-select').selectOption('eia-source-replay');
   await page.getByLabel('本次项目名称').fill('环评真实素材回放流程（模拟录入）' + Date.now());
   await page.getByRole('button', { name: /创建项目/ }).click();
+  await page.getByRole('button', { name: '确认并启动项目' }).click();
 
   const human = page.getByRole('region', { name: '人类 TodoList' });
   const agent = page.getByRole('region', { name: 'Agent TodoList' });
@@ -306,12 +324,14 @@ test('EIA pilot template appears in dual Todos and never grants Demo professiona
 
 
 test('EIA A→B→C template keeps stage roles separate and produces a downloaded C candidate after Human review (Demo only)', async ({ page }) => {
+  await installFixture(page, 'eia-abc-pipeline');
   await page.goto('/');
   await page.getByRole('button', { name: '打开菜单' }).click();
   await expect(page.locator('#package-select')).toContainText('环评 A→B→C 分阶段并行流水线');
   await page.locator('#package-select').selectOption('eia-abc-pipeline');
   await page.getByLabel('本次项目名称').fill('ABC分阶段业务验收 ' + Date.now());
   await page.getByRole('button', { name: /创建项目/ }).click();
+  await page.getByRole('button', { name: '确认并启动项目' }).click();
   const human = page.getByRole('region', { name: '人类 TodoList' });
   const agent = page.getByRole('region', { name: 'Agent TodoList' });
   await expect(human.getByRole('button')).toHaveCount(5);
@@ -437,4 +457,137 @@ test('approved output can be Human-revised from the library; dependent review re
   await page.getByRole('button', { name: '← 返回 Todo' }).click();
   await expect(human.getByRole('button', { name: /确认缺失信息或冲突的处理意见/ })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Agent TodoList' })).toContainText('等待依赖');
+});
+
+test('the local JSON import installs the optional land investigation template and starts the dual Todo', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  const packageSelect = page.locator('#package-select');
+  await expect(packageSelect).toContainText('双文档信息核对与交付');
+  await expect(packageSelect).not.toContainText('环评 · 地块土壤污染状况调查');
+  await page.getByLabel('导入本地 JSON 模板').setInputFiles(fileURLToPath(
+    new URL('../../project-templates/land-investigation/land-investigation.hh.json', import.meta.url)
+  ));
+  await page.getByRole('button', { name: '验证并保存模板' }).click();
+  await expect(page.getByRole('status')).toContainText('land-investigation-report @ 0.5.0');
+
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await expect(packageSelect).toHaveValue('land-investigation-report');
+  await page.getByLabel('本次项目名称').fill('独立环评模板浏览器测试');
+  await page.getByRole('button', { name: /创建项目/ }).click();
+  await page.getByRole('button', { name: '确认并启动项目' }).click();
+  const human = page.getByRole('region', { name: '人类 TodoList' });
+  const agent = page.getByRole('region', { name: 'Agent TodoList' });
+  await expect(human.getByRole('button', { name: /现场踏勘/ })).toBeVisible();
+  await expect(human.getByRole('button', { name: /正式检测报告/ })).toHaveCount(0);
+  await expect(agent).toContainText('素材提取');
+});
+
+test('project plan can be saved, prioritizes a Human Todo, and opens the same task', async ({ page }) => {
+  await createProject(page, '填排程资源与优先顺序');
+  await page.getByRole('button', { name: '项目计划', exact: true }).click();
+  const plan = page.getByRole('region', { name: '项目计划', exact: true });
+  const gantt = plan.getByRole('region', { name: '项目甘特图' });
+  await expect(gantt).toBeVisible();
+  await plan.getByText('工作日与资源容量').click();
+  await plan.getByLabel('每人每天可投入小时').fill('3');
+  await gantt.getByRole('button', { name: /第二份资料/ }).click();
+  const details = plan.getByRole('region', { name: '排程任务详情' });
+  await details.getByLabel('估计工时（小时）').fill('1.5');
+  await details.getByRole('button', { name: '设为优先' }).click();
+  await plan.getByRole('button', { name: '锁定基准' }).click();
+  await expect(plan.getByRole('status')).toContainText('已锁定计划基准');
+  await details.getByRole('button', { name: '去处理 Todo' }).click();
+  const human = page.getByRole('region', { name: '人类 TodoList' });
+  await expect(human.getByRole('button').first()).toContainText('第二份资料');
+  await expect(human.getByRole('button').first()).toContainText('优先');
+  await expect(page.locator('#material-file-source-b')).toBeVisible();
+});
+
+test('delivery requirements turn into owner Todos, and solicitation does not count as receipt', async ({ page }) => {
+  const packageId = 'land-investigation-report';
+  if (!(await page.request.get('/api/v1/packages?id=' + packageId)).ok()) {
+    const file = new URL('../../project-templates/land-investigation/land-investigation.hh.json', import.meta.url);
+    const imported = await page.request.post('/api/v1/packages', { data: JSON.parse(readFileSync(file, 'utf8')) });
+    expect(imported.status()).toBe(201);
+  }
+  const title = '一人公司项目要求闭环 ' + Date.now();
+  const created = await page.request.post('/api/v1/projects', { data: { packageId, title } });
+  expect(created.status()).toBe(201);
+  const { project } = await created.json();
+  const action = async (form: Record<string, string>) => {
+    const response = await page.request.post('/api/v1/projects/' + project.id + '/actions', { multipart: form });
+    expect(response.status()).toBe(200);
+  };
+  await action({ action: 'submit_material', materialId: 'project-identity', value: '测试工程身份' });
+  await action({ action: 'accept_material', materialId: 'project-identity' });
+
+  await page.goto('/');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await page.getByRole('button', { name: new RegExp(title) }).click();
+  const requirements = page.getByRole('region', { name: '项目要求' });
+  const human = page.getByRole('region', { name: '人类 TodoList' });
+  await expect(human.getByRole('button', { name: /提前联系地测/ })).toHaveCount(0);
+  await requirements.getByRole('button', { name: '设置项目要求' }).click();
+  await requirements.getByRole('checkbox', { name: '本项目需要外包地测' }).check();
+  await requirements.getByLabel('外包地测验收截止日').fill('2034-11-27');
+  await requirements.getByRole('checkbox', { name: '本项目需要政府调档' }).check();
+  await requirements.getByLabel('政府调档验收截止日').fill('2034-11-27');
+  await requirements.getByRole('button', { name: '保存并更新 Todo' }).click();
+  await expect(human.getByRole('button', { name: /提前联系地测/ })).toContainText('最晚开始');
+  await expect(human.getByRole('button', { name: /确认调档机关/ })).toBeVisible();
+  await expect(human.getByRole('button', { name: /地测机构成果及交付文件/ })).toHaveCount(0);
+
+  const note = page.getByLabel('完成情况、结论或交接给 Agent 的信息');
+  await human.getByRole('button', { name: /提前联系地测/ }).click();
+  await note.fill('测试联络，已核对档期');
+  await page.getByRole('button', { name: '确认完成并交接' }).click();
+  await human.getByRole('button', { name: /核对地测档期并确认委托/ }).click();
+  await note.fill('测试委托回执编号 100');
+  await page.getByLabel('对方承诺回件日').fill('2034-11-23');
+  await page.getByRole('button', { name: '确认完成并交接' }).click();
+
+  await human.getByText(/等待外部回件/).click();
+  await human.getByRole('button', { name: /核实地测机构回件/ }).click();
+  await expect(page.getByText('对方承诺回件 2034-11-23')).toBeVisible();
+  await note.fill('已主动跟进，仍在等待回件');
+  await page.getByRole('button', { name: '记录跟进，继续等待' }).click();
+  await expect(page.getByText('上次记录 已主动跟进，仍在等待回件')).toBeVisible();
+  await expect(human.getByRole('button', { name: /地测机构成果及交付文件/ })).toHaveCount(0);
+  await note.fill('实际回件已收到，编号 110');
+  await page.getByRole('button', { name: '确认实际回件' }).click();
+  await expect(human.getByRole('button', { name: /地测机构成果及交付文件/ })).toBeVisible();
+});
+
+test('startup previews template deliverables and carries requirements into the first Human Todo', async ({ page }) => {
+  const packageId = 'land-investigation-report';
+  if (!(await page.request.get('/api/v1/packages?id=' + packageId)).ok()) {
+    const file = new URL('../../project-templates/land-investigation/land-investigation.hh.json', import.meta.url);
+    const imported = await page.request.post('/api/v1/packages', { data: JSON.parse(readFileSync(file, 'utf8')) });
+    expect(imported.status()).toBe(201);
+  }
+  const title = '由模板和实际要求启动 ' + Date.now();
+  await page.goto('/');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await page.locator('#package-select').selectOption(packageId);
+  await page.getByLabel('本次项目名称').fill(title);
+  await page.getByRole('button', { name: /创建项目/ }).click();
+  const launch = page.getByRole('form', { name: '项目启动设置' });
+  const preview = launch.getByRole('region', { name: '启动预览' });
+  await launch.getByLabel('项目交付日').fill('2034-12-01');
+  await launch.getByLabel('每人每天可投入小时').fill('3');
+  await launch.getByRole('checkbox', { name: '本项目需要外包地测' }).check();
+  await launch.getByLabel('外包地测验收截止日').fill('2034-11-27');
+  await expect(preview.getByText('提供素材 · 项目身份与调查目的')).toBeVisible();
+  await expect(preview.getByText('组装完整内部审阅稿')).toContainText('DOCX');
+  await expect(preview.getByText('提前联系地测机构')).toBeVisible();
+  await expect(preview.getByText('地测机构成果及交付文件')).toHaveCount(0);
+
+  const before = await (await page.request.get('/api/v1/projects')).json();
+  expect(before.projects.some((project: { title: string }) => project.title === title)).toBe(false);
+  await launch.getByRole('button', { name: '确认并启动项目' }).click();
+  const todo = page.getByRole('region', { name: '人类 TodoList' });
+  await expect(todo.getByRole('button', { name: /提前联系地测机构/ })).toBeVisible();
+  await expect(todo.getByRole('button', { name: /地测机构成果及交付文件/ })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: '项目要求' })).toContainText('2034-11-27');
 });

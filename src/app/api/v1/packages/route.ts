@@ -6,8 +6,9 @@ export const runtime = 'nodejs'; export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    const id = new URL(request.url).searchParams.get('id');
-    return NextResponse.json(id ? { package: getPackage(id) } : { packages: listPackages() });
+    const params = new URL(request.url).searchParams;
+    const id = params.get('id');
+    return NextResponse.json(id ? { package: getPackage(id, params.get('version') ?? undefined) } : { packages: listPackages() });
   } catch { return NextResponse.json({ error: 'Project package not found' }, { status: 404 }); }
 }
 export async function POST(request: Request) {

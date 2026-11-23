@@ -4,6 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 import type { ProjectState } from '@/core/runtime';
 import { deriveWorkbenchQueues } from './workbench-queue';
 import { TaskWorkbench } from './task-workbench';
+import { ProjectDeliverables } from './project-deliverables';
+import { ProjectLaunchView } from './project-launch-view';
+import { ProjectRequirements } from './project-requirements';
+import { PlanAttention, ProjectPlanView } from './project-plan-view';
 import { ProjectMaterialLibrary } from './project-material-library';
 import type { HumanHarnessPackage } from '@/protocol/v1';
 import { manualProjectPackage } from '@/protocol/manual';
@@ -35,7 +39,8 @@ export function RuntimeWorkspace() {
   const [project, setProject] = useState<ProjectState | null>(null);
   const [packageId, setPackageId] = useState('document-handoff');
   const [name, setName] = useState('');
-  const [mode, setMode] = useState<'project' | 'editor' | 'library'>('project');
+  const [launchTemplate, setLaunchTemplate] = useState<HumanHarnessPackage>();
+  const [mode, setMode] = useState<'project' | 'editor' | 'library' | 'plan' | 'launch'>('project');
   const [menuOpen, setMenuOpen] = useState(false);
   const [executor, setExecutor] = useState('demo');
   const [editor, setEditor] = useState('');
@@ -64,13 +69,19 @@ export function RuntimeWorkspace() {
     const request = ++projectRequestSequence.current;
     const data = await parseResponse(await fetch('/api/v1/projects/' + encodeURIComponent(id), { cache: 'no-store' }));
     if (request !== projectRequestSequence.current) return;
-    setProject(withoutPaths(data.project));
+    const incoming = withoutPaths(data.project);
+    setProject(current => {
+      if (current?.id !== incoming.id) return incoming;
+      if ((current.coordination?.revision ?? 0) > (incoming.coordination?.revision ?? 0)) return current;
+      return (current.planning?.revision ?? 0) > (incoming.planning?.revision ?? 0)
+        ? { ...incoming, planning: current.planning } : incoming;
+    });
     if (!silent) { setMode('project'); setFocusedHandoff(''); setMenuOpen(false); }
   }
   useEffect(() => { refreshIndex().catch(e => setError(e.message)); }, []);
   // Server owns active Codex turns. Refreshing the page does not interrupt them.
   useEffect(() => {
-    if (!project?.id || mode !== 'project') return;
+    if (!project?.id || (mode !== 'project' && mode !== 'plan')) return;
     const projectId = project.id;
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible') {
@@ -80,21 +91,31 @@ export function RuntimeWorkspace() {
     return () => clearInterval(timer);
   }, [project?.id, mode]);
 
-  async function create(event: React.FormEvent) {
+  async function openLaunch(event: React.FormEvent) {
     event.preventDefault();
     if (!name.trim()) return;
     setBusy(true); setError(''); setNotice('');
     try {
-      const data = await parseResponse(await fetch('/api/v1/projects', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ packageId, title: name })
-      }));
+      const version = packages.find(item => item.id === packageId)?.version;
+      const query = new URLSearchParams({ id: packageId, ...(version ? { version } : {}) });
+      const { package: template } = await parseResponse(await fetch('/api/v1/packages?' + query));
       projectRequestSequence.current++;
-      setProject(withoutPaths(data.project)); setFocusedHandoff(''); setMode('project'); setMenuOpen(false); setName('');
-      await refreshIndex();
-      setNotice('项目已创建。请先完成当前显示的用户资料任务。');
+      setLaunchTemplate(template);
+      setMode('launch');
+      setMenuOpen(false);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
+  }
+
+  function projectCreated(created: ProjectState) {
+    projectRequestSequence.current++;
+    setProject(withoutPaths(created));
+    setFocusedHandoff('');
+    setMode('project');
+    setMenuOpen(false);
+    setName('');
+    setNotice('项目已启动。请处理当前显示的 Human Todo。');
+    void refreshIndex().catch(error => setError(error.message));
   }
 
   async function openTemplateEditor() {
@@ -144,14 +165,20 @@ export function RuntimeWorkspace() {
     event.currentTarget.value = '';
     if (!file) return;
     if (file.size > 200000) { setError('项目模板不能超过 200KB'); return; }
-    setEditor(await file.text());
-    setMode('editor');
-    setNotice('已载入本地模板。请检查内容并保存。');
+    try {
+      setEditor(await file.text());
+      setError('');
+      setMode('editor');
+      setMenuOpen(false);
+      setNotice('已载入本地模板。请检查内容并保存。');
+    } catch {
+      setError('读取模板文件失败');
+    }
   }
 
   async function action(
     type: string,
-    extra: { stepId?: string; materialId?: string; requestId?: string; expectedArtifactId?: string; autoDispatch?: boolean; maxParallel?: number } = {}
+    extra: { stepId?: string; materialId?: string; requestId?: string; expectedArtifactId?: string; promisedOn?: string; autoDispatch?: boolean; maxParallel?: number } = {}
   ) {
     if (!project || busy) return;
     const projectId = project.id;
@@ -175,6 +202,7 @@ export function RuntimeWorkspace() {
       data.append('maxParallel', String(extra.maxParallel));
     }
     data.append('value', values[key] || '');
+    if (extra.promisedOn) data.append('promisedOn', extra.promisedOn);
     data.append('feedback', feedback[key] || '');
     if (files[key]) data.append('file', files[key]!);
     try {
@@ -182,8 +210,8 @@ export function RuntimeWorkspace() {
         method: 'POST', body: data
       }));
       if (['complete_human', 'submit_material', 'answer_human_request', 'replace_material',
-        'revise_approved_agent'].includes(type)) {
-        setValues(old => ({ ...old, [key]: '' }));
+        'revise_approved_agent', 'record_work_order_follow_up'].includes(type)) {
+        setValues(old => ({ ...old, [key]: '', ['promise:' + key]: '' }));
         setFiles(old => ({ ...old, [key]: undefined }));
       }
       if (type === 'revise_approved_agent') {
@@ -242,7 +270,7 @@ export function RuntimeWorkspace() {
 
         <div className="section-label">项目模板（手动）</div>
         <h2>创建项目</h2>
-        <form className="create-form" onSubmit={create}>
+        <form className="create-form" onSubmit={openLaunch}>
           <label htmlFor="package-select">选择已安装模板</label>
           <select id="package-select" value={packageId} onChange={e => setPackageId(e.target.value)}>
             {packages.map(p => <option key={p.id} value={p.id}>{p.title} · {p.version}</option>)}
@@ -286,7 +314,11 @@ export function RuntimeWorkspace() {
         {error && <div className="alert error" role="alert">{error}</div>}
         {notice && <div className="alert info" role="status">{notice}</div>}
 
-        {mode === 'library' && project ? <ProjectMaterialLibrary
+        {mode === 'launch' && launchTemplate ? <ProjectLaunchView
+          key={launchTemplate.id + '@' + launchTemplate.version} template={launchTemplate} title={name}
+          onCancel={() => { setMode('project'); setMenuOpen(true); }}
+          onCreated={projectCreated} /> :
+        mode === 'library' && project ? <ProjectMaterialLibrary
           project={project} onBack={() => setMode('project')}
           onReplace={materialId => action('replace_material', { materialId })}
           onRevise={(stepId, expectedArtifactId) =>
@@ -297,6 +329,11 @@ export function RuntimeWorkspace() {
           onFile={(key, file) => setFiles(old => ({ ...old, [key]: file }))}
           isPending={isPending}
           /> :
+        mode === 'plan' && project ? <ProjectPlanView key={project.id} project={project}
+          onBack={() => setMode('project')}
+          onOpen={key => { setFocusedHandoff(key); setMode('project'); }}
+          onSaved={(id, planning) => setProject(current => current?.id === id ? { ...current, planning } : current)}
+        /> :
         mode === 'editor' ? <section className="editor-screen">
           <span className="eyebrow">MANUAL PACKAGE AUTHORING</span>
           <h1>手动创建项目模板</h1>
@@ -327,9 +364,14 @@ export function RuntimeWorkspace() {
             <div><span className="eyebrow">{project.package.title}</span><h1>{project.title}</h1></div>
             <div className="simple-project-actions">
               <span>{humanCount} 项待你处理 · {agentRunning} 项 Agent 运行中</span>
+              <button type="button" onClick={() => setMode('plan')}>项目计划</button>
               <button type="button" onClick={() => setMode('library')}>查看项目资料</button>
             </div>
           </div>
+          <ProjectRequirements key={project.id} project={project} onSaved={updated => {
+            setProject(current => current?.id === updated.id ? withoutPaths(updated) : current);
+          }} />
+          <PlanAttention project={project} onOpen={setFocusedHandoff} />
           <TaskWorkbench project={project} executor={executor}
             selectedKey={focusedHandoff} onSelect={setFocusedHandoff}
             onRefresh={() => openProject(project.id).catch(e => setError(e.message))}
@@ -339,6 +381,7 @@ export function RuntimeWorkspace() {
             onFile={(key, file) => setFiles(old => ({ ...old, [key]: file }))}
             isPending={isPending}
           />
+          <ProjectDeliverables project={project} onOpen={setFocusedHandoff} />
         </>}
       </main>
     </div>

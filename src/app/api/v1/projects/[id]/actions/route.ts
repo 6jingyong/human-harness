@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import {
   approveHumanCorrectedOutput, reviseHumanApprovedOutput, answerRequestedInput, getProject, completeHuman, recoverAbandonedAgent, retryFailedAgent, reviewAgentOutput, reviewReceivedMaterial,
-  RuntimeError, submitMaterial, setExecutionPolicy
+  RuntimeError, submitMaterial, setExecutionPolicy, recordWorkOrderFollowUp
 } from '@/core/store';
 import { ensureLocalScheduler } from '@/executors/scheduler';
 
@@ -17,6 +17,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const materialId = String(form.get('materialId') ?? '');
     const value = String(form.get('value') ?? '');
     const feedback = String(form.get('feedback') ?? '');
+    const promisedOn = String(form.get('promisedOn') ?? '') || undefined;
     let project;
     if (action === 'answer_human_request') {
       const requestId = String(form.get('requestId') ?? '');
@@ -34,7 +35,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         project = answerRequestedInput(id, requestId, value);
       }
     } else if (action === 'complete_human') {
-      project = completeHuman(id, stepId, value);
+      project = completeHuman(id, stepId, value, promisedOn);
+    } else if (action === 'record_work_order_follow_up') {
+      project = recordWorkOrderFollowUp(id, stepId, value, promisedOn);
     } else if (action === 'submit_material') {
       const candidate = form.get('file');
       const file = candidate instanceof File && candidate.size ? candidate : undefined;

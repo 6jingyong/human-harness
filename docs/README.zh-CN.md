@@ -6,6 +6,12 @@
 
 > **当前定位：本地开发原型。** 已实现基础项目流程、人工审核与演示执行，但并未实现正式 PDF/DOCX 内容解析、跨平台插件部署、真实 GIS 调研或正式行业报告。请勿将软件流程验收等同于专业技术验收。
 
+环评业务从[地块土壤污染状况调查模板](../project-templates/land-investigation/)导入。全新工作台默认提供通用模板，已有项目按创建时保存的模板快照继续执行。
+
+## 首个参考模板
+
+[地块土壤污染状况调查](../project-templates/land-investigation/)从启动、资料收集、外部事项跟进到交付复核使用同一套项目任务机制。已验收的内审稿支持 Markdown 和 Word 下载。
+
 ## 一句话理解
 
 **用项目模板确定工作方法，用持续保存的项目状态确定当前进度，让人类负责现实输入与审核，让成熟 Agent 负责有明确边界的工作。**
@@ -32,7 +38,7 @@ Human Harness 希望解决的不是“怎样让 AI 回答得更多”，而是�
 3. **在任务工作台直接处理 Todo**。主屏只有左右两列纵向列表：左侧 Human Todo、右侧 Agent Todo；右侧按模板定义的 Agent A/B 和任务状态折叠查看。点击待办才展开表单或审核；汉堡菜单进入独立的项目资料页，原件、模板说明、经过来源引用核验的结构化语义记录和普通 Agent 成果分开展示；人工决策仍是 Human Todo 的一部分。
 4. **运行 Agent 任务**。现有 demo/Mastra 和 Codex 本地 app-server（仅文本任务）适配器；任务包限制输入和可用能力。Codex 实际登录调用仍须本机验收。
 5. **按条件推进**。资料收到不等于合格；只有通过审核，依赖任务才会被激活。
-6. **交付经过审核的成果**。当前支持 Markdown/JSON 下载；真正的 Word/PDF 排版和专业检查尚未接入。
+6. **交付经过审核的成果**。当前支持 Markdown/JSON 下载，环评参考模板还可下载已审核稿的 Word 内审版。
 
 **没有项目模板搜索、推荐或模板市场。** 通用运行内核不负责“找项目”，模板由用户或开发者手工定义。
 
@@ -67,7 +73,7 @@ Human Harness 希望解决的不是“怎样让 AI 回答得更多”，而是�
 | 项目 | SQLite 持久化、模板版本快照、条件任务激活 | 动态衍生任意新任务、上游修改自动失效重算 |
 | 人机协作 | 两栏任务、资料收取、人工选择、批准/退回 | 多用户权限、可公开部署的身份认证 |
 | Agent | Demo/Mastra、Codex app-server 文本任务适配器（模拟协议 CI 通过）、严格任务包 | 真实 Codex 模型本机验收、插件及并行调度 |
-| 文档 | 可保存上传文件，纯文本可读取，Markdown/JSON 审核后下载 | PDF/DOCX/CAD 稳定解析、复杂文档格式还原 |
+| 文档 | 可保存上传文件，纯文本可读取，Markdown/JSON 审核后下载，模板可启用 Word 内审稿 | PDF/DOCX/CAD 稳定解析、复杂文档格式还原 |
 | 插件 | 内部能力 ID / 协议预留 | MCP 客户端与服务端、Agent Skills 安装与跨宿主验收 |
 
 **不要误解演示模式：** 它不会调用真实模型，更不会访问 Google Earth、现场踏勘、检测机构或任何真实业务数据。
@@ -81,7 +87,7 @@ Human Harness 希望解决的不是“怎样让 AI 回答得更多”，而是�
 ```bash
 git clone https://github.com/6jingyong/human-harness.git
 cd human-harness
-git switch feat/project-first-foundation
+git switch feat/land-investigation-reference
 npm install
 cp .env.example .env.local
 npm run dev

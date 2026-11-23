@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { estimateMinutes } from './planning';
 
 /** Canonical Human Harness Protocol v1 — no legacy schemaVersion adapters. */
 const id = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/);
@@ -9,11 +10,13 @@ const description = z.string().min(1).max(4000);
 export type Condition =
   | { type: 'decision'; stepId: string; option: string }
   | { type: 'work_done'; stepId: string }
+  | { type: 'work_order'; orderId: string }
   | { type: 'all' | 'any'; clauses: Condition[] };
 
 const condition: z.ZodType<Condition> = z.lazy(() => z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('decision'), stepId: id, option: id }),
   z.strictObject({ type: z.literal('work_done'), stepId: id }),
+  z.strictObject({ type: z.literal('work_order'), orderId: id }),
   z.strictObject({ type: z.literal('all'), clauses: z.array(condition).min(1).max(20) }),
   z.strictObject({ type: z.literal('any'), clauses: z.array(condition).min(1).max(20) })
 ]));
@@ -40,7 +43,14 @@ const material = z.strictObject({
   onDemand: z.boolean().optional(),
   formats: z.array(z.string().min(1).max(100)).max(20),
   acceptance: z.array(description).min(1).max(20), description,
-  method: materialMethod.optional()
+  method: materialMethod.optional(),
+  planningMinutes: estimateMinutes.optional()
+});
+const workOrder = z.strictObject({
+  id, title: description, description,
+  deliverables: z.array(id).min(1).max(20),
+  consumers: z.array(id).min(1).max(30),
+  followUp: z.strictObject({ milestoneId: id, workingDays: z.number().int().min(1).max(20) }).optional()
 });
 const agentGroup = z.strictObject({ id, title: description, description });
 const step = z.strictObject({
@@ -53,13 +63,36 @@ const step = z.strictObject({
   options: z.array(z.strictObject({ id, label: description })).min(2).max(20).optional(),
   requiresReview: z.boolean().optional(), outputContractId: id.optional(),
   resourceIds: z.array(id).max(30).optional(),
-  method: workMethod.optional()
+  method: workMethod.optional(),
+  planning: z.strictObject({ workMinutes: estimateMinutes.optional(), reviewMinutes: estimateMinutes.optional() }).optional()
 });
+export const MAX_ASSEMBLED_MARKDOWN_LENGTH = 500000;
+
+const markdownOptions = z.strictObject({
+  headings: z.array(z.strictObject({
+    level: z.number().int().min(1).max(6),
+    title: z.string().trim().min(1).max(200).regex(/^[^\r\n]+$/)
+  })).min(1).max(200).optional(),
+  assembly: z.literal('concatenate').optional()
+});
+const wordExport = z.strictObject({
+  fileName: z.string().max(160).regex(/^[A-Za-z0-9][A-Za-z0-9_.-]*\.docx$/),
+  title: z.string().trim().min(1).max(200),
+  tocDepth: z.number().int().min(1).max(6).optional(),
+  bodyFont: z.string().trim().min(1).max(80).optional(),
+  headingFont: z.string().trim().min(1).max(80).optional(),
+  firstLineIndent: z.number().int().min(0).max(720).optional()
+});
+export type WordExportProfile = z.infer<typeof wordExport>;
+
 const output = z.strictObject({
   id, title: description, audience: z.enum(['internal', 'external']),
   fileName: z.string().min(1).max(160), format: z.enum(['markdown', 'json', 'docx', 'pdf']),
   producingStepId: id, rendererCapabilityId: capabilityId.optional(),
-  acceptance: z.array(description).min(1).max(30), humanSignoff: z.boolean()
+  acceptance: z.array(description).min(1).max(30), humanSignoff: z.boolean(),
+  markdown: markdownOptions.optional(),
+  word: wordExport.optional(),
+  deliverable: z.literal(true).optional()
 });
 
 /** A strict, package-local validator. Runtime capability availability is a separate check. */
@@ -72,6 +105,7 @@ export const packageSchema = z.strictObject({
   capabilities: z.array(capability).max(100),
   assets: z.array(asset).max(200),
   materials: z.array(material).max(300),
+  workOrders: z.array(workOrder).max(30).optional(),
   steps: z.array(step).min(1).max(400),
   outputs: z.array(output).min(1).max(100)
 }).superRefine((pkg, ctx) => {
@@ -86,6 +120,11 @@ export const packageSchema = z.strictObject({
   unique(pkg.capabilities.map(x => x.id), 'capability');
   unique(pkg.assets.map(x => x.id), 'asset');
   unique(pkg.outputs.map(x => x.id), 'output');
+
+  const orders = pkg.workOrders ?? [];
+  unique(orders.map(order => order.id), 'work order');
+  unique(orders.flatMap(order => order.deliverables), 'work order deliverable');
+  const orderIds = new Set(orders.map(order => order.id));
 
   const stageIds = new Set(pkg.stages.map(x => x.id));
   const agentIds = new Set((pkg.agents ?? []).map(x => x.id));
@@ -104,6 +143,8 @@ export const packageSchema = z.strictObject({
       }
     } else if (c.type === 'work_done') {
       if (!steps.has(c.stepId)) error(owner + ': unknown work completion ' + c.stepId);
+    } else if (c.type === 'work_order') {
+      if (!orderIds.has(c.orderId)) error(owner + ': unknown work order ' + c.orderId);
     } else {
       for (const clause of c.clauses) checkCondition(clause, owner);
     }
@@ -120,6 +161,25 @@ export const packageSchema = z.strictObject({
     }
     checkCondition(m.requiredWhen, 'material ' + m.id);
     checkCondition(m.requestWhen, 'material ' + m.id);
+  }
+  for (const order of orders) {
+    unique(order.consumers, order.id + ' work order consumer');
+    for (const materialId of order.deliverables) {
+      const material = pkg.materials.find(item => item.id === materialId);
+      if (material?.requiredWhen?.type !== 'work_order' || material.requiredWhen.orderId !== order.id || material.onDemand) {
+        error(order.id + ': work order deliverable must be activated by its own work order');
+      }
+    }
+    for (const consumer of order.consumers) {
+      if (!steps.has(consumer)) error(order.id + ': unknown consumer ' + consumer);
+      if (steps.get(consumer)?.kind === 'script') error(order.id + ': work order deliverables need a reviewable consumer');
+    }
+    const follow = order.followUp;
+    if (follow) {
+      const milestone = steps.get(follow.milestoneId);
+      if (milestone?.kind !== 'external_milestone' || milestone.when?.type !== 'work_order' ||
+          milestone.when.orderId !== order.id) error(order.id + ': follow-up target must be an external milestone in this work order');
+    }
   }
   for (const s of pkg.steps) {
     if (!stageIds.has(s.stageId)) error(s.id + ': unknown stage');
@@ -170,6 +230,15 @@ export const packageSchema = z.strictObject({
     const suffix = { markdown: '.md', json: '.json', docx: '.docx', pdf: '.pdf' }[out.format];
     if (out.fileName.startsWith('.') || out.fileName.includes('/') || out.fileName.includes('\\') || !out.fileName.endsWith(suffix)) error(out.id + ': invalid output filename or format');
     if (out.rendererCapabilityId && capabilities.get(out.rendererCapabilityId)?.kind !== 'renderer') error(out.id + ': unknown renderer capability');
+    if (out.word && (out.format !== 'markdown' || !out.humanSignoff)) {
+      error(out.id + ': Word export requires a reviewed Markdown output');
+    }
+    if (out.markdown && out.format !== 'markdown') error(out.id + ': Markdown options require a Markdown output');
+    if (out.markdown?.assembly && (producer?.kind !== 'script' || producer.capabilityId !== 'hh.render.markdown')) {
+      error(out.id + ': Markdown assembly options require the deterministic Markdown capability');
+    }
+    unique(out.markdown?.headings?.map(heading => heading.level + ' ' + heading.title) ?? [],
+      'Markdown headings for ' + out.id);
     if (out.audience === 'external' && !out.humanSignoff) error(out.id + ': external output requires human signoff');
   }
   // Detect deadlocks that cross step/material boundaries, not only task-to-task cycles.
@@ -179,6 +248,7 @@ export const packageSchema = z.strictObject({
   const conditionRefs = (c: Condition | undefined): string[] => {
     if (!c) return [];
     if (c.type === 'decision' || c.type === 'work_done') return [c.stepId];
+    if (c.type === 'work_order') return [];
     return c.clauses.flatMap(conditionRefs);
   };
   for (const step of pkg.steps) {
@@ -186,6 +256,9 @@ export const packageSchema = z.strictObject({
     graph.set(key, []);
     for (const dep of step.dependsOn) append(key, 'step:' + dep);
     for (const materialId of step.needsMaterials) append(key, 'material:' + materialId);
+    for (const order of orders.filter(order => order.consumers.includes(step.id))) {
+      for (const materialId of order.deliverables) append(key, 'material:' + materialId);
+    }
     for (const dep of conditionRefs(step.when)) append(key, 'step:' + dep);
   }
   for (const material of pkg.materials) {

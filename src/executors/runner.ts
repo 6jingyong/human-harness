@@ -1,10 +1,12 @@
 import { freshId } from '../core/runtime';
+import { readyAgentSteps } from '../core/planning-work';
+import { effectiveMaterials } from '../core/work-orders';
 import { approvedSemanticNotes } from '../core/semantics';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { awaitHumanInput, getProject, getTaskPacket, markAgentFailed, recordExecutorEvent, startAgent, succeedAgent } from '../core/store';
 import { taskResultSchema } from '../protocol/v1';
-import { executorOutputSchema, type ExecutorTask, type TaskExecutor } from './contracts';
+import { assembledMarkdownOutputSchema, executorOutputSchema, type ExecutorTask, type TaskExecutor } from './contracts';
 import { demoExecutor } from './demo';
 import { codexExecutor } from './codex';
 import { mastraExecutor } from './mastra';
@@ -77,7 +79,8 @@ function prepareTask(projectId: string, stepId: string, runId: string): Executor
       value: 'Question about template material ' + request.materialId + ': ' +
         request.reason + '\nHuman response (not independently verified): ' + request.answer
     }));
-  const allowedMaterialIds = new Set([...step.needsMaterials, ...(step.requestableMaterialIds ?? [])]);
+  const requiredMaterials = effectiveMaterials(project, step.id, step.needsMaterials);
+  const allowedMaterialIds = new Set([...requiredMaterials, ...(step.requestableMaterialIds ?? [])]);
   const requestableMaterials = project.package.materials
     .filter(m => allowedMaterialIds.has(m.id))
     .map(m => ({ id: m.id, title: m.title, description: m.description }));
@@ -90,10 +93,11 @@ function prepareTask(projectId: string, stepId: string, runId: string): Executor
   return { packet, stepTitle: step.title, evidence, reviewFeedback,
     executionCapabilityId: step.capabilityId,
     workMethod: step.method, materialMethods,
-    outputFormat: outputContract?.format, outputFileName: outputContract?.fileName, outputAcceptance,
+    outputFormat: outputContract?.format, outputFileName: outputContract?.fileName,
+    markdown: outputContract?.markdown, outputAcceptance,
     requestableMaterials,
     humanHandoffs: [...humanHandoffs, ...requestedAnswers],
-    approvedSemanticNotes: approvedSemanticNotes(project, step.needsMaterials) };
+    approvedSemanticNotes: approvedSemanticNotes(project, requiredMaterials) };
 }
 
 /** Shared authoritative run lifecycle. Backends return proposals and cannot commit state. */
@@ -104,8 +108,7 @@ export async function executeOneAgentTask(projectId: string, requestedStepId?: s
   const projectBefore = getProject(projectId);
   const planned = requestedStepId
     ? projectBefore.package.steps.find(step => step.id === requestedStepId)
-    : projectBefore.package.steps.find(step => (step.kind === 'agent' || step.kind === 'script') &&
-      projectBefore.steps[step.id]?.state === 'ready');
+    : readyAgentSteps(projectBefore)[0];
   const executor = planned?.kind === 'script'
     ? (planned.capabilityId === 'hh.render.markdown'
       ? markdownAssemblyExecutor : (() => { throw new Error('Unsupported script capability'); })())
@@ -128,7 +131,9 @@ export async function executeOneAgentTask(projectId: string, requestedStepId?: s
         if (signal.aborted) abortHandler();
       })
     ]) : completion;
-    const response = executorOutputSchema.parse(await responsePromise);
+    const outputSchema = executor === markdownAssemblyExecutor && task.markdown?.assembly === 'concatenate'
+      ? assembledMarkdownOutputSchema : executorOutputSchema;
+    const response = outputSchema.parse(await responsePromise);
     const project = getProject(projectId);
     // AI notes are candidates. An invented or cross-scope citation rejects the
     // entire run; only a human-reviewed output can become reusable knowledge.
@@ -141,7 +146,7 @@ export async function executeOneAgentTask(projectId: string, requestedStepId?: s
         a.kind === 'material' && a.ownerId === note.materialId);
       if (!source || !artifact || source.revision !== note.sourceRevision ||
           artifact.revision !== note.sourceRevision ||
-          !stepDef?.needsMaterials.includes(note.materialId)) {
+          !stepDef || !effectiveMaterials(project, stepDef.id, stepDef.needsMaterials).includes(note.materialId)) {
         throw new Error('Agent semantic note cites material outside this run\'s accepted evidence scope');
       }
     }

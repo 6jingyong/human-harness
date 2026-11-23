@@ -1,5 +1,7 @@
 'use client';
 
+import { formatLatestStart } from '@/core/project-coordination';
+import { effectiveMaterials, workOrderHandoffTarget } from '@/core/work-orders';
 import type { ProjectState } from '@/core/runtime';
 import { deriveWorkbenchQueues, groupAgentTasks, type WorkbenchItem } from './workbench-queue';
 
@@ -11,7 +13,7 @@ const materialStates: Record<string, string> = {
   requested: '待提交', received: '待核验', accepted: '已接受', rejected: '已退回',
   dormant: '未来阶段', expected: '尚未需要', not_applicable: '不适用'
 };
-type ActionOptions = { stepId?: string; materialId?: string; requestId?: string };
+type ActionOptions = { stepId?: string; materialId?: string; requestId?: string; promisedOn?: string };
 
 type Props = {
   project: ProjectState;
@@ -32,12 +34,18 @@ type Props = {
 function TaskOption({ item, selected, onSelect }: {
   item: WorkbenchItem; selected: boolean; onSelect: (key: string) => void;
 }) {
-  const label = item.kind === 'request' ? ({ pending: '需要答复', awaiting_review: '附件待验收', answered: '已答复' }[item.state] ?? item.state) :
+  const label = item.followUp ? (item.followUp.due ? '今天跟进' : '等待回件')
+    : item.kind === 'request' ? ({ pending: '需要答复', awaiting_review: '附件待验收', answered: '已答复' }[item.state] ?? item.state) :
     item.kind === 'material' ? materialStates[item.state] : stepStates[item.state];
   return <button type="button" className={'workbench-item' + (selected ? ' selected' : '')}
     aria-pressed={selected} onClick={() => onSelect(item.key)} key={item.key}>
     <span className="workbench-item-label">{item.title}</span>
-    <span className={'task-state ' + item.state}>{label ?? item.state}</span>
+    <span className={'task-state ' + item.state}>{item.expedited ? '优先 · ' : ''}{label ?? item.state}</span>
+    {item.followUp ? <small className={item.followUp.due ? 'order-urgent' : 'order-time'}>
+      {item.followUp.due ? '应跟进 · ' : '下次跟进 · '}{item.followUp.dueOn}
+    </small> : item.timing ? <small className={item.timing.lateToStart ? 'order-urgent' : 'order-time'}>
+      {item.timing.lateToStart ? '已晚于最晚开始 · ' : '最晚开始 · '}{formatLatestStart(item.timing.latestStart)}
+    </small> : null}
   </button>;
 }
 
@@ -48,7 +56,7 @@ export function TaskWorkbench({
   const queues = deriveWorkbenchQueues(project);
   const agentGroups = groupAgentTasks(project, queues.agent);
   const current = selectedKey ?
-    [...queues.human, ...queues.agent].find(item => item.key === selectedKey) : undefined;
+    [...queues.human, ...queues.agent, ...queues.external].find(item => item.key === selectedKey) : undefined;
   const material = current?.kind === 'material'
     ? project.package.materials.find(m => m.id === current.id) : undefined;
   const step = current?.kind === 'agent' || current?.kind === 'human'
@@ -62,6 +70,12 @@ export function TaskWorkbench({
   const requestUpload = humanRequest?.attachmentArtifactId ?
     project.artifacts.find(a => a.id === humanRequest.attachmentArtifactId) : undefined;
   const currentStepState = step ? project.steps[step.id] : undefined;
+  const requiredMaterialIds = step ? effectiveMaterials(project, step.id, step.needsMaterials) : [];
+  const orderBrief = current?.timing ? project.coordination?.requirements[current.timing.orderId]?.brief : undefined;
+  const external = current?.followUp;
+  const canSetPromise = step && (Boolean(external) || Boolean(workOrderHandoffTarget(project, step.id)));
+  const outputContract = project.package.outputs.find(output => output.id === step?.outputContractId);
+  const runLimitations = project.runs.find(run => run.id === currentStepState?.runId)?.result?.limitations ?? [];
   const key = current?.id ?? '';
   const disabled = isPending(key);
   const pending = values[key] ?? '';
@@ -91,6 +105,11 @@ export function TaskWorkbench({
             selected={current?.key === item.key}
             onSelect={key => onSelect(selectedKey === key ? '' : key)} />)}
           {!queues.human.length && <p className="todo-empty">当前无需人工处理</p>}
+          {queues.external.length > 0 && <details className="external-waiting" open={queues.external.some(item => item.key === selectedKey) || undefined}>
+            <summary>等待外部回件 · {queues.external.length}</summary>
+            {queues.external.map(item => <TaskOption key={item.key} item={item}
+              selected={current?.key === item.key} onSelect={onSelect} />)}
+          </details>}
         </div>
       </section>
       <section className="todo-column" aria-label="Agent TodoList">
@@ -236,15 +255,16 @@ export function TaskWorkbench({
               </section>}
             {current.state === 'accepted' && <p className="inspector-success">资料已接受，后续 Agent 只能读取经授权的版本。</p>}
           </>}
+          {orderBrief && <p className="plan-order-brief">{orderBrief}</p>}
           {step && currentStepState && <>
-            {(step.dependsOn.length > 0 || step.needsMaterials.length > 0) &&
+            {(step.dependsOn.length > 0 || requiredMaterialIds.length > 0) &&
               <section className="inspector-section">
                 <h3>依赖与输入</h3>
                 {step.dependsOn.map(id => <div className="requirement-line" key={'step-' + id}>
                   <span>{project.package.steps.find(def => def.id === id)?.title ?? id}</span>
                   <span>{stepStates[project.steps[id]?.state] ?? '未知'}</span>
                 </div>)}
-                {step.needsMaterials.map(id => <div className="requirement-line" key={'material-' + id}>
+                {requiredMaterialIds.map(id => <div className="requirement-line" key={'material-' + id}>
                   <span>{project.package.materials.find(def => def.id === id)?.title ?? id}</span>
                   <span>{materialStates[project.materials[id]?.state] ?? '未知'}</span>
                 </div>)}
@@ -263,13 +283,35 @@ export function TaskWorkbench({
             {(step.kind === 'human_action' || step.kind === 'external_milestone') &&
               currentStepState.state === 'ready' &&
               <section className="inspector-section">
-                <h3>提交人工执行结果</h3>
+                <h3>{external ? '外部回件与跟进' : '提交人工执行结果'}</h3>
+                {external && <div className={external.due ? 'order-urgent' : 'order-time'}>
+                  {external.due ? '到期跟进' : '下次跟进'} {external.dueOn}
+                  {external.promisedOn && <p>对方承诺回件 {external.promisedOn}</p>}
+                  {external.lastUpdate && <p>上次记录 {external.lastUpdate}</p>}
+                </div>}
+                {(step.kind === 'external_milestone' || step.when?.type === 'work_order') && step.dependsOn.map(id => {
+                  const handoff = project.events.findLast(event => event.type === 'human.completed' && event.subject === id);
+                  return handoff && project.steps[id]?.state === 'done'
+                    ? <p className="plan-order-brief" key={id}>{handoff.detail}</p> : null;
+                })}
                 <label htmlFor={'human-result-' + key}>完成情况、结论或交接给 Agent 的信息</label>
                 <textarea rows={6} id={'human-result-' + key} value={pending}
                   onChange={event => onValue(key, event.target.value)}
                   placeholder="说明已执行的事项和可供下一步使用的真实信息" />
-                <button type="button" className="primary" disabled={disabled || !pending.trim()}
-                  onClick={() => onAction('complete_human', { stepId: key })}>确认完成并交接</button>
+                {canSetPromise && <label>对方承诺回件日
+                  <input type="date" value={values['promise:' + key] ?? ''}
+                    onChange={e => onValue('promise:' + key, e.target.value)} />
+                </label>}
+                <div className="actions">
+                  {external && <button type="button" disabled={disabled || !pending.trim()}
+                    onClick={() => onAction('record_work_order_follow_up', { stepId: key, promisedOn: values['promise:' + key] })}>记录跟进，继续等待</button>}
+                  <button type="button" className="primary" disabled={disabled || !pending.trim()}
+                    onClick={() => onAction('complete_human', {
+                      stepId: key, promisedOn: external ? undefined : values['promise:' + key]
+                    })}>
+                    {external ? '确认实际回件' : '确认完成并交接'}
+                  </button>
+                </div>
               </section>}
             {(step.kind === 'agent' || step.kind === 'script') && <>
               {currentStepState.state === 'ready' && <section className="inspector-section">
@@ -339,6 +381,10 @@ export function TaskWorkbench({
                 {unresolvedMethodChecks.length > 0 && <p className="error-text">
                   有 {unresolvedMethodChecks.length} 项模板检查未通过或未确认。若仍批准，必须填写人工判断依据。
                 </p>}
+                {runLimitations.length > 0 && <div>
+                  <h4>内部核查事项</h4>
+                  <ul>{runLimitations.map((item, index) => <li key={index}>{item}</li>)}</ul>
+                </div>}
                 <label htmlFor={'agent-review-' + key}>审核说明</label>
                 <textarea id={'agent-review-' + key} value={note}
                   onChange={event => onFeedback(key, event.target.value)}
@@ -350,6 +396,7 @@ export function TaskWorkbench({
                   <button type="button" disabled={disabled || !note.trim()}
                     onClick={() => onAction('reject_agent', { stepId: key })}>退回 Agent 重做</button>
                 </div>
+                {outputContract?.markdown?.assembly === 'concatenate' ? <p>要修改正文，请修订已审核的小节并重新组装。</p> :
                 <details className="template-work-method">
                   <summary>人工直接修订候选结果（不重新调用模型）</summary>
                   <p>保留原始 Agent 候选；修订内容作为新的人工版本保存。上游自检结论不会自动继承，必须说明人工判断依据。</p>
@@ -367,7 +414,7 @@ export function TaskWorkbench({
                     onClick={() => onAction('amend_agent', { stepId: key })}>
                     保存人工修订版、批准并交接下游
                   </button>
-                </details>
+                </details>}
               </section>}
             </>}
             {currentStepState.state === 'done' && <section className="inspector-section">

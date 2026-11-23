@@ -163,6 +163,7 @@ export function ProjectMaterialLibrary({ project, onBack, onReplace, onRevise, v
         const latest = artifacts[0];
         const head = currentApprovedOutput(project, contract.producingStepId);
         const accepted = Boolean(head);
+        const editable = !contract.markdown?.assembly && ['json', 'markdown'].includes(contract.format);
         const revisionKey = 'revision:' + contract.producingStepId;
         const observedHeadKey = 'revision-head:' + contract.producingStepId;
         const expectedHead = values[observedHeadKey] || head?.id || '';
@@ -192,6 +193,9 @@ export function ProjectMaterialLibrary({ project, onBack, onReplace, onRevise, v
               encodeURIComponent(project.id) + '/outputs/' + encodeURIComponent(head.id)}>
               下载已审核成果
             </a>}
+          {head && contract.word &&
+            <a className="file-download" href={'/api/v1/projects/' + encodeURIComponent(project.id) +
+              '/outputs/' + encodeURIComponent(head.id) + '?format=docx'}>下载 Word</a>}
           {artifacts.length > 1 && <details className="source-replacement">
             <summary>查看完整历史版本（{artifacts.length}）</summary>
             {artifacts.map(a => <div key={a.id} className="library-file">
@@ -202,7 +206,7 @@ export function ProjectMaterialLibrary({ project, onBack, onReplace, onRevise, v
                 （基于 {a.humanCorrection.basedOnArtifactId.slice(0, 8)}）</p>}
               {a.inputArtifactIds?.length ? <p>输入版本：{a.inputArtifactIds.join('、')}</p> : null}
               <pre className="result">{a.content}</pre>
-              {head && a.id !== head.id && <button type="button"
+              {head && editable && a.id !== head.id && <button type="button"
                 onClick={() => {
                   onValue(observedHeadKey, head.id);
                   onValue(revisionKey, a.content ?? '');
@@ -211,7 +215,7 @@ export function ProjectMaterialLibrary({ project, onBack, onReplace, onRevise, v
               </button>}
             </div>)}
           </details>}
-          {head && ['json', 'markdown'].includes(contract.format) && <details className="source-replacement">
+          {head && editable && <details className="source-replacement">
             <summary>人类修订当前已批准成果（保留所有历史）</summary>
             <p>人类拥有最终采用权。修订会创建新版本，不会改变旧版。原 Agent 的自检不自动继承。</p>
             <p>预计影响后继任务 {impact.size} 项：{[...impact].map(id =>

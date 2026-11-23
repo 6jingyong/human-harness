@@ -1,3 +1,4 @@
+import template from '../examples/eia-source-replay.hh.json';
 import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -9,6 +10,7 @@ import { deriveWorkbenchQueues } from '../src/app/workbench-queue';
 const directory = mkdtempSync(join(tmpdir(), 'hh-eia-functional-intake-'));
 process.env.HH_DATA_DIR = directory;
 const store = await import('../src/core/store');
+store.importPackage(template);
 const { executeOneAgentTask } = await import('../src/executors/runner');
 after(() => { try { rmSync(directory, { recursive: true, force: true }); } catch {} });
 

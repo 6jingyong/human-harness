@@ -1,0 +1,3192 @@
+{
+  "sourceVersion": "P2p (v5.10.71)",
+  "chapters": [
+    {
+      "id": "1",
+      "title": "概述",
+      "sections": [
+        {
+          "id": "1.1",
+          "title": "项目背景",
+          "byEnterprise": false,
+          "headings": [],
+          "paragraphs": [
+            {
+              "id": "1.1:basic/main",
+              "topic": "项目位置、面积、边界/规划依据概述",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "1.1:history/main",
+              "topic": "地块历史沿革压缩概述",
+              "argument": "按已知时期说明用途、设施或活动及变化，以来源明确的时间关系导向风险意义。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "1.1:current/main",
+              "topic": "地块现状压缩概述",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "1.1:surrounding/main",
+              "topic": "周边现状压缩概述",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "1.1:reason/main",
+              "topic": "开展调查的政策/管理原因",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "1.1:commission/main",
+              "topic": "委托关系与调查任务说明",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "1.1:progress/main",
+              "topic": "现场调查、采样、检测及报告编制进展",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "1.1:review/main",
+              "topic": "专家评审、修改与备案过程",
+              "argument": "按已知时期说明用途、设施或活动及变化，以来源明确的时间关系导向风险意义。",
+              "fromRound": 4,
+              "conditional": true
+            }
+          ],
+          "displaySlots": []
+        },
+        {
+          "id": "1.2",
+          "title": "调查的目的和原则",
+          "byEnterprise": false,
+          "headings": [
+            {
+              "level": 3,
+              "title": "1.2.1 调查目的"
+            },
+            {
+              "level": 3,
+              "title": "1.2.2 调查原则"
+            }
+          ],
+          "paragraphs": [
+            {
+              "id": "1.2.1:purpose/main",
+              "topic": "调查对象、核心问题与结果用途",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "1.2.2:targeted/main",
+              "topic": "针对性原则",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "1.2.2:normative/main",
+              "topic": "规范性原则",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "1.2.2:operable/main",
+              "topic": "可操作性原则",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 1,
+              "conditional": false
+            }
+          ],
+          "displaySlots": []
+        },
+        {
+          "id": "1.3",
+          "title": "调查范围",
+          "byEnterprise": false,
+          "headings": [],
+          "paragraphs": [
+            {
+              "id": "1.3:scope_basic/main",
+              "topic": "地块名称、位置、四至、面积",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "1.3:scope_basis/main",
+              "topic": "范围确定的正式文件依据及图表引用",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 1,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "1.3:media:1",
+              "title": "调查范围拐点坐标表",
+              "kind": "table",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "1.3:media:2",
+              "title": "用地预审/选址意见书图件",
+              "kind": "figure",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "1.3:media:3",
+              "title": "选址/规划范围图",
+              "kind": "figure",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "1.3:media:4",
+              "title": "红线/调查范围拐点图",
+              "kind": "figure",
+              "fromRound": 1,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "1.4",
+          "title": "调查依据",
+          "byEnterprise": false,
+          "headings": [
+            {
+              "level": 3,
+              "title": "1.4.1 国家有关法律、法规及规范性文件"
+            },
+            {
+              "level": 3,
+              "title": "1.4.2 地方有关法规、规章及规范性文件"
+            },
+            {
+              "level": 3,
+              "title": "1.4.3 调查与评估标准及技术规范"
+            },
+            {
+              "level": 4,
+              "title": "1.4.3.1 监测技术规范"
+            },
+            {
+              "level": 4,
+              "title": "1.4.3.2 地块调查技术规范"
+            },
+            {
+              "level": 4,
+              "title": "1.4.3.3 土壤和地下水评估标准"
+            },
+            {
+              "level": 3,
+              "title": "1.4.4 与项目有关的技术文件"
+            }
+          ],
+          "paragraphs": [
+            {
+              "id": "1.4.1:items/main",
+              "topic": "国家法律/法规/规范性文件清单",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "1.4.2:items/main",
+              "topic": "省/市地方文件清单",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "1.4.3.1:items/main",
+              "topic": "土壤/地下水/样品保存与采样类规范",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "1.4.3.2:items/main",
+              "topic": "调查/评估/修复/地下水相关技术规范",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "1.4.3.3:items/main",
+              "topic": "土壤与地下水评价标准清单",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "1.4.4:items/main",
+              "topic": "项目规划、地勘及历史调查报告清单",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 1,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "1.4:media:1",
+              "title": "项目采用依据及适用环节表",
+              "kind": "table",
+              "fromRound": 1,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "1.5",
+          "title": "调查方法",
+          "byEnterprise": false,
+          "headings": [
+            {
+              "level": 3,
+              "title": "1.5.1 调查与评估工作内容"
+            }
+          ],
+          "paragraphs": [
+            {
+              "id": "1.5.1:basis/main",
+              "topic": "方法/技术路线依据",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "1.5.1:stage1/main",
+              "topic": "第一阶段工作内容说明",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "1.5.1:stage2/main",
+              "topic": "第二阶段初步采样分析说明",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "1.5.1:route_intro/main",
+              "topic": "技术路线图引导文字",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 1,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "1.5.1:media:1",
+              "title": "土壤污染状况调查技术路线图",
+              "kind": "figure",
+              "fromRound": 1,
+              "conditional": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "title": "地块概况",
+      "sections": [
+        {
+          "id": "2.1",
+          "title": "地块环境状况",
+          "byEnterprise": false,
+          "headings": [
+            {
+              "level": 3,
+              "title": "2.1.1 地理位置"
+            },
+            {
+              "level": 3,
+              "title": "2.1.2 地形地貌"
+            },
+            {
+              "level": 3,
+              "title": "2.1.3 区域水文地质"
+            },
+            {
+              "level": 3,
+              "title": "2.1.4 本地块地质结构"
+            },
+            {
+              "level": 3,
+              "title": "2.1.5 气象气候"
+            },
+            {
+              "level": 3,
+              "title": "2.1.6 水系"
+            }
+          ],
+          "paragraphs": [
+            {
+              "id": "2.1.1:b1/main",
+              "topic": "项目地块精确位置/中心坐标",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.1:b2/main",
+              "topic": "城市级地理位置背景",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.1:b3/main",
+              "topic": "区县级地理位置背景",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.2:b1/main",
+              "topic": "项目所在地块/片区地形地貌概述",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.2:b2/main",
+              "topic": "城市/区域地貌与地质构造背景",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.3:b1/main",
+              "topic": "区域构造与地层背景",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.3:b2/main",
+              "topic": "区域地下水赋存条件、类型及含水层概述",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.4:source_intro/main",
+              "topic": "地勘资料来源与勘察概况",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.4:strata/main",
+              "topic": "地层组成与分层说明",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.4:groundwater/main",
+              "topic": "地下水类型、埋深、补给、水位变化等",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.5:climate/main",
+              "topic": "区域气候类型与总体特征",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.5:station/main",
+              "topic": "采用气象站及统计时段",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.5:table_intro/main",
+              "topic": "气象统计表引导文字",
+              "argument": "说明图表对象与口径，指出读者应关注的信息，并连接当前论证；不能只写见下表。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.5:rose_intro/main",
+              "topic": "风向玫瑰图说明",
+              "argument": "说明图表对象与口径，指出读者应关注的信息，并连接当前论证；不能只写见下表。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.6:regional/main",
+              "topic": "区域水系总体背景",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.6:nearby/main",
+              "topic": "本项目附近主要河流/水体识别",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.6:profiles/main",
+              "topic": "主要水体逐一描述",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "2.1.4:media:1",
+              "title": "勘察工作量统计表",
+              "kind": "table",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.4:media:2",
+              "title": "勘探点平面布孔图",
+              "kind": "figure",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.4:media:3",
+              "title": "上部土质特征表",
+              "kind": "table",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.4:media:4",
+              "title": "工程地质剖面图",
+              "kind": "figure",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.5:media:1",
+              "title": "常规气象项目统计表",
+              "kind": "table",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.1.5:media:2",
+              "title": "多年风向玫瑰图",
+              "kind": "figure",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "2.2",
+          "title": "敏感目标",
+          "byEnterprise": false,
+          "headings": [],
+          "paragraphs": [
+            {
+              "id": "2.2:basis/main",
+              "topic": "敏感目标识别依据与调查范围",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.2:eco_relation/main",
+              "topic": "生态空间管控/生态保护红线关系说明",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.2:eco_conclusion/main",
+              "topic": "是否落入相关保护区域的结论",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "2.2:media:1",
+              "title": "周边敏感目标清单",
+              "kind": "table",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.2:media:2",
+              "title": "敏感目标空间分布/照片组",
+              "kind": "figure",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.2:media:3",
+              "title": "敏感目标照片",
+              "kind": "figure",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "2.2:media:4",
+              "title": "生态保护红线/生态空间管控区域分布图",
+              "kind": "figure",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "2.3",
+          "title": "地块使用历史和现状",
+          "byEnterprise": false,
+          "headings": [
+            {
+              "level": 3,
+              "title": "2.3.1 地块使用历史及变迁"
+            },
+            {
+              "level": 3,
+              "title": "2.3.2 地块现状"
+            }
+          ],
+          "paragraphs": [
+            {
+              "id": "2.3.1:source/main",
+              "topic": "历史来源/总体起点说明",
+              "argument": "按已知时期说明用途、设施或活动及变化，以来源明确的时间关系导向风险意义。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "2.3.1:timeline/main",
+              "topic": "按年份/时期排列的历史变化叙述",
+              "argument": "按已知时期说明用途、设施或活动及变化，以来源明确的时间关系导向风险意义。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "2.3.1:transition/main",
+              "topic": "历史表/历史影像引用过渡",
+              "argument": "说明图表对象与口径，指出读者应关注的信息，并连接当前论证；不能只写见下表。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "2.3.2:current/main",
+              "topic": "现场踏勘时间与地块当前状态总述",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 1,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "2.3.1:media:1",
+              "title": "地块历史用地情况表",
+              "kind": "table",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "2.3.1:media:2",
+              "title": "历史影像时间序列",
+              "kind": "figure",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "2.3.2:media:1",
+              "title": "地块内部现状照片组",
+              "kind": "figure",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "2.3.2:media:2",
+              "title": "地块现状航拍图",
+              "kind": "figure",
+              "fromRound": 1,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "2.4",
+          "title": "相邻地块的使用历史和现状",
+          "byEnterprise": false,
+          "headings": [
+            {
+              "level": 3,
+              "title": "2.4.1 相邻地块使用历史及变迁"
+            },
+            {
+              "level": 3,
+              "title": "2.4.2 相邻地块使用现状"
+            }
+          ],
+          "paragraphs": [
+            {
+              "id": "2.4.1:source/main",
+              "topic": "周边历史起点/总体变化概述",
+              "argument": "按已知时期说明用途、设施或活动及变化，以来源明确的时间关系导向风险意义。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "2.4.1:timeline/main",
+              "topic": "按年份/时期的周边变化叙述",
+              "argument": "按已知时期说明用途、设施或活动及变化，以来源明确的时间关系导向风险意义。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "2.4.1:transition/main",
+              "topic": "周边企业表/历史影像引用过渡",
+              "argument": "说明图表对象与口径，指出读者应关注的信息，并连接当前论证；不能只写见下表。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "2.4.2:current/main",
+              "topic": "四至及当前周边状态总述",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "2.4.2:photo_intro/main",
+              "topic": "现场踏勘/周边现状照片引用说明",
+              "argument": "说明图表对象与口径，指出读者应关注的信息，并连接当前论证；不能只写见下表。",
+              "fromRound": 1,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "2.4.1:media:1",
+              "title": "周边企业相关信息表",
+              "kind": "table",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "2.4.1:media:2",
+              "title": "周边历史影像时间序列",
+              "kind": "figure",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "2.4.2:media:1",
+              "title": "现场踏勘照片组",
+              "kind": "figure",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "2.4.2:media:2",
+              "title": "周边现状照片组",
+              "kind": "figure",
+              "fromRound": 1,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "2.5",
+          "title": "地块建设规划",
+          "byEnterprise": false,
+          "headings": [],
+          "paragraphs": [
+            {
+              "id": "2.5:basis/main",
+              "topic": "规划/选址文件来源",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "2.5:land_use/main",
+              "topic": "未来规划用地性质及图件引用",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 1,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "2.5:media:1",
+              "title": "规划示意图",
+              "kind": "figure",
+              "fromRound": 1,
+              "conditional": false
+            },
+            {
+              "id": "2.5:media:2",
+              "title": "政府信息公开/规划依据截图",
+              "kind": "figure",
+              "fromRound": 1,
+              "conditional": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "title": "地块污染识别",
+      "sections": [
+        {
+          "id": "3.1",
+          "title": "资料收集与分析",
+          "byEnterprise": false,
+          "headings": [],
+          "paragraphs": [
+            {
+              "id": "3.1:collection_methods/main",
+              "topic": "资料收集方式与覆盖范围",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.1:materials_overview/main",
+              "topic": "已获取资料总体说明",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "3.1:media:1",
+              "title": "调查资料收集情况表",
+              "kind": "table",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "3.2",
+          "title": "现场踏勘与人员访谈",
+          "byEnterprise": false,
+          "headings": [
+            {
+              "level": 3,
+              "title": "3.2.1 现场踏勘情况分析"
+            },
+            {
+              "level": 3,
+              "title": "3.2.2 人员访谈情况分析"
+            }
+          ],
+          "paragraphs": [
+            {
+              "id": "3.2.1:survey_time_basis/main",
+              "topic": "踏勘时间与记录依据",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.2.1:site_observation/main",
+              "topic": "现场现状观察",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.2.1:pollution_signs/main",
+              "topic": "明显污染迹象观察",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.2.2:interview_objects/main",
+              "topic": "访谈对象范围",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.2.2:interview_purpose/main",
+              "topic": "访谈目的与获得的信息",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.2.2:interview_table_lead/main",
+              "topic": "访谈结果表引导",
+              "argument": "说明图表对象与口径，指出读者应关注的信息，并连接当前论证；不能只写见下表。",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "3.2.2:media:1",
+              "title": "人员访谈信息表",
+              "kind": "table",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.2.2:media:2",
+              "title": "人员访谈照片组",
+              "kind": "figure",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "3.3",
+          "title": "地块内生产活动对本地块的影响识别",
+          "byEnterprise": true,
+          "headings": [],
+          "paragraphs": [
+            {
+              "id": "3.3:onsite_structures/main",
+              "topic": "地块内生产辅助设施/构筑物概述",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.3:transition/main",
+              "topic": "后续企业分析说明",
+              "argument": "说明图表对象与口径，指出读者应关注的信息，并连接当前论证；不能只写见下表。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.3.1:company_origin/main",
+              "topic": "企业设立与基本背景",
+              "argument": "按已知时期说明用途、设施或活动及变化，以来源明确的时间关系导向风险意义。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.3.1:products/main",
+              "topic": "主要产品/业务",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.3.1:closure/main",
+              "topic": "停产/搬迁/拆除状态",
+              "argument": "按已知时期说明用途、设施或活动及变化，以来源明确的时间关系导向风险意义。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.3.1.1:inside_layout/main",
+              "topic": "红线内涉及的设施/构筑物",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.3.1.1:outside_workshops/main",
+              "topic": "企业其他生产车间/功能区",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.3.1.2:other_chemicals/main",
+              "topic": "其他药剂组成说明",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 2,
+              "conditional": true
+            },
+            {
+              "id": "3.3.1.2:lubricants/main",
+              "topic": "润滑油品种类与成分说明",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 2,
+              "conditional": true
+            },
+            {
+              "id": "3.3.1.2:maintenance_gases/main",
+              "topic": "检维修气体说明",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 2,
+              "conditional": true
+            },
+            {
+              "id": "3.3.1.2:nitrogen_use/main",
+              "topic": "液氮/氮气用途",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 2,
+              "conditional": true
+            },
+            {
+              "id": "3.3.1.3:process_intro/main",
+              "topic": "工艺图引导/产品类别说明",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.3.1.3:aluminum_process/main",
+              "topic": "主要产品工艺说明",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.3.1.3:iron_process/main",
+              "topic": "其他产品工艺说明",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 2,
+              "conditional": true
+            },
+            {
+              "id": "3.3.1.4:wastewater/main",
+              "topic": "废水产生、收集、处理与去向",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.3.1.4:air/main",
+              "topic": "废气来源、治理与排放",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.3.1.4:solid_waste/main",
+              "topic": "一般固体废物产生与处置",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.3.1.4:hazardous_waste/main",
+              "topic": "危险废物产生与处置",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.3.1.5:basis/main",
+              "topic": "识别依据",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.3.1.5:conclusion/main",
+              "topic": "企业特征污染物结论",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.3:influence/main",
+              "topic": "生产活动对地块的影响",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "3.3.1.1:media:1",
+              "title": "主要生产车间及功能表",
+              "kind": "table",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.3.1.2:media:1",
+              "title": "主要产品一览表",
+              "kind": "table",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.3.1.2:media:2",
+              "title": "主要生产设备一览表",
+              "kind": "table",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.3.1.2:media:3",
+              "title": "主要原辅材料使用及存储表",
+              "kind": "table",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.3.1.3:media:1",
+              "title": "企业主要产品工艺流程图",
+              "kind": "figure",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.3.1.5:media:1",
+              "title": "企业特征污染物识别表",
+              "kind": "table",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "3.4",
+          "title": "周边相邻企业对本地块的影响识别",
+          "byEnterprise": true,
+          "headings": [],
+          "paragraphs": [
+            {
+              "id": "3.4:surrounding_overview/main",
+              "topic": "周边历史企业总体情况",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.4:report_collection/main",
+              "topic": "历史调查报告获取与汇总",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.4:special_case/main",
+              "topic": "其他需单独说明的周边企业/历史调查",
+              "argument": "先说明可比对象及口径，再呈现差异，并给出已有分析支持的解释与适用边界。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.4:entity:identity/main",
+              "topic": "企业或调查对象背景",
+              "argument": "按已知时期说明用途、设施或活动及变化，以来源明确的时间关系导向风险意义。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.4:entity:position/main",
+              "topic": "与本地块空间关系",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.4:entity:activity/main",
+              "topic": "生产及主要活动",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.4:entity:materials/main",
+              "topic": "物料与环境接触",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 2,
+              "conditional": true
+            },
+            {
+              "id": "3.4:entity:process/main",
+              "topic": "生产工艺与三废",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 2,
+              "conditional": true
+            },
+            {
+              "id": "3.4:entity:prior_report/main",
+              "topic": "已有专业报告来源机构及日期",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 2,
+              "conditional": true
+            },
+            {
+              "id": "3.4:entity:prior_conclusion/main",
+              "topic": "已有专业调查结论及适用范围",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 2,
+              "conditional": true
+            },
+            {
+              "id": "3.4:entity:influence/main",
+              "topic": "对本地块的影响识别",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "3.4:media:1",
+              "title": "周边企业情况表",
+              "kind": "table",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.4:media:2",
+              "title": "项目地块周边企业历史影像图",
+              "kind": "figure",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "3.5",
+          "title": "特征污染物识别",
+          "byEnterprise": false,
+          "headings": [],
+          "paragraphs": [
+            {
+              "id": "3.5:onsite_conclusion/main",
+              "topic": "地块内潜在特征污染物结论",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.5:surrounding_conclusion/main",
+              "topic": "周边企业影响结论",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "3.5:media:1",
+              "title": "活动物质与介质对应表",
+              "kind": "table",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "3.6",
+          "title": "第一阶段土壤污染状况调查总结",
+          "byEnterprise": false,
+          "headings": [
+            {
+              "level": 3,
+              "title": "3.6.1 潜在特征污染物"
+            },
+            {
+              "level": 3,
+              "title": "3.6.2 潜在污染区识别"
+            }
+          ],
+          "paragraphs": [
+            {
+              "id": "3.6:basis/main",
+              "topic": "总结所依据的第一阶段工作",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.6:history_summary/main",
+              "topic": "地块与周边历史摘要",
+              "argument": "按已知时期说明用途、设施或活动及变化，以来源明确的时间关系导向风险意义。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.6:likelihood/main",
+              "topic": "总体受污染可能性判断",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.6.1:pollutants/main",
+              "topic": "潜在特征污染物最终清单",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.6.2:areas/main",
+              "topic": "潜在污染区/重点关注设施",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "3.6.2:second_stage/main",
+              "topic": "是否进入第二阶段及原因",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ],
+          "displaySlots": []
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "title": "工作计划",
+      "sections": [
+        {
+          "id": "4.1",
+          "title": "采样方案",
+          "byEnterprise": false,
+          "headings": [
+            {
+              "level": 3,
+              "title": "4.1.1 采样方案依据"
+            },
+            {
+              "level": 3,
+              "title": "4.1.2 采样布点方案"
+            },
+            {
+              "level": 3,
+              "title": "4.1.3 采样深度确定原则"
+            },
+            {
+              "level": 3,
+              "title": "4.1.4 样品采集数量"
+            },
+            {
+              "level": 3,
+              "title": "4.1.5 样品送检筛选"
+            }
+          ],
+          "paragraphs": [
+            {
+              "id": "4.1.1:basis/main",
+              "topic": "布点方案的总体依据",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.1:min_points/main",
+              "topic": "最低点位数量依据",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.1:adjacent/main",
+              "topic": "周边相邻企业影响的布点考虑",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.1:key_areas/main",
+              "topic": "重点区域与专业判断布点原则",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.1:control_rule/main",
+              "topic": "对照点设置原则",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.2:summary/main",
+              "topic": "点位数量、类型与对照点方案总述",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.3:intro/main",
+              "topic": "采样深度确定的规范与地层依据",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.3:groundwater/main",
+              "topic": "地下水监测井取样深度结论",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.4:interval/main",
+              "topic": "采样间隔、深度与每点采样数量",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.4:screening/main",
+              "topic": "现场快速筛查与每点计划送检数量",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.4:totals/main",
+              "topic": "预计总采样量与实验室检测量",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.5:overview/main",
+              "topic": "送检样品筛选总体原则",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.5:pid/main",
+              "topic": "PID筛选原则",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.5:xrf/main",
+              "topic": "XRF筛选原则",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.5:sensory/main",
+              "topic": "感官指标与污染迹象筛选原则",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.5:depth/main",
+              "topic": "样品深度分布筛选原则",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "4.1.2:media:1",
+              "title": "方案采样点布设情况表",
+              "kind": "table",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.2:media:2",
+              "title": "各点位设置原因表",
+              "kind": "table",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.2:media:3",
+              "title": "对应年度历史影像上的方案布点图",
+              "kind": "figure",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.2:media:5",
+              "title": "地块外对照点位置图",
+              "kind": "figure",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.3:media:1",
+              "title": "土壤和地下水采样深度确定原则表",
+              "kind": "table",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.3:media:2",
+              "title": "土层、含水层与采样深度分布表",
+              "kind": "table",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.1.3:media:3",
+              "title": "土壤及地下水取样深度示意图",
+              "kind": "figure",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "4.2",
+          "title": "分析检测方案",
+          "byEnterprise": false,
+          "headings": [
+            {
+              "level": 3,
+              "title": "4.2.1 检测单位的选择"
+            }
+          ],
+          "paragraphs": [
+            {
+              "id": "4.2.1:feature/main",
+              "topic": "第一阶段识别出的特征污染因子",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.2.1:lab_basis/main",
+              "topic": "实验室分析项目选择依据",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.2.1:soil_field/main",
+              "topic": "土壤现场检测项目",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 2,
+              "conditional": false
+            },
+            {
+              "id": "4.2.1:water_field/main",
+              "topic": "地下水/地表水现场检测项目",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "4.2.1:media:1",
+              "title": "土壤/地下水检测因子情况表",
+              "kind": "table",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "4.3",
+          "title": "对照点采样",
+          "byEnterprise": false,
+          "headings": [],
+          "paragraphs": [
+            {
+              "id": "4.3:site/main",
+              "topic": "对照点位置与本底代表性说明",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "4.3:media:1",
+              "title": "土壤及地下水对照点样品采样工作量汇总表",
+              "kind": "table",
+              "fromRound": 2,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "4.4",
+          "title": "调查点位和检测项目汇总",
+          "byEnterprise": false,
+          "headings": [
+            {
+              "level": 3,
+              "title": "4.4.1 现场调查时采样方案的执行对比情况"
+            },
+            {
+              "level": 3,
+              "title": "4.4.2 调查点位"
+            },
+            {
+              "level": 3,
+              "title": "4.4.3 检测项目"
+            }
+          ],
+          "paragraphs": [
+            {
+              "id": "4.4.1:execution/main",
+              "topic": "现场实际执行时间与关键步骤",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": true
+            },
+            {
+              "id": "4.4.1:comparison/main",
+              "topic": "方案与实际执行一致性结论",
+              "argument": "先说明可比对象及口径，再呈现差异，并给出已有分析支持的解释与适用边界。",
+              "fromRound": 3,
+              "conditional": true
+            },
+            {
+              "id": "4.4.2:intro/main",
+              "topic": "实际调查点位信息引导",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": true
+            },
+            {
+              "id": "4.4.2:survey/main",
+              "topic": "放样、调整与复测过程说明",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": true
+            },
+            {
+              "id": "4.4.3:intro/main",
+              "topic": "实际样品与检测指标矩阵引导",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": true
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "4.4.2:media:1",
+              "title": "实际土壤、地下水采样点位信息表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "4.4.2:media:2",
+              "title": "实际采样点位坐标/标高表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "4.4.2:media:3",
+              "title": "实际采样布点位置图（源稿复用4.1-1）",
+              "kind": "figure",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "4.4.3:media:1",
+              "title": "实际采样点位编号与污染物检测指标矩阵",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "title": "现场采样和实验室分析",
+      "sections": [
+        {
+          "id": "5.1",
+          "title": "现场探测方法和程序",
+          "byEnterprise": false,
+          "headings": [
+            {
+              "level": 3,
+              "title": "5.1.1 野外作业程序"
+            },
+            {
+              "level": 3,
+              "title": "5.1.2 调查准备"
+            }
+          ],
+          "paragraphs": [
+            {
+              "id": "5.1.1:overview/main",
+              "topic": "野外作业目的与组织原则",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.1.1:process_intro/main",
+              "topic": "现场采样执行主体与流程引导",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.1.1:step1/main",
+              "topic": "步骤1：采样点设计",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.1.1:step2/main",
+              "topic": "步骤2：采样点现场定点",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.1.1:step3/main",
+              "topic": "步骤3：采样点施工",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.1.1:step4/main",
+              "topic": "步骤4：样品采集",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.1.1:step5/main",
+              "topic": "步骤5：监测井洗井",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.1.1:step6/main",
+              "topic": "步骤6：现场观察",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.1.1:step7/main",
+              "topic": "步骤7：现场快速检测",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.1.1:step8/main",
+              "topic": "步骤8：制样与低温保存",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.1.1:step9/main",
+              "topic": "步骤9：采样点标志",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.1.1:step10/main",
+              "topic": "步骤10：采样点复测",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.1.1:flow_intro/main",
+              "topic": "现场采样工作流程图引导",
+              "argument": "说明图表对象与口径，指出读者应关注的信息，并连接当前论证；不能只写见下表。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.1.2:preparation/main",
+              "topic": "调查前技术、材料与设备准备",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "5.1.1:media:1",
+              "title": "现场分工情况表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.1.1:media:2",
+              "title": "采样点施工照片",
+              "kind": "figure",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.1.1:media:3",
+              "title": "土壤采样/监测井建设照片",
+              "kind": "figure",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.1.1:media:4",
+              "title": "成井洗井/采样前洗井照片",
+              "kind": "figure",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.1.1:media:5",
+              "title": "PID/XRF现场快筛照片",
+              "kind": "figure",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.1.1:media:6",
+              "title": "土壤/地下水样品照片",
+              "kind": "figure",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.1.1:media:7",
+              "title": "现场采样工作流程图",
+              "kind": "figure",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.1.2:media:1",
+              "title": "现场调查设备及材料一览表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "5.2",
+          "title": "采样方法和程序",
+          "byEnterprise": false,
+          "headings": [
+            {
+              "level": 3,
+              "title": "5.2.1 土壤样品采集"
+            },
+            {
+              "level": 4,
+              "title": "5.2.1.1 PID读数"
+            },
+            {
+              "level": 4,
+              "title": "5.2.1.2 XRF读数"
+            },
+            {
+              "level": 4,
+              "title": "5.2.1.3 现场污染迹象"
+            },
+            {
+              "level": 3,
+              "title": "5.2.2 现场土壤采样汇总"
+            },
+            {
+              "level": 3,
+              "title": "5.2.3 土壤样品的管理与保存"
+            },
+            {
+              "level": 3,
+              "title": "5.2.4 监测井安装与地下水采样"
+            },
+            {
+              "level": 4,
+              "title": "5.2.4.1 监测井安装"
+            },
+            {
+              "level": 4,
+              "title": "5.2.4.2 监测井洗井"
+            },
+            {
+              "level": 4,
+              "title": "5.2.4.3 地下水采样"
+            },
+            {
+              "level": 3,
+              "title": "5.2.5 现场地下水采样汇总"
+            },
+            {
+              "level": 3,
+              "title": "5.2.6 地下水样品的管理与保存"
+            },
+            {
+              "level": 3,
+              "title": "5.2.7 地下水位高程"
+            }
+          ],
+          "paragraphs": [
+            {
+              "id": "5.2.1:sample_type_equipment/main",
+              "topic": "土壤样品类型与取样设备",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.1:drilling_method/main",
+              "topic": "钻探与取样操作方法",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.1:depth_interval/main",
+              "topic": "实际采样深度与采样间隔",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.1:selection_record/main",
+              "topic": "送检选择与土层记录",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.1.1:method_result/main",
+              "topic": "PID现场检测方法与结果摘要",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.1.2:method_result/main",
+              "topic": "XRF现场检测方法、异常识别与送检关系",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.1.3:observation/main",
+              "topic": "现场感官指标与污染痕迹结论",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.2:summary/main",
+              "topic": "实际土壤点位、对照点与采送检工作量总述",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.4:container/main",
+              "topic": "不同检测项目的采样容器选择原则",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.4:preservation/main",
+              "topic": "样品保存条件选择原则",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.4:seal_label_record/main",
+              "topic": "固定、封装、标签、冷藏与原始记录",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.5.1:well_structure/main",
+              "topic": "井管结构与滤水管规格",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.5.1:filter_seal/main",
+              "topic": "滤料、膨润土回填与相关规范",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.5.2:construction_intro/main",
+              "topic": "建井洗井：启动条件、方式与目标水量",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.5.2:formula_vars/main",
+              "topic": "井体积公式变量说明",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.5.2:construction_end/main",
+              "topic": "建井洗井结束判据与稳定时间",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.5.2:sampling_wash_intro/main",
+              "topic": "采样洗井方法与记录来源",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.5.2:sampling_wash_steps/main",
+              "topic": "采样洗井操作步骤",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.5.2:post_stable_requirements/main",
+              "topic": "水质稳定后的采样要求",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.5.3:filling_order/main",
+              "topic": "地下水样品采集与灌装顺序",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.5.3:bottle_storage/main",
+              "topic": "样品瓶、保护剂与低温保存",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.5.3:sampling_method/main",
+              "topic": "实际地下水采样方法与记录附件",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.5.3:stable_intro/main",
+              "topic": "水质稳定后采样要求引导",
+              "argument": "说明图表对象与口径，指出读者应关注的信息，并连接当前论证；不能只写见下表。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.5.3:voc_timing/main",
+              "topic": "VOC优先与采样时限/固定剂",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.5.3:flow_bubble/main",
+              "topic": "出水流速与防气泡要求",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.5.3:field_record/main",
+              "topic": "现场采样记录要求",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.7:summary/main",
+              "topic": "实际地下水井、对照点与采送检工作量总述",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.8:preservation/main",
+              "topic": "地下水样品容器与保存原则",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.9:measurement/main",
+              "topic": "监测井高程与稳定水位测量范围/精度",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.9:flow_context/main",
+              "topic": "外部地下水流向参考与本地块流向判断",
+              "argument": "先说明可比对象及口径，再呈现差异，并给出已有分析支持的解释与适用边界。",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "5.2.1.2:media:1",
+              "title": "送检土壤样品现场XRF/PID读数表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.2:media:1",
+              "title": "现场土壤采样及送检样品量汇总表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.4:media:1",
+              "title": "土壤样品保存方式表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.5.1:media:1",
+              "title": "监测井剖面图示例",
+              "kind": "figure",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.5.2:media:1",
+              "title": "井体积计算公式",
+              "kind": "figure",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.5.2:media:2",
+              "title": "监测井洗井水量记录表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.5.2:media:3",
+              "title": "地下水采样洗井出水水质稳定标准表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.5.2:media:4",
+              "title": "采样前洗井出水水质现场检测汇总表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.7:media:1",
+              "title": "现场地下水采样及送检样品量汇总表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.8:media:1",
+              "title": "地下水样品保存方式表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.9:media:1",
+              "title": "监测井高程测量结果表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.2.9:media:2",
+              "title": "邻近项目地下水流向图",
+              "kind": "figure",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "5.3",
+          "title": "实验室分析",
+          "byEnterprise": false,
+          "headings": [],
+          "paragraphs": [
+            {
+              "id": "5.3:workload/main",
+              "topic": "实验室实际检测样品量与检测项目总述",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.3:method_intro/main",
+              "topic": "分析方法与检出限表引导",
+              "argument": "说明图表对象与口径，指出读者应关注的信息，并连接当前论证；不能只写见下表。",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "5.3:media:1",
+              "title": "土壤检测方法及检出限表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.3:media:2",
+              "title": "地下水检测方法及检出限表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "5.4",
+          "title": "质量保证和质量控制",
+          "byEnterprise": false,
+          "headings": [
+            {
+              "level": 3,
+              "title": "5.4.1 设备校正和清洗"
+            },
+            {
+              "level": 3,
+              "title": "5.4.2 质控措施"
+            },
+            {
+              "level": 3,
+              "title": "5.4.3 样品运输"
+            },
+            {
+              "level": 3,
+              "title": "5.4.4 实验室质量保证"
+            },
+            {
+              "level": 3,
+              "title": "5.4.5 现场质控"
+            },
+            {
+              "level": 3,
+              "title": "5.4.6 实验室质控"
+            }
+          ],
+          "paragraphs": [
+            {
+              "id": "5.4:overview/main",
+              "topic": "QA/QC总体目标与适用规范",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4:parallel_basis/main",
+              "topic": "土壤/地下水平行样采集依据",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4:whole_blank/main",
+              "topic": "全过程空白样设置与用途",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4:equipment_blank/main",
+              "topic": "地下水设备空白样设置与用途",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.1:calibration_cleaning/main",
+              "topic": "现场设备校正与钻探/取样设备清洗程序",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.1:gloves/main",
+              "topic": "一次性手套更换要求",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.1:well_bailer/main",
+              "topic": "监测井洗井与贝勒管更换",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.2:intro/main",
+              "topic": "质量保证计划引导",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.2:lab_qualification/main",
+              "topic": "检测单位资质、样品瓶和保存管理",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.2:trip_blank/main",
+              "topic": "运输空白样设置",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.2:spike_recovery/main",
+              "topic": "加标回收与色谱图备查",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.2:communication/main",
+              "topic": "实验室与现场人员沟通",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.2:review/main",
+              "topic": "实验室内部QA/QC数据审核",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.3:transport/main",
+              "topic": "样品瓶、冷藏箱、跟踪单与运输方式",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.3:chain_of_custody/main",
+              "topic": "样品跟踪记录与信息字段",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.4:method_standard/main",
+              "topic": "样品测试方法标准",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.4:resources/main",
+              "topic": "实验室人员、仪器、标准品与耗材",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.4:workflow/main",
+              "topic": "实验室样品检测流程管理",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.4:qc_frequency/main",
+              "topic": "实验室质控样设置频次",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.4:qc_acceptance/main",
+              "topic": "准确度、回收率与精密度评价要求",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.4:certification/main",
+              "topic": "实验室能力认证",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.5:overview/main",
+              "topic": "现场质控样总体设置",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.5:parallel_method/main",
+              "topic": "现场平行样评价方法",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.5:parallel_result/main",
+              "topic": "现场平行样数量、比较与结论",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.5:trip_blank_result/main",
+              "topic": "运输空白结果与交叉污染判断",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.5:equipment_conclusion/main",
+              "topic": "采样设备污染控制结论",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.5:rinse_blank_result/main",
+              "topic": "设备淋洗空白结果与结论",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.6:workload/main",
+              "topic": "本批次样品与实验室质控数量总述",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.6:measures/main",
+              "topic": "实验室质控措施总体结果",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.6:parallel/main",
+              "topic": "实验室平行样结果",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.6:method_blank/main",
+              "topic": "方法空白结果",
+              "argument": "按实际操作顺序说明主体、设备/条件、步骤及记录结果；通用要求与实际实施分开。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.6:control_sample/main",
+              "topic": "实验室控制样结果",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.6:matrix_spike/main",
+              "topic": "基体加标样结果",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.6:all_batches/main",
+              "topic": "质控报告多角度汇总与批次合格率",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.6:conclusion/main",
+              "topic": "实验室质控最终结论",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "5.4.5:media:1",
+              "title": "现场平行样相对偏差要求表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.5:media:2",
+              "title": "现场质控土壤平行样相对偏差统计表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.5:media:3",
+              "title": "现场质控地下水平行样相对偏差统计表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "5.4.6:media:1",
+              "title": "实验室质量控制一览表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "title": "结果和评价",
+      "sections": [
+        {
+          "id": "6.1",
+          "title": "地块的地质和水文条件",
+          "byEnterprise": false,
+          "headings": [],
+          "paragraphs": [
+            {
+              "id": "6.1:soil_layers/main",
+              "topic": "采样深度范围内的主要土层",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.1:groundwater_type/main",
+              "topic": "调查深度内地下水类型",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "6.1:media:1",
+              "title": "本轮逐孔地层及水文记录表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "6.2",
+          "title": "分析检测结果",
+          "byEnterprise": false,
+          "headings": [
+            {
+              "level": 3,
+              "title": "6.2.1 调查结果分析"
+            },
+            {
+              "level": 4,
+              "title": "6.2.1.1 土壤评价依据与判定口径"
+            },
+            {
+              "level": 4,
+              "title": "6.2.1.2 地下水评价依据与判定口径"
+            },
+            {
+              "level": 4,
+              "title": "6.2.1.3 检测数据及统计口径总述"
+            },
+            {
+              "level": 3,
+              "title": "6.2.2 土壤检测结果"
+            },
+            {
+              "level": 4,
+              "title": "6.2.2.1 地块内土壤检测结果"
+            },
+            {
+              "level": 4,
+              "title": "6.2.2.2 土壤对照点检测结果及比较"
+            },
+            {
+              "level": 3,
+              "title": "6.2.3 地下水检测结果"
+            },
+            {
+              "level": 4,
+              "title": "6.2.3.1 地块内地下水检测结果"
+            },
+            {
+              "level": 4,
+              "title": "6.2.3.2 地下水对照点检测结果及比较"
+            }
+          ],
+          "paragraphs": [
+            {
+              "id": "6.2.1.1:land_use_basis/main",
+              "topic": "规划用途与土壤评价标准选择依据",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.1.1:screening_meaning/main",
+              "topic": "筛选值含义与第二类用地适用范围",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.1.1:table_intro/main",
+              "topic": "土壤评价标准表引导",
+              "argument": "说明图表对象与口径，指出读者应关注的信息，并连接当前论证；不能只写见下表。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.1.2:standard_choice/main",
+              "topic": "地下水评价标准选择与类别说明",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.1.2:table_intro/main",
+              "topic": "地下水评价标准表引导",
+              "argument": "说明图表对象与口径，指出读者应关注的信息，并连接当前论证；不能只写见下表。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.1.3:data_source/main",
+              "topic": "检测数据汇总与原始报告来源",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.1.3:soil_workload/main",
+              "topic": "土壤：点位、采样量与送检量",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.1.3:soil_detection_stats/main",
+              "topic": "土壤：检测因子、检出种类与检出率",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.1.3:soil_compliance/main",
+              "topic": "土壤：筛选值比较总体结论",
+              "argument": "先说明可比对象及口径，再呈现差异，并给出已有分析支持的解释与适用边界。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.1.3:soil_special/main",
+              "topic": "土壤：需要单独说明的最大值/垂向趋势或异常",
+              "argument": "先说明可比对象及口径，再呈现差异，并给出已有分析支持的解释与适用边界。",
+              "fromRound": 3,
+              "conditional": true
+            },
+            {
+              "id": "6.2.1.3:soil_table_intro/main",
+              "topic": "土壤检出因子浓度范围表引导",
+              "argument": "说明图表对象与口径，指出读者应关注的信息，并连接当前论证；不能只写见下表。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.1.3:gw_workload/main",
+              "topic": "地下水：点位、采样量与送检量",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.1.3:gw_detection_stats/main",
+              "topic": "地下水：检测因子、检出种类与检出率",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.1.3:gw_compliance/main",
+              "topic": "地下水：标准比较总体结论",
+              "argument": "先说明可比对象及口径，再呈现差异，并给出已有分析支持的解释与适用边界。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.1.3:gw_table_intro/main",
+              "topic": "地下水检出因子浓度范围表引导",
+              "argument": "说明图表对象与口径，指出读者应关注的信息，并连接当前论证；不能只写见下表。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.2.1:points_depth/main",
+              "topic": "地块内土壤点位与调查深度",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.2.1:detected_factors/overall",
+              "topic": "检出指标、范围及总体特征",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.2.1:detected_factors/spatial",
+              "topic": "不同点位的差异及与风险位置的关系",
+              "argument": "先说明可比对象及口径，再呈现差异，并给出已有分析支持的解释与适用边界。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.2.1:detected_factors/depth",
+              "topic": "不同采样区间的差异及解释范围",
+              "argument": "先说明可比对象及口径，再呈现差异，并给出已有分析支持的解释与适用边界。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.2.1:evaluation/main",
+              "topic": "地块内土壤评价结论",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.2.2:control_setup/main",
+              "topic": "土壤对照点设置与数据表引导",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.2.2:comparison/main",
+              "topic": "土壤对照点与地块内结果比较结论",
+              "argument": "先说明可比对象及口径，再呈现差异，并给出已有分析支持的解释与适用边界。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.3.1:workload/main",
+              "topic": "地块内地下水点位与实际样品量",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.3.1:detected_factors/main",
+              "topic": "地块内地下水检出因子",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.3.1:evaluation/main",
+              "topic": "地块内地下水评价结论",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.3.2:control_setup/main",
+              "topic": "地下水对照点设置与数据表引导",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.3.2:background_factors/main",
+              "topic": "对照点较高因子与区域背景解释",
+              "argument": "先说明可比对象及口径，再呈现差异，并给出已有分析支持的解释与适用边界。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.3.2:site_higher_factors/main",
+              "topic": "地块内较高因子与可能来源解释",
+              "argument": "先说明可比对象及口径，再呈现差异，并给出已有分析支持的解释与适用边界。",
+              "fromRound": 3,
+              "conditional": true
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "6.2.1.1:media:1",
+              "title": "土壤评价标准表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.1.2:media:1",
+              "title": "地下水评价标准指标表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.1.3:media:1",
+              "title": "地块内土壤检出因子浓度范围表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.1.3:media:2",
+              "title": "地块内地下水检出因子浓度范围表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.2.2:media:1",
+              "title": "地块外对照点土壤检测数据表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.2.3.2:media:1",
+              "title": "地块外对照点地下水检测数据表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "6.3",
+          "title": "结果分析和评价",
+          "byEnterprise": false,
+          "headings": [
+            {
+              "level": 3,
+              "title": "6.3.1 达标情况汇总"
+            },
+            {
+              "level": 4,
+              "title": "6.3.1.1 土壤"
+            },
+            {
+              "level": 4,
+              "title": "6.3.1.2 地下水"
+            },
+            {
+              "level": 3,
+              "title": "6.3.2 地块污染分析"
+            },
+            {
+              "level": 4,
+              "title": "6.3.2.1 土壤"
+            },
+            {
+              "level": 4,
+              "title": "6.3.2.2 地下水"
+            }
+          ],
+          "paragraphs": [
+            {
+              "id": "6.3.1.1:compliance/main",
+              "topic": "土壤达标率与超标点位汇总",
+              "argument": "先说明可比对象及口径，再呈现差异，并给出已有分析支持的解释与适用边界。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.3.1.2:compliance/main",
+              "topic": "地下水达标率与超标点位汇总",
+              "argument": "先说明可比对象及口径，再呈现差异，并给出已有分析支持的解释与适用边界。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.3.2:basis/main",
+              "topic": "污染状态综合判断所依据的信息",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.3.2.1:detected_factors/main",
+              "topic": "土壤检出因子概述",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.3.2.1:conclusion/main",
+              "topic": "土壤污染状态评价结论",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.3.2.2:detected_factors/main",
+              "topic": "地下水检出因子概述",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.3.2.2:conclusion/main",
+              "topic": "地下水污染状态评价结论",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "6.3:media:1",
+              "title": "地块内与对照同口径比较表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "6.4",
+          "title": "不确定性分析",
+          "byEnterprise": false,
+          "headings": [],
+          "paragraphs": [
+            {
+              "id": "6.4:basis/main",
+              "topic": "结论形成基础与专业判断边界",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.4:source_limits/main",
+              "topic": "资料收集与人员访谈的局限",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.4:spatial_limits/main",
+              "topic": "土壤异质性与空间代表性局限",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.4:temporal_limits/main",
+              "topic": "缺少长期监测造成的时间代表性局限",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "6.4:future_change/main",
+              "topic": "地块条件或评价依据变化的不确定性",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ],
+          "displaySlots": []
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "title": "结论和建议",
+      "sections": [
+        {
+          "id": "7.1",
+          "title": "地块概况",
+          "byEnterprise": false,
+          "headings": [],
+          "paragraphs": [
+            {
+              "id": "7.1:project_scope/main",
+              "topic": "项目位置、面积与用地范围依据",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "7.1:earliest_use/main",
+              "topic": "历史最早用途",
+              "argument": "按已知时期说明用途、设施或活动及变化，以来源明确的时间关系导向风险意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "7.1:enterprise_facility_history/main",
+              "topic": "历史企业及主要设施",
+              "argument": "按已知时期说明用途、设施或活动及变化，以来源明确的时间关系导向风险意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "7.1:demolition_transition/main",
+              "topic": "拆除及后续临时利用",
+              "argument": "按已知时期说明用途、设施或活动及变化，以来源明确的时间关系导向风险意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "7.1:current_site/main",
+              "topic": "当前红线内现状",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "7.1:current_surrounding/main",
+              "topic": "当前周边现状",
+              "argument": "说明位置、自然条件或周边对象的事实，解释其与调查范围及迁移条件的关系。",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ],
+          "displaySlots": []
+        },
+        {
+          "id": "7.2",
+          "title": "地块建设规划",
+          "byEnterprise": false,
+          "headings": [],
+          "paragraphs": [
+            {
+              "id": "7.2:planning_source/main",
+              "topic": "规划文件来源",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "7.2:planned_use/main",
+              "topic": "规划用地性质",
+              "argument": "说明采用依据、适用情景及其支持的判断，区分来源条目与本项目采用决定。",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ],
+          "displaySlots": []
+        },
+        {
+          "id": "7.3",
+          "title": "地块调查结果",
+          "byEnterprise": false,
+          "headings": [],
+          "paragraphs": [
+            {
+              "id": "7.3:soil_points/main",
+              "topic": "土壤：实际点位构成",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "7.3:soil_lab_workload/main",
+              "topic": "土壤：实际送检/分析数量",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "7.3:soil_detected/main",
+              "topic": "土壤：主要检出因子",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "7.3:soil_evaluation/main",
+              "topic": "土壤：评价结果",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "7.3:gw_points_workload/main",
+              "topic": "地下水：点位与实际检测数量",
+              "argument": "明确对象、空间/时间/批次、介质及统计身份，交代后文数字覆盖的范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "7.3:gw_detected/main",
+              "topic": "地下水：主要检出因子",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "7.3:gw_evaluation/main",
+              "topic": "地下水：评价结果",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ],
+          "displaySlots": [
+            {
+              "id": "7.3:media:1",
+              "title": "已实施工作量及结果摘要表",
+              "kind": "table",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ]
+        },
+        {
+          "id": "7.4",
+          "title": "结论",
+          "byEnterprise": false,
+          "headings": [],
+          "paragraphs": [
+            {
+              "id": "7.4:soil_final/main",
+              "topic": "土壤最终评价结论",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "7.4:gw_final/main",
+              "topic": "地下水最终评价结论",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "7.4:suitability/main",
+              "topic": "规划用途适用性最终结论",
+              "argument": "呈现已整理的结果、关键数值或检出情况，再解释其对当前问题的意义。",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ],
+          "displaySlots": []
+        },
+        {
+          "id": "7.5",
+          "title": "建议",
+          "byEnterprise": false,
+          "headings": [],
+          "paragraphs": [
+            {
+              "id": "7.5:uncertainty_trigger/main",
+              "topic": "建议1：不确定性/后续异常触发条件",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "7.5:abnormal_soil_action/main",
+              "topic": "建议1：异常土壤管理措施",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "7.5:suspected_trigger/main",
+              "topic": "建议2：建设中发现疑似污染物的触发条件",
+              "argument": "回接本节问题，串联已有证据与来源结论，写明支持的判断及其范围。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "7.5:stop_control/main",
+              "topic": "建议2：停工与临时环保措施",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 3,
+              "conditional": false
+            },
+            {
+              "id": "7.5:sampling_disposal/main",
+              "topic": "建议2：采样确认与后续处置方案",
+              "argument": "说明原则针对的问题及其如何指导本项目安排，不把原则写成已经实施的事实。",
+              "fromRound": 3,
+              "conditional": false
+            }
+          ],
+          "displaySlots": []
+        }
+      ]
+    }
+  ]
+}

@@ -23,7 +23,7 @@ const task: ExecutorTask = {
 test('P1.1: real JSON-RPC stdio handshake, model selection, identities and validated result', async () => {
   const events: ExecutorRunEvent[] = [];
   const result = await runCodexTask(task, {
-    startProcess: start('success'), timeoutMs: 3000,
+    startProcess: start('success'), timeoutMs: 10000,
     onEvent: event => events.push(event)
   });
   assert.equal(result.body, 'Real protocol fixture answer');

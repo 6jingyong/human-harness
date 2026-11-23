@@ -7,6 +7,12 @@ Define a project once, then let people and agents work through its real-world de
 
 > **Status: early local-development prototype.** The project now includes a generic PDF/DOCX → Agent → Human → Agent handoff example and a protocol-fixture-tested local Codex Skill bridge. Neither actual Codex document parsing nor official DOCX/PDF report generation has been verified.  The task engine and no-key demo workflow work; real model calls, third-party connectors, office document parsing, and production deployment are **not verified or supported**. This repository is not a regulatory compliance tool.
 
+The first reference project template, [land investigation](project-templates/land-investigation/), imports through the standard package editor. It covers project launch, external work, evidence review, and delivery of an approved internal report in Markdown or Word. The default template list contains general-purpose examples. Existing projects use their saved package snapshots.
+
+The [project requirements workflow](docs/project-coordination.md) materializes optional outside work and follows it through acceptance in the Human Todo.
+
+The [project planning view](docs/project-planning.md) schedules the same tasks against workday capacity, records a baseline and identifies actionable delays.
+
 ## Why does this exist?
 
 Most agent apps start with a chat: the user asks for something, and the agent decides the next step. Many real projects are different. They involve source documents that do not exist yet, outside organizations, human approvals, and work that must pause until the right evidence arrives.
@@ -48,7 +54,7 @@ A future material requirement may be recorded on day one but remains outside the
 | Human–AI collaboration | Human TodoList, Agent task queue, approve/reject/retry | Multi-user identity, permissions, secure public hosting |
 | Materials | Save files and text; request/receive/accept/reject; track versions | Robust PDF/DOCX/CAD parsing, content-level professional verification |
 | Agent executor | Demo/Mastra, protocol-tested Codex adapter; local bounded auto-dispatch | Real Codex model smoke test; production worker/lease recovery; extended plugins |
-| Outputs | Reviewed Markdown/JSON downloads | Production DOCX/PDF compilation and publication |
+| Outputs | Reviewed Markdown/JSON downloads and opt-in Word review copies of approved Markdown | Production report compilation and publication |
 | Integration | Internal typed TaskPacket/TaskResult contracts | MCP client/server, portable Agent Skills, host-platform adapters |
 
 We are **designing** interoperability with MCP and Agent Skills; they are **not installed as project capabilities** in this version.
@@ -62,7 +68,7 @@ Requirements: Node.js **22.19 recommended** (the package declares Node >=22.13),
 ```bash
 git clone https://github.com/6jingyong/human-harness.git
 cd human-harness
-git switch feat/project-first-foundation
+git switch feat/land-investigation-reference
 npm install
 cp .env.example .env.local
 npm run dev
