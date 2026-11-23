@@ -1,5 +1,12 @@
 # Human Harness（中文说明）
 
+## 在本机打开工作台
+
+安装 Node.js 22.19 或更高版本，下载或克隆 `feat/general-project-templates` 分支。Windows 双击根目录的 **Start-Human-Harness.cmd**，首次启动会安装依赖。macOS 或 Linux 在项目目录执行 `npm ci`，再执行 `npm run local`。默认浏览器会打开 **http://127.0.0.1:3000**。
+
+首页可从报告撰写、项目启动或会议纪要开始，也可以打开最近项目。点击右上角的模型按钮，可选演示、已登录的 Codex CLI、本机 Ollama 已安装的模型，或 Mastra 对应的服务商模型。Mastra 的凭据配置在本机环境或 `.env.local`。保存后，本机所有项目从下一项 Agent 任务起使用新选择，任务详情可查看本次使用的模型。[手机宽度界面截图](images/local-model-picker.webp)
+
+
 **一个以项目为中心、由人类和 AI Agent 共同执行任务的工作台。**
 
 [通用文档交接 MVP](mvp-document-handoff.md) · [English README](../README.md) · **[Codex 版 V1 开发计划](roadmap-codex-v1.md)** · [Protocol 1.0 协议](protocol/human-harness-1.0.md) · [Codex 参考架构](codex-reference.md) · [插件与跨平台研究](interoperability.md) · [土地污染调查示例](../examples/land-investigation.hh.json)
@@ -11,6 +18,19 @@
 ## 首个参考模板
 
 [地块土壤污染状况调查](../project-templates/land-investigation/)从启动、资料收集、外部事项跟进到交付复核使用同一套项目任务机制。已验收的内审稿支持 Markdown 和 Word 下载。
+
+## 通用项目模板
+
+打开菜单，在「选择已安装模板」中选一个模板创建项目。需要改流程时，选「复制所选模板」后再编辑。
+
+| 模板 | 需要你提供 | 审核后的交付 |
+| --- | --- | --- |
+| [通用报告撰写](../examples/general-report.hh.json) | 报告要求、证据和来源 | 项目报告，包含摘要、问题与范围、证据与发现、结论与建议、来源与局限 |
+| [项目方案与启动](../examples/project-plan.hh.json) | 目标、资源和约束，以及负责人对方案的选择 | 启动计划，明确范围、里程碑、负责人和验收标准 |
+| [会议纪要与行动清单](../examples/meeting-actions.hh.json) | 会议基本信息、笔记或文字转录，以及核定后的决定和分工 | 会议纪要及行动表，包含负责人、截止日期和完成凭据 |
+| [项目复盘与改进](../examples/project-retrospective.hh.json) | 原计划、实际事件与投入，以及确认的改进项 | 复盘报告和下一单可核验的改进表 |
+
+报告的证据整理和提纲设计可以并行。写作任务只读取已批准的证据整理稿和提纲，正文经人工批准后可下载 Markdown 或 Word。其余三种模板也提供这两种下载格式。复盘时可把项目账务里记录的实际人工、机构等待和现金支出作为输入。
 
 ## 项目与公司账务
 

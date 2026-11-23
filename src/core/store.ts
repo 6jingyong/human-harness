@@ -1,9 +1,14 @@
-import Database from 'better-sqlite3';
+import { configuredExecutorMode, modelSettingsSchema, type ModelSettings } from '../protocol/model-settings';
+import { DatabaseSync } from 'node:sqlite';
 import { createHash } from 'node:crypto';
 import { basename, extname, join, resolve } from 'node:path';
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import documentHandoff from '../../examples/document-handoff.hh.json';
 import technicalSpecReview from '../../examples/technical-spec-review.hh.json';
+import generalReport from '../../examples/general-report.hh.json';
+import projectPlan from '../../examples/project-plan.hh.json';
+import meetingActions from '../../examples/meeting-actions.hh.json';
+import projectRetrospective from '../../examples/project-retrospective.hh.json';
 import { MAX_ASSEMBLED_MARKDOWN_LENGTH, packageSchema, taskPacketSchema, taskResultSchema, type HumanHarnessPackage, type HumanHarnessTaskResult } from '../protocol/v1';
 import { coordinationSettingsSchema, requirementSchema } from '../protocol/coordination';
 import { enabledWorkOrders, workOrderHandoffTarget } from './work-orders';
@@ -14,7 +19,7 @@ import { projectLedgerCommandSchema, type ProjectLedger } from '../protocol/proj
 import { externalWaits, ledgerReferenceExists, ledgerSummary } from './project-ledger';
 import { readyAgentSteps } from './planning-work';
 import type { SemanticNote } from '../protocol/semantics';
-import type { MethodCheckResult } from '../executors/contracts';
+import type { ExecutorRunEvent, MethodCheckResult } from '../executors/contracts';
 import {
   amendAndApproveAgent, answerHumanRequest, applyHumanStep, attachHumanRequestArtifact, createTaskPacket, expireAbandonedRun, failAgent, finishAgent, freshId, holdAgentForHuman, newProject, now, receiveMaterial, reviseApprovedOutput,
   affectedStepsForOutput, invalidateSteps, reconcile, recordEvent, reserveAgent, retryAgent, reviewAgent, reviewMaterial,
@@ -25,11 +30,12 @@ export class RuntimeError extends Error {}
 export class LedgerConflictError extends RuntimeError {}
 const dir = process.env.HH_DATA_DIR ? resolve(process.env.HH_DATA_DIR) : join(process.cwd(), '.human-harness');
 mkdirSync(dir, { recursive: true });
-const db = new Database(join(dir, 'protocol-v1.sqlite'));
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
-db.pragma('busy_timeout = 5000');
+const db = new DatabaseSync(join(dir, 'protocol-v1.sqlite'));
+db.exec('PRAGMA journal_mode = WAL');
+db.exec('PRAGMA foreign_keys = ON');
+db.exec('PRAGMA busy_timeout = 5000');
 db.exec([
+  'CREATE TABLE IF NOT EXISTS local_model_settings (id INTEGER PRIMARY KEY CHECK(id=1), selection TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS packages (id TEXT NOT NULL, version TEXT NOT NULL, digest TEXT NOT NULL, definition TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (id, version))',
   'CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, title TEXT NOT NULL, package_id TEXT NOT NULL, package_version TEXT NOT NULL, state TEXT NOT NULL, created_at TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS project_ledgers (project_id TEXT PRIMARY KEY REFERENCES projects(id), state TEXT NOT NULL)',
@@ -38,7 +44,38 @@ db.exec([
   'CREATE INDEX IF NOT EXISTS idx_runtime_events ON event_log(project_id, created_at)'
 ].join(';') + ';');
 
-const builtinPackages = [documentHandoff, technicalSpecReview].map(pkg => packageSchema.parse(pkg));
+function transaction<T>(operation: () => T, mode: 'deferred' | 'immediate' = 'deferred'): T {
+  db.exec(mode === 'immediate' ? 'BEGIN IMMEDIATE' : 'BEGIN');
+  try {
+    const result = operation();
+    db.exec('COMMIT');
+    return result;
+  } catch (error) {
+    // SQLite can roll back automatically on a storage error. Keep the original cause.
+    try { db.exec('ROLLBACK'); } catch { /* already rolled back */ }
+    throw error;
+  }
+}
+
+export function getModelSettings(): ModelSettings {
+  const row = db.prepare('SELECT selection FROM local_model_settings WHERE id=1').get() as { selection: string } | undefined;
+  if (row) return modelSettingsSchema.parse(JSON.parse(row.selection));
+  const provider = configuredExecutorMode();
+  if (provider === 'mastra') return { provider, model: process.env.HH_MODEL || 'openai/gpt-6.1-sol' };
+  if (provider === 'ollama') return modelSettingsSchema.parse({ provider, model: process.env.HH_OLLAMA_MODEL });
+  if (provider === 'codex') return { provider, model: process.env.HH_CODEX_MODEL || null };
+  return { provider, model: null };
+}
+
+export function saveModelSettings(settings: ModelSettings) {
+  const valid = modelSettingsSchema.parse(settings);
+  db.prepare('INSERT INTO local_model_settings(id,selection) VALUES(1,?) ON CONFLICT(id) DO UPDATE SET selection=excluded.selection')
+    .run(JSON.stringify(valid));
+  return valid;
+}
+
+const builtinPackages = [documentHandoff, generalReport, projectPlan, meetingActions, projectRetrospective, technicalSpecReview]
+  .map(pkg => packageSchema.parse(pkg));
 const digest = (value: unknown) => 'sha256:' + createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const asError = (e: unknown) => e instanceof Error ? e : new Error(String(e));
 
@@ -135,7 +172,7 @@ function ledgerView(project: ProjectState, ledger: ProjectLedger) {
 }
 
 export function getProjectLedger(projectId: string) {
-  return db.transaction(() => ledgerView(loadProject(projectId), loadLedger(projectId)))();
+  return transaction(() => ledgerView(loadProject(projectId), loadLedger(projectId)));
 }
 
 export type ProjectLedgerView = ReturnType<typeof getProjectLedger>;
@@ -179,7 +216,7 @@ export type CompanyLedgerView = ReturnType<typeof getCompanyLedger>;
 
 export function updateProjectLedger(projectId: string, input: unknown) {
   const command = projectLedgerCommandSchema.parse(input);
-  return db.transaction(() => {
+  return transaction(() => {
     const project = loadProject(projectId);
     const ledger = loadLedger(projectId);
     if (command.action === 'record') {
@@ -222,7 +259,7 @@ export function updateProjectLedger(projectId: string, input: unknown) {
     db.prepare('INSERT INTO project_ledgers (project_id, state) VALUES (?, ?) ON CONFLICT(project_id) DO UPDATE SET state = excluded.state')
       .run(projectId, JSON.stringify(ledger));
     return ledgerView(project, ledger);
-  }).immediate();
+  }, 'immediate');
 }
 
 
@@ -236,19 +273,19 @@ function persist(project: ProjectState, newEvents: number): void {
 }
 
 function mutate<T>(id: string, fn: (p: ProjectState) => T): { project: ProjectState; value: T } {
-  return db.transaction(() => {
+  return transaction(() => {
     const project = loadProject(id);
     const count = project.events.length;
     const value = fn(project);
     persist(project, project.events.length - count);
     return { project, value };
-  })();
+  });
 }
 
-function buildProjectSnapshot(packageId: string, rawTitle: string, rawSetup?: unknown, version?: string): ProjectState {
+function buildProjectSnapshot(template: string | HumanHarnessPackage, rawTitle: string, rawSetup?: unknown, version?: string): ProjectState {
   const title = rawTitle.trim();
   if (!title || title.length > 150) throw new RuntimeError('Project title must be between 1 and 150 characters');
-  const pkg = getPackage(packageId, version);
+  const pkg = typeof template === 'string' ? getPackage(template, version) : template;
   const readiness = inspectReadiness(pkg);
   if (readiness.errors.length) throw new RuntimeError(readiness.errors.join('; '));
   const setup = rawSetup === undefined ? undefined : projectSetupSchema.parse(rawSetup);
@@ -264,13 +301,13 @@ function buildProjectSnapshot(packageId: string, rawTitle: string, rawSetup?: un
   });
 }
 
-export function previewProject(packageId: string, title: string, setup?: unknown, version?: string) {
-  return buildProjectSnapshot(packageId, title, setup, version);
+export function previewProject(template: string | HumanHarnessPackage, title: string, setup?: unknown, version?: string) {
+  return buildProjectSnapshot(template, title, setup, version);
 }
 
-export function createProject(packageId: string, rawTitle: string, setup?: unknown, version?: string): ProjectState {
-  const project = buildProjectSnapshot(packageId, rawTitle, setup, version);
-  db.transaction(() => {
+export function createProject(template: string | HumanHarnessPackage, rawTitle: string, setup?: unknown, version?: string): ProjectState {
+  const project = buildProjectSnapshot(template, rawTitle, setup, version);
+  transaction(() => {
     db.prepare('INSERT INTO projects VALUES (?, ?, ?, ?, ?, ?)').run(
       project.id, project.title, project.templateId, project.templateVersion, JSON.stringify(project), project.createdAt
     );
@@ -279,7 +316,7 @@ export function createProject(packageId: string, rawTitle: string, setup?: unkno
         e.id, project.id, e.type, e.subject, e.detail, e.createdAt
       );
     }
-  })();
+  });
   return project;
 }
 
@@ -497,15 +534,17 @@ export function getTaskPacket(id: string, stepId: string, runId: string) {
 }
 
 /** Store only Codex runtime identities/brief event types, never model-controlled project mutations. */
-export function recordExecutorEvent(id: string, stepId: string, runId: string,
-  event: { kind: 'thread'; id: string } | { kind: 'turn'; id: string } | { kind: 'progress'; message: string }) {
+export function recordExecutorEvent(id: string, stepId: string, runId: string, event: ExecutorRunEvent) {
   return mutate(id, p => {
     const run = p.runs.find(r => r.id === runId && r.stepId === stepId);
     if (!run || run.status !== 'running' || p.steps[stepId]?.runId !== runId ||
         p.steps[stepId]?.state !== 'running') {
       throw new RuntimeError('Stale or unknown Codex run event');
     }
-    if (event.kind === 'thread') {
+    if (event.kind === 'model') {
+      run.model = event.model;
+      run.provider = event.provider;
+    } else if (event.kind === 'thread') {
       if (run.codexThreadId && run.codexThreadId !== event.id) throw new RuntimeError('Codex thread identity changed');
       run.codexThreadId = event.id;
       recordEvent(p, 'executor.thread', stepId, event.id);
@@ -514,6 +553,12 @@ export function recordExecutorEvent(id: string, stepId: string, runId: string,
       if (run.codexTurnId && run.codexTurnId !== event.id) throw new RuntimeError('Codex turn identity changed');
       run.codexTurnId = event.id;
       recordEvent(p, 'executor.turn', stepId, event.id);
+    } else if (event.kind === 'skills') {
+      run.codexSkills = event.selectors;
+      recordEvent(p, 'executor.skills', stepId, JSON.stringify(event.selectors));
+    } else if (event.kind === 'mcpLookup') {
+      run.codexMcpLookup = event.selector;
+      recordEvent(p, 'executor.mcp_lookup', stepId, event.selector);
     } else {
       run.lastExecutorEvent = event.message.slice(0, 150);
       // Progress is a status snapshot. Avoid a large SQLite event ledger for every token.
@@ -548,8 +593,9 @@ export function succeedAgent(id: string, stepId: string, runId: string, rawResul
   }).project;
 }
 
-export const reviewAgentOutput = (id: string, stepId: string, accepted: boolean, feedback: string) =>
-  mutate(id, p => reviewAgent(p, stepId, accepted, feedback)).project;
+export const reviewAgentOutput = (id: string, stepId: string, accepted: boolean, feedback: string,
+  expectedCandidateId?: string) =>
+  mutate(id, p => reviewAgent(p, stepId, accepted, feedback, expectedCandidateId)).project;
 /** Atomic audit trail: retain the Agent original, add corrected Human version, then approve. */
 export const approveHumanCorrectedOutput = (id: string, stepId: string, content: string, rationale: string) =>
   mutate(id, p => amendAndApproveAgent(p, stepId, content, rationale)).project;

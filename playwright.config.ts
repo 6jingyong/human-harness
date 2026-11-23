@@ -20,6 +20,7 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     env: {
       HH_EXECUTOR: 'demo',
+      HH_CODEX_MCP_READ_ONLY: '',
       HH_DATA_DIR: process.env.HH_DATA_DIR || '.human-harness-browser-smoke'
     }
   }

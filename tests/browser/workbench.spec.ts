@@ -459,12 +459,12 @@ test('approved output can be Human-revised from the library; dependent review re
   await expect(page.getByRole('region', { name: 'Agent TodoList' })).toContainText('等待依赖');
 });
 
-test('the local JSON import installs the optional land investigation template and starts the dual Todo', async ({ page }) => {
+test('the bundled land template is selectable and a local JSON import can still be edited and launched', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: '打开菜单' }).click();
   const packageSelect = page.locator('#package-select');
   await expect(packageSelect).toContainText('双文档信息核对与交付');
-  await expect(packageSelect).not.toContainText('环评 · 地块土壤污染状况调查');
+  await expect(packageSelect).toContainText('环评 · 地块土壤污染状况调查 · 0.5.0');
   await page.getByLabel('导入本地 JSON 模板').setInputFiles(fileURLToPath(
     new URL('../../project-templates/land-investigation/land-investigation.hh.json', import.meta.url)
   ));
@@ -650,6 +650,73 @@ test('the visual template editor connects a Human prerequisite and starts a proj
   await expect(page.getByRole('region', { name: '项目交付' }).getByRole('link', { name: '下载交付件' })).toBeVisible();
 });
 
+test('the template editor saves Codex Skills on the selected Agent task', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await page.locator('#package-select').selectOption('general-report');
+  await page.getByRole('button', { name: '复制所选模板' }).click();
+  const editor = page.getByRole('region', { name: '项目模板编辑器' });
+  await editor.locator('[data-flow-card="step:evidence"]').click();
+  await editor.getByText('Codex Skills', { exact: true }).click();
+  await editor.getByLabel('所需 Skill（每行一个）').fill('documents@local/pdf\ndocx');
+  await editor.getByRole('button', { name: '验证并保存模板' }).click();
+  await expect(page.getByRole('status')).toContainText('general-report-custom @ 1.0.0');
+  const response = await page.request.get('/api/v1/packages?id=general-report-custom');
+  expect(response.ok()).toBe(true);
+  const { package: saved } = await response.json();
+  expect(saved.steps.find((step: { id: string }) => step.id === 'evidence').codexSkills)
+    .toEqual(['documents@local/pdf', 'docx']);
+});
+
+test('the template editor validates and preserves fixed arguments for direct Codex MCP lookups', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await page.getByRole('button', { name: /新建模板/ }).click();
+  const editor = page.getByRole('region', { name: '项目模板编辑器' });
+  await editor.getByText('模板资料与阶段').click();
+  await editor.getByLabel('模板 ID').fill('workbench-mcp-lookup');
+  await editor.locator('[data-flow-card="step:draft"]').click();
+  await editor.getByText('Codex MCP', { exact: true }).click();
+  await editor.getByLabel('调用一个只读 MCP 工具').check();
+  const toolsUrl = '/api/v1/codex/mcp-tools';
+  const denied = await page.request.post(toolsUrl, { headers: { origin: 'https://example.invalid' } });
+  expect(denied.status()).toBe(403);
+  const local = await page.request.post(toolsUrl, { headers: { origin: new URL(page.url()).origin } });
+  expect(local.ok()).toBe(true);
+  await page.route('**/api/v1/codex/mcp-tools', route => route.fulfill({
+    json: { selectors: ['registry/sample_lookup'], unavailable: 1 }
+  }));
+  await editor.getByRole('button', { name: '查看本机可用工具' }).click();
+  await expect(editor.getByRole('status')).toContainText('1 个已授权工具当前不可用');
+  await editor.getByLabel('本机可用的只读工具').selectOption('registry/sample_lookup');
+  await expect(editor.getByLabel('MCP 服务名称')).toHaveValue('registry');
+  await expect(editor.getByLabel('MCP 工具名称')).toHaveValue('sample_lookup');
+  const parameters = editor.getByLabel('MCP 固定参数（JSON 对象）');
+  await parameters.fill('{"sampleId":');
+  await editor.getByRole('button', { name: '验证并保存模板' }).click();
+  await expect(editor.getByRole('alert')).toContainText('MCP 固定参数无法解析');
+  await parameters.fill('[]');
+  await editor.getByRole('button', { name: '编辑完整 JSON' }).click();
+  await expect(editor.getByRole('alert')).toContainText('须为 JSON 对象');
+  const args = { sampleId: 'DEMO-01', options: { include: ['location'] } };
+  await parameters.fill(JSON.stringify(args));
+  await editor.locator('[data-flow-card="material:input-01"]').click();
+  await editor.locator('[data-flow-card="step:draft"]').click();
+  await expect(parameters).toHaveValue(JSON.stringify(args));
+  await editor.getByRole('button', { name: '编辑完整 JSON' }).click();
+  const jsonEditor = editor.getByLabel('Protocol 1.0 项目模板 JSON');
+  const edited = JSON.parse(await jsonEditor.inputValue());
+  expect(edited.steps.find((step: { id: string }) => step.id === 'draft').codexMcp.arguments).toEqual(args);
+  await editor.getByRole('button', { name: '应用 JSON 到流程图' }).click();
+  await editor.getByRole('button', { name: '验证并保存模板' }).click();
+  await expect(page.getByRole('status')).toContainText('workbench-mcp-lookup @ 1.0.0');
+  const response = await page.request.get('/api/v1/packages?id=workbench-mcp-lookup');
+  expect(response.ok()).toBe(true);
+  const { package: saved } = await response.json();
+  expect(saved.steps.find((step: { id: string }) => step.id === 'draft').codexMcp)
+    .toEqual({ server: 'registry', tool: 'sample_lookup', arguments: args });
+});
+
 test('the bundled land reference opens directly, exposes gated handoffs, and saves an independent template', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: '打开菜单' }).click();
@@ -731,4 +798,63 @@ test('project ledger records cash and task time, compares a baseline and rolls u
   await expect(minutesRow.getByRole('cell').last()).toHaveText('−30 分钟');
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+});
+
+test('the general report can be copied, launched from the menu and delivered as Word', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  const picker = page.locator('#package-select');
+  await picker.selectOption('general-report');
+  await page.getByRole('button', { name: '复制所选模板' }).click();
+  const editor = page.getByRole('region', { name: '项目模板编辑器' });
+  await expect(editor).toContainText('通用报告撰写');
+  await expect(editor.locator('[data-flow-card="step:evidence"]')).toBeVisible();
+  await expect(editor.locator('[data-flow-card="step:outline"]')).toBeVisible();
+  await page.getByRole('button', { name: /返回项目/ }).click();
+
+  await page.getByRole('button', { name: '打开菜单' }).click();
+  await expect(picker).toHaveValue('general-report');
+  await page.getByLabel('本次项目名称').fill('报告模板浏览器试跑');
+  await page.getByRole('button', { name: /创建项目/ }).click();
+  await expect(page.getByText(/MARKDOWN \/ DOCX/)).toBeVisible();
+  await page.getByRole('button', { name: '确认并启动项目' }).click();
+
+  const human = page.getByRole('region', { name: '人类 TodoList' });
+  for (const [title, text] of [
+    ['报告要求', '供项目负责人判断方案可行性，关注工期及人员。'],
+    ['原始资料与来源索引', '项目计划 A 第 2 段记录总工期 15 天。']
+  ]) {
+    await human.getByRole('button', { name: new RegExp(title) }).click();
+    await page.getByLabel('资料内容 / 来源说明').fill(text);
+    await page.getByRole('button', { name: '提交资料，等待人工核验' }).click();
+    await page.getByRole('button', { name: '确认接受材料' }).click();
+  }
+  for (const title of ['拟定报告提纲', '整理来源证据', '用已审证据撰写报告']) {
+    await human.getByRole('button', { name: new RegExp(title) }).click();
+    await page.getByRole('button', { name: '批准并交接下游' }).click();
+  }
+  const delivery = page.getByRole('region', { name: '项目交付' });
+  await expect(delivery.getByRole('link', { name: '下载 Markdown' })).toBeVisible();
+  await expect(delivery.getByRole('link', { name: '下载 Word' })).toHaveAttribute('href', /format=docx$/);
+});
+
+test('local model settings persist on reload and the mobile home opens a selected project template', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const trigger = page.getByRole('button', { name: '选择工作模型' });
+  await trigger.click();
+  const dialog = page.getByRole('dialog', { name: '选择工作模型' });
+  await dialog.getByRole('button', { name: /Mastra/ }).click();
+  await dialog.getByLabel('服务商 / 模型 ID').fill('openai/synthetic-test-model');
+  await dialog.getByRole('button', { name: '应用设置' }).click();
+  await expect(dialog).not.toBeVisible();
+  await page.reload();
+  await expect(trigger).toContainText('openai/synthetic-test-model');
+  await trigger.click();
+  await dialog.getByRole('button', { name: /演示/ }).click();
+  await dialog.getByRole('button', { name: '应用设置' }).click();
+  await expect(trigger).toContainText('演示模式');
+  await page.getByRole('button', { name: /报告撰写.*整理证据/ }).click();
+  await expect(page.getByLabel('选择项目模板')).toHaveValue('general-report');
+  await expect(page.getByLabel('本次项目名称')).toBeFocused();
 });

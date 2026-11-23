@@ -15,7 +15,6 @@ after(() => rmSync(root, { recursive: true, force: true }));
 
 const template = JSON.parse(readFileSync(
   new URL('../project-templates/land-investigation/land-investigation.hh.json', import.meta.url), 'utf8'));
-store.importPackage(template);
 
 const setup = {
   planning: {
@@ -29,7 +28,8 @@ const request = (body: unknown) => new Request('http://localhost/api/v1/projects
   method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
 });
 
-test('startup preview uses the real Todo projection while project creation saves scope and plan together', async () => {
+test('the bundled land template launches without import and saves scope and plan with the previewed Todos', async () => {
+  assert.ok(!store.listPackages().some(pkg => pkg.id === template.id));
   const payload = { packageId: template.id, packageVersion: template.version, title: '计划启动环评', setup };
   const before = store.listProjects();
   const response = await preview(request(payload));

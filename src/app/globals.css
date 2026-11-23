@@ -170,6 +170,10 @@ h1,h2,h3,p{margin-top:0}h1{font-size:clamp(22px,2.5vw,30px)}h2{font-size:19px;ma
 .agent-state-folder .todo-vertical-list{padding:2px 0 4px}
 .agent-state-folder .workbench-item{min-height:39px;padding:8px 10px}
 .todo-detail-wrap{margin-top:12px}
+.section-review .todo-detail-top h2,.section-review .todo-detail-top h3{font-size:15px;margin:0}
+.section-review article+article{border-top:1px solid var(--line)}
+.section-review article .todo-detail-top{gap:12px;padding:0;background:transparent}
+.section-review textarea{min-height:60px}
 .todo-empty{padding:13px 4px;font-size:12px}
 @media(max-width:760px){.todo-columns{grid-template-columns:1fr}.todo-column{min-height:0}.todo-column-heading h2{font-size:15px}}
 
@@ -217,6 +221,7 @@ h1,h2,h3,p{margin-top:0}h1{font-size:clamp(22px,2.5vw,30px)}h2{font-size:19px;ma
 .gantt-baseline{background:#a1acb9;top:29px;height:4px;min-width:3px;border-radius:3px;opacity:.8}
 .gantt-today,.gantt-due{inset-block:0;width:0;border-left:1px dashed #a6b7ca;pointer-events:none}
 .gantt-due{border-color:#eea3a5}
+.gantt-promise{position:absolute;top:14px;width:8px;height:8px;border:1px solid #8adabd;background:#122335;transform:translateX(-50%) rotate(45deg);pointer-events:none}
 .plan-task{padding:12px 14px;margin-top:12px;flex-wrap:wrap}
 .plan-task p,.plan-attention p{font-size:12px;margin:5px 0 0}
 .plan-attention{padding:12px 14px;justify-content:flex-start;margin-bottom:12px;flex-wrap:wrap}

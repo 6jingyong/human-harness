@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { packageSchema } from '../src/protocol/v1';
 import { coordinationOverview, formatLatestStart } from '../src/core/project-coordination';
 import { deriveWorkbenchQueues } from '../src/app/workbench-queue';
+import { calculateProjectPlan, defaultPlan } from '../src/core/project-plan';
 
 const directory = mkdtempSync(join(tmpdir(), 'hh-coordination-'));
 process.env.HH_DATA_DIR = directory;
@@ -98,6 +99,39 @@ test('external promises and follow-up stay in the original Todo until actual ret
   store.completeHuman(id, 'archive-return', '已取得政府档案回件');
   accept(id, 'government-record', 'government.pdf');
   assert.equal(store.getProject(id).steps['extract-history'].state, 'ready');
+});
+
+test('an updated external promise moves the acceptance, dependent work and projected completion', () => {
+  const id = create();
+  store.saveProjectCoordination(id, 0, { timeZone: 'Asia/Shanghai', requirements: {
+    'land-survey': { due: '2026-12-01', brief: '' }
+  } });
+  accept(id, 'project-identity');
+  store.completeHuman(id, 'survey-contact', '模拟约定档期');
+  store.completeHuman(id, 'survey-book', '模拟确认委托', '2026-11-27');
+  const asOf = new Date('2026-11-23T06:20:00Z');
+  const settings = { ...defaultPlan({ createdAt: asOf.toISOString() }, 'Asia/Shanghai'),
+    assumptions: { 'investigation-route': 'preliminary' }, due: '2026-12-09' };
+  const plan = () => calculateProjectPlan(store.getProject(id), settings, asOf);
+  const row = (key: string, forecast = plan()) => forecast.rows.find(task => task.key === key)!;
+  const before = plan();
+  assert.equal(formatLatestStart(row('step:survey-return', before).finish), '2026-11-27 23:59');
+  store.recordWorkOrderFollowUp(id, 'survey-return', '机构延迟交付', '2026-12-15');
+  const after = plan();
+  assert.equal(formatLatestStart(row('step:survey-return', after).finish), '2026-12-15 23:59');
+  assert.equal(row('material:survey-result', after).missesTaskDue, true);
+  assert.ok(row('step:extract-project', after).start > row('step:extract-project', before).start);
+  assert.ok(after.finish! > before.finish!);
+  assert.equal(after.behindTarget, true);
+  assert.equal(after.remainingMinutes.external, before.remainingMinutes.external);
+  assert.equal(coordinationOverview(store.getProject(id), asOf).orderStatus.get('land-survey')?.atRisk, true);
+  assert.equal(store.getProject(id).materials['survey-result'].state, 'expected');
+
+  store.completeHuman(id, 'survey-return', '机构提前交付，核实已取得成果');
+  const received = row('step:survey-return');
+  assert.equal(received.status, 'done');
+  assert.equal(received.promisedOn, undefined);
+  assert.ok(received.finish < row('step:survey-return', after).finish);
 });
 
 test('a live consumer prevents a scope change and the requirements API rejects stale writes', async () => {
